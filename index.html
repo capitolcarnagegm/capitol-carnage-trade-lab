@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Capitol Carnage Trade Lab</title>
+  <style>
+    :root{--bg:#0b1020;--card:#151c2f;--card2:#1d263d;--text:#f7f8fb;--muted:#9aa6bd;--accent:#f59e0b;--good:#22c55e;--bad:#ef4444;--line:#2a3550}
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#0b1020,#111827);color:var(--text);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
+    .wrap{max-width:980px;margin:auto;padding:16px 14px 40px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.brand h1{font-size:22px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+    button,.btn{border:0;border-radius:12px;padding:11px 14px;font-weight:800;background:var(--accent);color:#111827}.secondary{background:#27324c;color:var(--text)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:760px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+    .card{background:rgba(21,28,47,.96);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.2)}.card h2{font-size:16px;margin:0 0 10px}.side-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.pill{font-size:11px;color:var(--muted);background:#0f172a;padding:5px 8px;border-radius:999px}
+    .asset{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0}.row{display:grid;grid-template-columns:1.4fr .75fr .6fr;gap:8px}.row2{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+    input,select{width:100%;background:#0f172a;color:var(--text);border:1px solid #33415f;border-radius:10px;padding:10px;font-size:14px}label{display:block;font-size:11px;color:var(--muted);margin:0 0 4px}
+    .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}@media(max-width:760px){.summary{grid-template-columns:repeat(2,1fr)}.row,.row2{grid-template-columns:1fr 1fr}}
+    .metric{background:#0f172a;border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:18px}.metric span{font-size:11px;color:var(--muted)}
+    .verdict{margin-top:10px;padding:14px;border-radius:12px;font-size:20px;font-weight:900;text-align:center}.approve{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.5);color:#86efac}.reject{background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.5);color:#fca5a5}.negotiate{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.5);color:#fde68a}
+    .gates{display:grid;gap:7px}.gate{display:flex;justify-content:space-between;gap:8px;padding:9px 10px;background:#0f172a;border-radius:10px}.pass{color:#86efac}.fail{color:#fca5a5}.small{font-size:12px;color:var(--muted)}
+    details{margin-top:12px}summary{cursor:pointer;font-weight:800}.footer{color:var(--muted);font-size:11px;margin-top:14px}.actions{display:flex;gap:8px;flex-wrap:wrap}.remove{background:#3b1320;color:#fecdd3;padding:7px 10px;font-size:12px}.score{font-weight:800}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><h1>Capitol Carnage Trade Lab</h1><p>Pride LG • Superflex • TEP • Sack Premium IDP • Cap/Contract adjusted</p></div>
+    <div class="actions"><button class="secondary" id="saveBtn">Save Trade</button><button id="installBtn" hidden>Install App</button></div>
+  </div>
+
+  <div class="grid">
+    <section class="card"><div class="side-head"><h2>RECEIVE</h2><span class="pill" id="recvTotal">0 adj</span></div><div id="receive"></div><button class="secondary" onclick="addAsset('receive')">+ Add asset</button></section>
+    <section class="card"><div class="side-head"><h2>GIVE</h2><span class="pill" id="giveTotal">0 adj</span></div><div id="give"></div><button class="secondary" onclick="addAsset('give')">+ Add asset</button></section>
+  </div>
+
+  <section class="card" style="margin-top:12px">
+    <h2>Trade Decision</h2>
+    <div class="summary">
+      <div class="metric"><b id="edgeVal">0</b><span>Adjusted value edge</span></div>
+      <div class="metric"><b id="edgePct">0%</b><span>Value edge %</span></div>
+      <div class="metric"><b id="grade">B</b><span>Trade grade</span></div>
+      <div class="metric"><b id="gateCount">0/4</b><span>Hard gates passed</span></div>
+    </div>
+    <div id="verdict" class="verdict negotiate">ENTER TRADE</div>
+    <div class="gates" style="margin-top:10px" id="gates"></div>
+  </section>
+
+  <section class="card" style="margin-top:12px">
+    <h2>7-Prong Value Test</h2>
+    <div class="small">Every prong is graded independently. B- = 80. Majority rule requires 4 of 7 passing prongs. Contract and cap are not side notes; they are part of the asset.</div>
+    <div id="prongs" style="margin-top:10px"></div>
+  </section>
+
+  <details class="card"><summary>League engine / weights</summary>
+    <div class="row2" style="margin-top:12px">
+      <div><label>Salary cap</label><input id="cap" type="number" value="1000"></div>
+      <div><label>B- threshold</label><input id="threshold" type="number" value="80"></div>
+      <div><label>Required prongs</label><input id="required" type="number" value="4"></div>
+      <div><label>Hard gates required</label><input id="hardReq" type="number" value="3"></div>
+    </div>
+    <p class="small">Default philosophy: current market is the anchor, then production, roster fit, timing, contract, title impact, cap leverage, and outside-market liquidity determine the real Pride LG answer.</p>
+  </details>
+
+  <details class="card"><summary>Saved trades</summary><div id="saved" style="margin-top:10px"></div></details>
+  <div class="footer">Offline-ready PWA. Values are intentionally editable so current camp/news/role information can override stale generic dynasty rankings.</div>
+</div>
+<script>
+const defaults=[
+['Jordan Love','QB',8200,90,92,82,88],['Bo Nix','QB',8000,89,90,85,87],['Carson Beck','QB',4300,65,78,82,68],['Javonte Williams','RB',4200,78,88,76,62],['Kyle Monangai','RB',3000,68,83,84,58],['Trey Benson','RB',3600,67,70,62,66],['Jonah Coleman','RB',4200,75,86,88,76],['Nicholas Singleton','RB',4500,76,84,86,80],['Xavier Worthy','WR',7600,86,93,87,90],['Josh Downs','WR',5700,84,90,88,80],['Jameson Williams','WR',5700,83,80,75,78],['Courtland Sutton','WR',3700,82,83,64,54],['Deebo Samuel','WR',3100,75,76,55,48],['Denzel Boston','WR',5600,76,88,92,84],['Antonio Williams','WR',3800,68,80,88,68],['Chris Bell','WR',3000,63,74,85,60],['Oronde Gadsden','TE',3500,70,82,86,66],['A.J. Barner','TE',3000,67,75,72,60],['Rashan Gary','EDGE',4200,88,90,86,70],['Harold Landry','EDGE',3000,80,82,70,50],['Grant Delpit','S',3000,78,82,72,55],['Daxton Hill','CB',2400,65,70,68,48],['Patrick Queen','LB',3900,84,82,74,65],['2027 Early 1st','PICK',6500,0,75,95,90],['2027 Mid 1st','PICK',5200,0,72,90,84],['2027 Late 1st','PICK',4200,0,68,85,78],['2027 2nd','PICK',2300,0,58,78,60],['2027 3rd','PICK',1000,0,45,65,35]
+].map(x=>({name:x[0],pos:x[1],market:x[2],prod:x[3],fit:x[4],timing:x[5],outside:x[6]}));
+let state={receive:[],give:[]};
+function template(side,i,a){return `<div class="asset"><div class="row"><div><label>Asset</label><input list="players" value="${a.name||''}" oninput="assetName('${side}',${i},this.value)"></div><div><label>Salary</label><input type="number" value="${a.salary??''}" oninput="setv('${side}',${i},'salary',this.value)"></div><div><label>Years</label><input type="number" value="${a.years??''}" oninput="setv('${side}',${i},'years',this.value)"></div></div><div class="row2"><div><label>Market</label><input type="number" value="${a.market??0}" oninput="setv('${side}',${i},'market',this.value)"></div><div><label>Production</label><input type="number" value="${a.prod??0}" oninput="setv('${side}',${i},'prod',this.value)"></div><div><label>Roster fit</label><input type="number" value="${a.fit??0}" oninput="setv('${side}',${i},'fit',this.value)"></div><div><label>Timing</label><input type="number" value="${a.timing??0}" oninput="setv('${side}',${i},'timing',this.value)"></div></div><div class="row2"><div><label>Outside market</label><input type="number" value="${a.outside??0}" oninput="setv('${side}',${i},'outside',this.value)"></div><div><label>Contract</label><input type="number" value="${contract(a)}" disabled></div><div><label>Title impact</label><input type="number" value="${titleImpact(a)}" disabled></div><div><label>Adj value</label><input class="score" type="number" value="${adjusted(a)}" disabled></div></div><button class="remove" onclick="removeAsset('${side}',${i})">Remove</button></div>`}
+function addAsset(side){state[side].push({name:'',market:0,prod:0,fit:0,timing:0,outside:0,salary:'',years:''});render()}
+function removeAsset(side,i){state[side].splice(i,1);render()}
+function assetName(side,i,val){let a=state[side][i];a.name=val;let hit=defaults.find(x=>x.name.toLowerCase()===val.toLowerCase());if(hit) Object.assign(a,JSON.parse(JSON.stringify(hit)));render()}
+function setv(side,i,k,v){state[side][i][k]=(v===''?'':Number(v));calc()}
+function cap(){return Number(document.getElementById('cap').value)||1000}function thresh(){return Number(document.getElementById('threshold').value)||80}
+function contract(a){if(a.salary===''||a.salary===undefined)return 90;return Math.max(0,Math.min(100,110-(Number(a.salary)/cap()*1000*.75)+(Number(a.years||0)*3)))}
+function titleImpact(a){return Math.round((Number(a.prod)||0)*.55+(Number(a.fit)||0)*.45)}
+function capLev(a){return Math.round(contract(a)*.7+Math.min(100,(Number(a.market)||0)/80)*.3)}
+function adjusted(a){let d=Number(a.market)||0;if(!d)return 0;let delta=((a.prod-80)*.15+(a.fit-80)*.10+(a.timing-80)*.10+(contract(a)-80)*.15+(titleImpact(a)-80)*.10+(capLev(a)-80)*.05+(a.outside-80)*.05)/100;return Math.round(d*(1+delta))}
+function prongObj(a){return {Production:Number(a.prod)||0,'Roster Fit':Number(a.fit)||0,'Market Timing':Number(a.timing)||0,'Contract Value':contract(a),'Championship Impact':titleImpact(a),'Cap Leverage':capLev(a),'Outside Market':Number(a.outside)||0}}
+function avg(side,key){let arr=state[side].filter(a=>a.name);if(!arr.length)return 0;return arr.reduce((s,a)=>s+prongObj(a)[key],0)/arr.length}
+function calc(){let r=state.receive.reduce((s,a)=>s+adjusted(a),0),g=state.give.reduce((s,a)=>s+adjusted(a),0),edge=r-g,pct=g?edge/g:0;recvTotal.textContent=r+' adj';giveTotal.textContent=g+' adj';edgeVal.textContent=edge;edgePct.textContent=(pct*100).toFixed(1)+'%';let score=Math.max(0,Math.min(100,85+pct*100));grade.textContent=score>=97?'A+':score>=93?'A':score>=90?'A-':score>=87?'B+':score>=83?'B':score>=80?'B-':score>=77?'C+':score>=73?'C':'D/F';let gates=[r>=.95*g,avg('receive','Roster Fit')>=avg('give','Roster Fit'),avg('receive','Contract Value')>=avg('give','Contract Value')-5,avg('receive','Outside Market')>=avg('give','Outside Market')-5];let gc=gates.filter(Boolean).length;gateCount.textContent=gc+'/4';let gs=['Receive at least 95% of adjusted value','Improve/maintain roster construction','Contract/cap efficiency stays defensible','Acquired side retains outside-market liquidity'];document.getElementById('gates').innerHTML=gs.map((x,i)=>`<div class="gate"><span>${x}</span><b class="${gates[i]?'pass':'fail'}">${gates[i]?'PASS':'FAIL'}</b></div>`).join('');let hard=gc>=Number(hardReq.value||3),decision='ENTER TRADE',cls='negotiate';if(g){if(score>=80&&hard){decision=pct>=.15?'SMASH ACCEPT':pct>=.05?'ACCEPT':'APPROVE';cls='approve'}else if(score>=76){decision='RENEGOTIATE';cls='negotiate'}else{decision='REJECT';cls='reject'}}verdict.textContent=decision;verdict.className='verdict '+cls;renderProngs();saveLocal()}
+function renderProngs(){let keys=['Production','Roster Fit','Market Timing','Contract Value','Championship Impact','Cap Leverage','Outside Market'];prongs.innerHTML=keys.map(k=>{let r=avg('receive',k),g=avg('give',k),win=r>=g,pass=r>=thresh();return `<div class="gate"><span>${k}<br><span class="small">Receive ${r.toFixed(0)} vs Give ${g.toFixed(0)}</span></span><b class="${pass?'pass':'fail'}">${pass?'B-+':'Below B-'} ${win?'▲':'▼'}</b></div>`}).join('')}
+function render(){receive.innerHTML=state.receive.map((a,i)=>template('receive',i,a)).join('');give.innerHTML=state.give.map((a,i)=>template('give',i,a)).join('');calc()}
+function saveLocal(){localStorage.setItem('prideTradeState',JSON.stringify(state))}
+function loadLocal(){try{state=JSON.parse(localStorage.getItem('prideTradeState'))||state}catch(e){} if(!state.receive.length)addAsset('receive');if(!state.give.length)addAsset('give')}
+saveBtn.onclick=()=>{let saved=JSON.parse(localStorage.getItem('prideSaved')||'[]');saved.unshift({date:new Date().toLocaleString(),state:JSON.parse(JSON.stringify(state))});localStorage.setItem('prideSaved',JSON.stringify(saved.slice(0,20)));renderSaved()}
+function renderSaved(){let s=JSON.parse(localStorage.getItem('prideSaved')||'[]');saved.innerHTML=s.length?s.map((x,i)=>`<div class="gate"><span>${x.date}</span><button class="secondary" onclick="loadSaved(${i})">Load</button></div>`).join(''):'<div class="small">No saved trades yet.</div>'}
+function loadSaved(i){let s=JSON.parse(localStorage.getItem('prideSaved')||'[]');state=s[i].state;render()}
+let deferredPrompt;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn.hidden=false});installBtn.onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;installBtn.hidden=true}}
+if('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js');
+window.addEventListener('input',e=>{if(['cap','threshold','required','hardReq'].includes(e.target.id))calc()});
+loadLocal();renderSaved();
+</script>
+<datalist id="players"></datalist>
+<script>document.getElementById('players').innerHTML=defaults.map(x=>`<option value="${x.name}">`).join('')</script>
+</body></html>
