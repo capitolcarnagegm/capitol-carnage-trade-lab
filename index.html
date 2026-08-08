@@ -29,7 +29,7 @@
 </div>
 <datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='2.0.0';
+const APP_VERSION='2.1.0-mfl';
 const DEFAULT_CONFIG={leagueName:'Pride LG',teamName:'Capitol Carnage',teams:12,salaryCap:1000,superflex:true,tep:true,idp:true,sackPremium:true,threshold:80,requiredProngs:4,hardReq:3,consolidationPremium:4,elitePremium:7,replacement:{QB:265,RB:155,WR:170,TE:145,EDGE:145,DL:130,LB:150,S:135,CB:120,PICK:0},weights:{market:.18,projection:.18,replacement:.12,contract:.15,age:.08,role:.08,trend:.08,scarcity:.06,liquidity:.04,risk:.03}};
 const seedAssets=[
 {id:'love',name:'Jordan Love',type:'PLAYER',pos:'QB',nfl:'GB',age:27,market:8200,adp:26,ecr:20,proj:352,ppg:20.7,role:93,trend:3,risk:18,liquidity:90,salary:87.81,years:3,roster:'Capitol Carnage',source:'Manual seed'},
@@ -58,7 +58,7 @@ const seedProspects=[
 ];
 function clone(x){return JSON.parse(JSON.stringify(x))}
 let db=loadDB();
-function loadDB(){try{const x=JSON.parse(localStorage.getItem('ccgm_db'));if(x&&x.assets)return x}catch(e){}return {config:clone(DEFAULT_CONFIG),assets:clone(seedAssets),prospects:clone(seedProspects),history:[],savedTrades:[],savedFA:[],lastSync:null,mfl:{host:'api.myfantasyleague.com',year:2026,leagueId:'',apiKey:''}}}
+function loadDB(){try{const x=JSON.parse(localStorage.getItem('ccgm_db'));if(x&&x.assets)return x}catch(e){}return {config:clone(DEFAULT_CONFIG),assets:clone(seedAssets),prospects:clone(seedProspects),history:[],savedTrades:[],savedFA:[],lastSync:null,mfl:{host:'www45.myfantasyleague.com',year:2026,leagueId:'29218',apiKey:''}}}
 function persist(){localStorage.setItem('ccgm_db',JSON.stringify(db))}
 function uid(p='id'){return p+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7)}
 function clamp(n,a=0,b=100){return Math.max(a,Math.min(b,Number(n)||0))}
@@ -116,10 +116,221 @@ function sortMarket(v){if(v==='trend')db.assets.sort((a,b)=>(b.trend||0)-(a.tren
 function newAsset(){let name=prompt('Player or asset name');if(!name)return;let pos=(prompt('Position (QB/RB/WR/TE/EDGE/LB/S/CB)','WR')||'WR').toUpperCase();db.assets.push({id:uid('asset'),name,type:'PLAYER',pos,nfl:'',age:24,market:2500,adp:0,ecr:0,proj:180,ppg:0,role:65,trend:0,risk:35,liquidity:65,salary:0,years:1,roster:'',source:'Manual'});persist();renderMarket()}
 function editAsset(id){let a=db.assets.find(x=>x.id===id);if(!a)return;let old=modelValue(a);let form=`EDIT ${a.name}\n\nEnter values in prompts. Cancel keeps current.`;alert(form);let fields=a.type==='PICK'?[['market','Market value'],['classStrength','Class strength 0-100'],['liquidity','Liquidity 0-100'],['risk','Risk 0-100'],['trend','Trend -20 to 20']]:[['market','Market value'],['adp','Dynasty ADP'],['ecr','ECR / rank'],['proj','Projected points'],['age','Age'],['role','Role 0-100'],['salary','Salary'],['years','Contract years'],['trend','Trend -20 to 20'],['risk','Risk 0-100'],['liquidity','Liquidity 0-100']];for(let [k,l] of fields){let v=prompt(l,a[k]??'');if(v!==null&&v!=='')a[k]=Number(v)}if(a.type==='PLAYER'){let r=prompt('Roster / owner (blank = free agent)',a.roster||'');if(r!==null)a.roster=r}let reason=prompt('Reason for update','Manual data update');if(reason!==null)a.lastReason=reason;recordHistory(a,old);persist();renderView(localStorage.getItem('ccgm_view')||'market')}
 function importCSV(file){if(!file)return;let r=new FileReader();r.onload=()=>{let lines=String(r.result).trim().split(/\r?\n/);if(lines.length<2)return alert('CSV needs a header row.');let h=lines[0].split(',').map(x=>x.trim().toLowerCase());for(let line of lines.slice(1)){let vals=line.split(',');let o={};h.forEach((k,i)=>o[k]=vals[i]?.trim());if(!o.name)continue;let hit=db.assets.find(a=>a.name.toLowerCase()===o.name.toLowerCase());if(!hit){hit={id:uid('asset'),name:o.name,type:o.type||'PLAYER',pos:(o.pos||'WR').toUpperCase(),source:'CSV import'};db.assets.push(hit)}let old=modelValue(hit);['market','adp','ecr','proj','ppg','age','role','trend','risk','liquidity','salary','years'].forEach(k=>{if(o[k]!==undefined&&o[k]!=='')hit[k]=Number(o[k])});if(o.roster!==undefined)hit.roster=o.roster;hit.lastReason='CSV import';recordHistory(hit,old)}persist();renderMarket();alert('CSV imported. Expected columns can include name,pos,market,adp,ecr,proj,age,role,trend,risk,liquidity,salary,years,roster.')} ;r.readAsText(file)}
-function renderSync(){let m=db.mfl;sync.innerHTML=`<div class="grid"><div class="card"><h2>MyFantasyLeague Sync Center</h2><div class="notice">Sync is read-only. It pulls league structure and rosters into this local database. It does not make transactions on MFL.</div><div class="grid3" style="margin-top:10px"><div class="field"><label>MFL host</label><input value="${m.host}" onchange="db.mfl.host=this.value;persist()"></div><div class="field"><label>Season</label><input type="number" value="${m.year}" onchange="db.mfl.year=Number(this.value);persist()"></div><div class="field"><label>League ID</label><input value="${m.leagueId}" placeholder="Enter Pride LG ID" onchange="db.mfl.leagueId=this.value;persist()"></div></div><div class="field"><label>API key (optional/private league; stored only on this device)</label><input type="password" value="${m.apiKey||''}" onchange="db.mfl.apiKey=this.value;persist()"></div><button onclick="syncMFL()">Sync Pride LG</button><div id="syncStatus" class="small" style="margin-top:8px">${db.lastSync?'Last sync: '+new Date(db.lastSync).toLocaleString():'Never synced'}</div></div><div class="card"><h2>What Sync Updates</h2>${['Franchises / team names','Current rosters','Player IDs / NFL teams / positions','Salary and contract fields when returned by MFL','Free-agent status inferred from roster ownership','League metadata'].map(x=>`<div class="gate"><span>${x}</span><b class="good">READY</b></div>`).join('')}<p class="small">If MFL blocks browser requests for your league or a private API key is required, the commercial-grade solution is a tiny secure backend proxy. We should use that before selling the app so credentials never live in client-side code.</p></div></div>`}
-async function mflFetch(type,extra=''){let m=db.mfl;if(!m.leagueId)throw new Error('Enter league ID first.');let host=m.host.replace(/^https?:\/\//,'').replace(/\/$/,'');let url=`https://${host}/${m.year}/export?TYPE=${type}&L=${encodeURIComponent(m.leagueId)}&JSON=1${extra}${m.apiKey?'&APIKEY='+encodeURIComponent(m.apiKey):''}`;let res=await fetch(url,{credentials:'omit'});if(!res.ok)throw new Error(`${type}: HTTP ${res.status}`);return await res.json()}
+function renderSync(){
+  ensureMFLDefaults();
+  const m=db.mfl;
+  sync.innerHTML=`<div class="grid">
+    <div class="card">
+      <div class="sectionhead"><h2>MFL Sync — Pride LG</h2><span class="pill">2026 · LEAGUE 29218</span></div>
+      <div class="notice"><b>One-button read-only sync.</b> It imports the live MFL league into GM Lab. It never submits bids, drops, lineups or trades.</div>
+      <div class="grid3" style="margin-top:10px">
+        <div class="field"><label>MFL host</label><input value="${m.host}" onchange="db.mfl.host=this.value;persist()"></div>
+        <div class="field"><label>Season</label><input type="number" value="${m.year}" onchange="db.mfl.year=Number(this.value);persist()"></div>
+        <div class="field"><label>League ID</label><input value="${m.leagueId}" onchange="db.mfl.leagueId=this.value;persist()"></div>
+      </div>
+      <div class="actions"><button onclick="syncMFL()">SYNC PRIDE LG NOW</button><button class="secondary" onclick="testMFLConnection()">Test Connection</button></div>
+      <div id="syncStatus" class="small" style="margin-top:9px">${db.lastSync?'Last successful sync: '+new Date(db.lastSync).toLocaleString():'Not synced yet'}</div>
+      ${renderSyncSummary()}
+    </div>
+    <div class="card">
+      <h2>What populates automatically</h2>
+      ${[
+        ['Franchises','All Pride LG team names and IDs'],
+        ['Rosters','Current owner of every rostered player'],
+        ['Free agents','Unowned MFL players become searchable FAs'],
+        ['Player IDs','Stable MFL identity, team and position'],
+        ['Salary / contract','Imported whenever MFL exposes those roster fields'],
+        ['Standings','Foundation for future-pick slot probabilities'],
+        ['Transactions','League-specific market history'],
+        ['Draft results','Feeds draft/pick history when available']
+      ].map(x=>`<div class="gate"><span><b>${x[0]}</b><br><span class="small">${x[1]}</span></span><b class="good">SYNC</b></div>`).join('')}
+    </div>
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <div class="card"><h2>Synced Franchises</h2>${(m.franchises||[]).length?(m.franchises||[]).map(f=>`<div class="gate"><span>${f.name}</span><span class="small">${f.id}</span></div>`).join(''):'<div class="muted">Run the first sync to populate all Pride LG franchises.</div>'}</div>
+    <div class="card"><h2>Recent MFL Activity</h2>${(m.transactions||[]).length?(m.transactions||[]).slice(0,12).map(t=>`<div class="gate"><span><b>${t.franchise||'League'}</b><br><span class="small">${t.type||'transaction'}${t.player?' · '+t.player:''}</span></span></div>`).join(''):'<div class="muted">Transactions will appear here after sync when MFL returns them.</div>'}</div>
+  </div>`;
+}
+
 function normalizeArr(x){if(!x)return[];return Array.isArray(x)?x:[x]}
-async function syncMFL(){let el=document.getElementById('syncStatus');el.textContent='Syncing league, franchises, players and rosters…';try{let [league,players,rosters]=await Promise.all([mflFetch('league'),mflFetch('players'),mflFetch('rosters')]);let franchises=normalizeArr(league?.league?.franchises?.franchise);let fname={};franchises.forEach(f=>fname[f.id]=f.name||f.id);let plist=normalizeArr(players?.players?.player);let pmap={};plist.forEach(p=>pmap[p.id]=p);let rosterArr=normalizeArr(rosters?.rosters?.franchise);let owned=new Set();for(let fr of rosterArr){for(let rp of normalizeArr(fr.player)){owned.add(rp.id);let p=pmap[rp.id]||{};let name=p.name||rp.name||rp.id;let hit=db.assets.find(a=>a.mflId===rp.id||a.name===name);if(!hit){hit={id:uid('mfl'),mflId:rp.id,name,type:'PLAYER',pos:(p.position||p.pos||'').toUpperCase(),nfl:p.team||'',age:0,market:1200,adp:0,ecr:0,proj:0,role:55,trend:0,risk:40,liquidity:55,source:'MFL sync'};db.assets.push(hit)}let old=modelValue(hit);hit.mflId=rp.id;hit.name=name;hit.pos=(p.position||hit.pos||'').toUpperCase();hit.nfl=p.team||hit.nfl||'';hit.roster=fname[fr.id]||fr.id;if(rp.salary!==undefined)hit.salary=Number(rp.salary);if(rp.contractYear!==undefined)hit.years=Number(rp.contractYear);if(rp.contract!==undefined&&!hit.years)hit.years=Number(rp.contract);hit.lastReason='MFL roster sync';recordHistory(hit,old)}}db.lastSync=new Date().toISOString();persist();el.innerHTML=`<span class="good">SYNC COMPLETE</span> · ${franchises.length} franchises · ${owned.size} rostered players · ${db.assets.length} assets in local DB`;renderAssetList()}catch(err){el.innerHTML=`<span class="bad">SYNC FAILED:</span> ${err.message}. Verify host, season, league ID, league privacy/API access and browser CORS.`}}
+function mflDeepArray(obj, paths){
+  for(const path of paths){
+    let cur=obj;
+    for(const key of path.split('.')) cur=cur?.[key];
+    if(cur!==undefined && cur!==null) return normalizeArr(cur);
+  }
+  return [];
+}
+function mflHost(){
+  let h=(db.mfl.host||'www45.myfantasyleague.com').replace(/^https?:\/\//,'').replace(/\/$/,'');
+  if(!h.includes('myfantasyleague.com')) h='www45.myfantasyleague.com';
+  return h;
+}
+function mflUrl(type, extra=''){
+  const m=db.mfl;
+  return `https://${mflHost()}/${m.year||2026}/export?TYPE=${encodeURIComponent(type)}&L=${encodeURIComponent(m.leagueId||'29218')}&JSON=1${extra}${m.apiKey?'&APIKEY='+encodeURIComponent(m.apiKey):''}`;
+}
+async function mflFetch(type,extra=''){
+  if(!db.mfl.leagueId) throw new Error('League ID is missing.');
+  const res=await fetch(mflUrl(type,extra),{method:'GET',mode:'cors',credentials:'omit',cache:'no-store',headers:{'Accept':'application/json,text/plain,*/*'}});
+  if(!res.ok) throw new Error(`${type}: HTTP ${res.status}`);
+  const txt=await res.text();
+  try{return JSON.parse(txt)}
+  catch(e){throw new Error(`${type}: MFL did not return JSON. ${txt.slice(0,120).replace(/\s+/g,' ')}`)}
+}
+function ensureMFLDefaults(){
+  db.mfl=db.mfl||{};
+  db.mfl.host=db.mfl.host||'www45.myfantasyleague.com';
+  db.mfl.year=Number(db.mfl.year)||2026;
+  db.mfl.leagueId=String(db.mfl.leagueId||'29218');
+  db.mfl.apiKey=db.mfl.apiKey||'';
+  db.mfl.franchises=db.mfl.franchises||[];
+  db.mfl.standings=db.mfl.standings||[];
+  db.mfl.transactions=db.mfl.transactions||[];
+  db.mfl.draftResults=db.mfl.draftResults||[];
+  db.mfl.lastCounts=db.mfl.lastCounts||{};
+}
+function mflPlayerName(p){
+  if(!p)return'';
+  if(p.name)return p.name;
+  return `${p.firstname||p.firstName||''} ${p.lastname||p.lastName||''}`.trim();
+}
+function safeNum(v){
+  if(v===undefined||v===null||v==='')return undefined;
+  const n=Number(String(v).replace(/[$,]/g,''));
+  return Number.isFinite(n)?n:undefined;
+}
+function mergeMFLAsset(p,rp,franchiseName){
+  const pid=String(rp?.id||p?.id||'');
+  const name=mflPlayerName(p)||rp?.name||pid;
+  if(!pid&&!name)return null;
+  let hit=db.assets.find(a=>String(a.mflId||'')===pid) ||
+          db.assets.find(a=>String(a.name||'').toLowerCase()===String(name).toLowerCase());
+  if(!hit){
+    hit={id:uid('mfl'),mflId:pid,name,type:'PLAYER',
+      pos:String(p?.position||p?.pos||rp?.position||'').toUpperCase(),
+      nfl:p?.team||rp?.team||'',age:0,market:1000,adp:0,ecr:0,proj:0,ppg:0,
+      role:50,trend:0,risk:45,liquidity:50,salary:0,years:0,
+      roster:franchiseName||'FREE AGENT',source:'MFL sync'};
+    db.assets.push(hit);
+  }
+  const old=modelValue(hit);
+  hit.mflId=pid||hit.mflId;
+  hit.name=name||hit.name;
+  hit.pos=String(p?.position||p?.pos||hit.pos||'').toUpperCase();
+  hit.nfl=p?.team||hit.nfl||'';
+  hit.roster=franchiseName||'FREE AGENT';
+  const sal=safeNum(rp?.salary ?? rp?.sal);
+  const yrs=safeNum(rp?.contractYear ?? rp?.contractYears ?? rp?.contract ?? rp?.years);
+  if(sal!==undefined)hit.salary=sal;
+  if(yrs!==undefined)hit.years=yrs;
+  hit.source=(hit.source&&hit.source!=='Manual seed')?hit.source:'MFL + local model';
+  hit.lastReason='MFL league sync';
+  recordHistory(hit,old);
+  return hit;
+}
+function parseMFLTransactions(obj,franchiseMap,playerMap){
+  return mflDeepArray(obj,['transactions.transaction','transaction']).map(t=>{
+    const fid=String(t.franchise||t.franchise_id||'');
+    const pid=String(t.player||t.player_id||'');
+    return {timestamp:t.timestamp||t.date||t.time||'',type:t.type||t.transaction_type||'',
+      franchise:franchiseMap[fid]||fid,
+      player:mflPlayerName(playerMap[pid])||pid,raw:t};
+  });
+}
+function renderSyncSummary(){
+  const c=db.mfl?.lastCounts||{};
+  return `<div class="grid4" style="margin-top:10px">
+    <div class="metric"><b>${c.franchises||0}</b><span>Franchises</span></div>
+    <div class="metric"><b>${c.rostered||0}</b><span>Rostered players</span></div>
+    <div class="metric"><b>${c.freeAgents||0}</b><span>Free agents indexed</span></div>
+    <div class="metric"><b>${c.transactions||0}</b><span>Transactions loaded</span></div>
+  </div>`;
+}
+async function testMFLConnection(){
+  const el=document.getElementById('syncStatus');
+  el.textContent='Testing MFL connection…';
+  try{
+    const league=await mflFetch('league');
+    const name=league?.league?.name||'Pride LG';
+    el.innerHTML=`<span class="good">CONNECTED</span> · ${name} · league ${db.mfl.leagueId}`;
+  }catch(err){
+    el.innerHTML=`<span class="bad">CONNECTION FAILED:</span> ${err.message}`;
+  }
+}
+async function syncMFL(){
+  ensureMFLDefaults();
+  const el=document.getElementById('syncStatus');
+  el.innerHTML='Syncing <b>Pride LG 29218</b> from MFL…';
+  try{
+    const [league,players,rosters]=await Promise.all([
+      mflFetch('league'),mflFetch('players'),mflFetch('rosters')
+    ]);
+
+    const optional={};
+    for(const t of ['standings','transactions','draftResults']){
+      try{optional[t]=await mflFetch(t)}catch(e){optional[t]=null}
+    }
+
+    const franchises=mflDeepArray(league,['league.franchises.franchise','franchises.franchise']);
+    const franchiseMap={};
+    franchises.forEach(f=>{
+      const id=String(f.id||f.franchise_id||'');
+      franchiseMap[id]=f.name||f.owner_name||id;
+    });
+
+    const plist=mflDeepArray(players,['players.player','player']);
+    const playerMap={};
+    plist.forEach(p=>{if(p?.id!==undefined)playerMap[String(p.id)]=p});
+
+    const rosterArr=mflDeepArray(rosters,['rosters.franchise','franchise']);
+    const owned=new Set();
+    for(const fr of rosterArr){
+      const fid=String(fr.id||fr.franchise_id||'');
+      const fname=franchiseMap[fid]||fid||'Unknown franchise';
+      for(const rp of normalizeArr(fr.player)){
+        const pid=String(rp?.id||'');
+        if(pid)owned.add(pid);
+        mergeMFLAsset(playerMap[pid]||{},rp,fname);
+      }
+    }
+
+    let freeAgents=0;
+    for(const p of plist){
+      const pid=String(p?.id||'');
+      if(!pid||owned.has(pid))continue;
+      const pos=String(p.position||p.pos||'').toUpperCase();
+      if(!['QB','RB','WR','TE','PK','K','DL','DE','DT','EDGE','LB','CB','S','DB'].includes(pos))continue;
+      const hit=db.assets.find(a=>String(a.mflId||'')===pid);
+      if(hit)hit.roster='FREE AGENT';
+      else mergeMFLAsset(p,{id:pid},'FREE AGENT');
+      freeAgents++;
+    }
+
+    db.mfl.standings=mflDeepArray(optional.standings||{},['leagueStandings.franchise','standings.franchise','franchise']).map(s=>{
+      const fid=String(s.id||s.franchise_id||'');
+      return {franchise:franchiseMap[fid]||fid,wins:s.h2hw||s.wins||s.w||0,
+        losses:s.h2hl||s.losses||s.l||0,points:s.pf||s.points_for||s.points||0,raw:s};
+    });
+    db.mfl.transactions=parseMFLTransactions(optional.transactions||{},franchiseMap,playerMap);
+    db.mfl.draftResults=mflDeepArray(optional.draftResults||{},['draftResults.draftUnit.draftPick','draftResults.draftPick','draftPick']);
+    db.mfl.franchises=franchises.map(f=>({id:String(f.id||f.franchise_id||''),name:f.name||f.owner_name||String(f.id||'')}));
+
+    if(league?.league?.name)db.config.leagueName=league.league.name;
+    const carnage=db.mfl.franchises.find(f=>/capitol carnage/i.test(f.name));
+    if(carnage)db.config.teamName=carnage.name;
+
+    db.mfl.lastCounts={franchises:db.mfl.franchises.length,rostered:owned.size,freeAgents,
+      transactions:db.mfl.transactions.length,indexedPlayers:plist.length};
+    db.lastSync=new Date().toISOString();
+    persist();renderAssetList();renderSync();
+    const out=document.getElementById('syncStatus');
+    if(out)out.innerHTML=`<span class="good">SYNC COMPLETE</span> · ${new Date(db.lastSync).toLocaleString()} · ${db.mfl.lastCounts.franchises} franchises · ${db.mfl.lastCounts.rostered} rostered · ${db.mfl.lastCounts.indexedPlayers} MFL players indexed`;
+  }catch(err){
+    el.innerHTML=`<span class="bad">SYNC FAILED:</span> ${err.message}<br><span class="small">Target is already locked to www45.myfantasyleague.com / 2026 / league 29218. If Safari reports a cross-origin block, MFL is refusing browser API access and the next build needs a tiny secure proxy; no password should ever be stored in the public app.</span>`;
+  }
+}
+
 function renderSettings(){let c=db.config;settings.innerHTML=`<div class="grid"><div class="card"><h2>League Rules</h2><div class="grid3"><div class="field"><label>League name</label><input value="${c.leagueName}" onchange="cset('leagueName',this.value)"></div><div class="field"><label>Your franchise</label><input value="${c.teamName}" onchange="cset('teamName',this.value)"></div><div class="field"><label>Teams</label><input type="number" value="${c.teams}" onchange="cset('teams',Number(this.value))"></div><div class="field"><label>Salary cap</label><input type="number" value="${c.salaryCap}" onchange="cset('salaryCap',Number(this.value))"></div><div class="field"><label>B- threshold</label><input type="number" value="${c.threshold}" onchange="cset('threshold',Number(this.value))"></div><div class="field"><label>Prongs required</label><input type="number" value="${c.requiredProngs}" onchange="cset('requiredProngs',Number(this.value))"></div></div>${['superflex','tep','idp','sackPremium'].map(k=>`<label class="gate"><span>${k==='tep'?'TE Premium':k==='idp'?'IDP':k==='sackPremium'?'Sack Premium':'Superflex'}</span><input style="width:auto" type="checkbox" ${c[k]?'checked':''} onchange="cset('${k}',this.checked)"></label>`).join('')}</div><div class="card"><h2>Replacement-Level Points</h2><div class="grid4">${Object.keys(c.replacement).map(k=>`<div class="field"><label>${k}</label><input type="number" value="${c.replacement[k]}" onchange="db.config.replacement['${k}']=Number(this.value);persist()"></div>`).join('')}</div><p class="small">Replacement level is critical. It converts raw projections into points above replacement so scarce positions are valued correctly for your league.</p></div></div><div class="grid" style="margin-top:12px"><div class="card"><h2>Value Engine Weights</h2>${Object.keys(c.weights).map(k=>`<div class="field"><label>${k} (${Math.round(c.weights[k]*100)}%)</label><input type="range" min="0" max="30" value="${c.weights[k]*100}" oninput="db.config.weights['${k}']=Number(this.value)/100;this.previousElementSibling.textContent='${k} ('+this.value+'%)';persist()"></div>`).join('')}</div><div class="card"><h2>Data Controls</h2><button class="secondary" onclick="exportData()">Export Full Backup</button> <button class="secondary" onclick="downloadCSV()">Export Market CSV</button><hr style="border-color:#263753"><button class="danger" onclick="resetAll()">Reset App Database</button><p class="small">Reset returns to the bundled seed database and erases local edits/history from this device.</p><p class="small">App version ${APP_VERSION}</p></div></div>`}
 function cset(k,v){db.config[k]=v;persist();document.getElementById('subline').textContent=`${db.config.leagueName} engine • ${db.config.superflex?'SF • ':''}${db.config.tep?'TEP • ':''}${db.config.sackPremium?'sack-premium IDP • ':''}cap/contracts • dynamic asset pricing`}
 function exportData(){let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`capitol-carnage-gm-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
@@ -129,7 +340,7 @@ function resetAll(){if(confirm('Erase local app data and return to seed database
 function renderAssetList(){document.getElementById('assetList').innerHTML=db.assets.map(a=>`<option value="${a.name}">`).join('')}
 let deferredPrompt;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn.hidden=false});installBtn.onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;installBtn.hidden=true}};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('service-worker.js');
-nav();renderAssetList();cset('leagueName',db.config.leagueName);let initial=localStorage.getItem('ccgm_view')||'dashboard';if(!tradeState.receive.length)addTrade('receive');if(!tradeState.give.length)addTrade('give');showView(initial);
+ensureMFLDefaults();persist();nav();renderAssetList();cset('leagueName',db.config.leagueName);let initial=localStorage.getItem('ccgm_view')||'dashboard';if(!tradeState.receive.length)addTrade('receive');if(!tradeState.give.length)addTrade('give');showView(initial);
 </script>
 </body>
 </html>
