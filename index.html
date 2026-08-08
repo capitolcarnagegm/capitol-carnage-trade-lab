@@ -80,6 +80,26 @@ a{color:#f1cf62!important}
 input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;border-color:#d4af37!important}
 ::-webkit-scrollbar{background:#080808}::-webkit-scrollbar-thumb{background:#6b5720;border-radius:8px}
 
+
+/* GM'S LOCKER v3 FRONT OFFICE */
+.sourceBadge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;font-size:9px;font-weight:900;letter-spacing:.06em;border:1px solid #6b5720;background:#121212;color:#f1cf62}
+.sourceBadge.mfl{color:#f1cf62}.sourceBadge.shot{color:#fff;border-color:#8a7028}.sourceBadge.manual{color:#fff;border-color:#777}
+.analysisHero{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.strengthGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.strengthCard{border:1px solid #3a321e;background:#0d0d0d;border-radius:12px;padding:10px}
+.strengthCard b{font-size:19px;color:#f1cf62}
+.teamSelectRow{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.teamSelectRow .field{min-width:240px;flex:1}
+.importGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.importZone{border:2px dashed #6b5720;background:#0b0b0b;border-radius:14px;padding:18px;text-align:center;cursor:pointer}
+.importZone:hover{border-color:#f1cf62}
+.reconTable{width:100%;border-collapse:collapse}
+.reconTable th,.reconTable td{padding:8px;border-bottom:1px solid #332b18;font-size:11px;text-align:left}
+.conflict{background:#1d1408}
+.matchGood{color:#f1cf62;font-weight:900}.matchBad{color:#ff9a9a;font-weight:900}
+.percentileBar{height:8px;background:#252525;border-radius:999px;overflow:hidden}.percentileBar i{display:block;height:100%;background:#d4af37}
+@media(max-width:900px){.analysisHero{grid-template-columns:1fr 1fr}.strengthGrid,.importGrid{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -91,14 +111,15 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 <section id="fa" class="view"></section>
 <section id="draft" class="view"></section>
 <section id="market" class="view"></section>
-<section id="analyzer" class="view"></section>
+<section id="leagueanalyzer" class="view"></section>
+<section id="teamanalyzer" class="view"></section>
 <section id="sync" class="view"></section>
 <section id="settings" class="view"></section>
 <div class="footer">Local-first PWA. Public hosting contains app code only; your league edits, values and saved transactions remain on this device unless you export them.</div>
 </div>
 <datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='2.5.0-black-gold';
+const APP_VERSION='3.0.0-front-office';
 const DEFAULT_CONFIG={leagueName:'Pride LG',teamName:'Capitol Carnage',teams:12,salaryCap:1000,superflex:true,tep:true,idp:true,sackPremium:true,threshold:80,requiredProngs:4,hardReq:3,consolidationPremium:4,elitePremium:7,replacement:{QB:265,RB:155,WR:170,TE:145,EDGE:145,DL:130,LB:150,S:135,CB:120,PICK:0},weights:{market:.18,projection:.18,replacement:.12,contract:.15,age:.08,role:.08,trend:.08,scarcity:.06,liquidity:.04,risk:.03}};
 const seedAssets=[
 {id:'love',name:'Jordan Love',type:'PLAYER',pos:'QB',nfl:'GB',age:27,market:8200,adp:26,ecr:20,proj:352,ppg:20.7,role:93,trend:3,risk:18,liquidity:90,salary:87.81,years:3,roster:'Capitol Carnage',source:'Manual seed'},
@@ -307,6 +328,187 @@ let pendingScreenshotTrade=null;
 async function handleTradeScreenshot(file){if(!file)return;const out=document.getElementById('tradeShotResult'),r=new FileReader();r.onload=()=>out.innerHTML=`<img class="tradePreview" src="${r.result}"><div class="notice">Analyzing screenshot…</div>`;r.readAsDataURL(file);try{let base=(db.mfl.proxyUrl||'').trim().replace(/\/$/,'');if(!base)throw new Error('Worker URL not configured');const fd=new FormData();fd.append('image',file);const res=await fetch(base+'/parse-trade-image',{method:'POST',body:fd});const p=await res.json();if(!res.ok||!p.ok)throw new Error(p.error||'Image parse failed');pendingScreenshotTrade=p.trade;out.innerHTML+=`<div class="aiResult"><b>Detected Trade</b><div class="grid"><div><b>${p.trade.sideA?.team||'Side A'}</b>${(p.trade.sideA?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div><div><b>${p.trade.sideB?.team||'Side B'}</b>${(p.trade.sideB?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div></div><button onclick="loadScreenshotTrade()">Confirm & Load</button></div>`}catch(e){out.innerHTML+=`<div class="notice"><b>Screenshot import:</b> ${e.message}</div>`}}
 function findAssetByLooseName(n,t=''){n=String(n||'').toLowerCase();return (t?teamAssets(t):db.assets).find(a=>String(a.name||'').toLowerCase()===n)||(t?teamAssets(t):db.assets).find(a=>String(a.name||'').toLowerCase().includes(n))}
 function loadScreenshotTrade(){const t=pendingScreenshotTrade;if(!t)return;const sides=[t.sideA,t.sideB],ours=sides.find(s=>String(s.team||'').toLowerCase().includes(String(db.config.teamName||'').toLowerCase())),theirs=sides.find(s=>s!==ours);if(theirs?.team)tradeState.opponent=theirs.team;tradeState.give=[];tradeState.receive=[];(ours?.assets||[]).forEach(n=>{const a=findAssetByLooseName(n,db.config.teamName);if(a)tradeState.give.push({assetId:a.id,salaryOverride:'',yearsOverride:''})});(theirs?.assets||[]).forEach(n=>{const a=findAssetByLooseName(n,theirs.team);if(a)tradeState.receive.push({assetId:a.id,salaryOverride:'',yearsOverride:''})});renderTrade()}
+
+function sourceBadge(a,field='roster'){
+  const src=(a?.sources?.[field]||a?.source||'MFL').toUpperCase();
+  const cls=src.includes('SCREEN')?'shot':src.includes('MANUAL')?'manual':'mfl';
+  return `<span class="sourceBadge ${cls}">${src.includes('SCREEN')?'SCREENSHOT':src.includes('MANUAL')?'MANUAL':'MFL'}</span>`;
+}
+function setFieldSource(a,field,src){
+  a.sources=a.sources||{};a.sources[field]=src;
+}
+function ensureWeeklyFields(a){
+  if(!Array.isArray(a.weeklyScores))a.weeklyScores=[];
+  if(a.actual===undefined)a.actual=0;
+  return a;
+}
+function teamPositionMetrics(team){
+  const groups=['QB','RB','WR','TE','DL','LB','DB'];
+  const roster=teamAssets(team).filter(a=>a.type!=='PICK');
+  const raw={};
+  groups.forEach(p=>{
+    const vals=roster.filter(a=>normalizedPos(a.pos)===p).sort((a,b)=>modelValue(b)-modelValue(a));
+    const take={QB:2,RB:3,WR:4,TE:2,DL:3,LB:3,DB:3}[p]||2;
+    raw[p]=vals.slice(0,take).reduce((s,a)=>s+modelValue(a),0);
+  });
+  return raw;
+}
+function leaguePositionRanks(){
+  const teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(Boolean);
+  const rows={};
+  teams.forEach(t=>rows[t]=teamPositionMetrics(t));
+  const out={};
+  teams.forEach(t=>{out[t]={};for(const p of ['QB','RB','WR','TE','DL','LB','DB']){
+    const sorted=teams.slice().sort((a,b)=>(rows[b][p]||0)-(rows[a][p]||0));
+    out[t][p]=sorted.indexOf(t)+1;
+  }});
+  return out;
+}
+function teamCapMetrics(team){
+  const r=teamAssets(team).filter(a=>a.type!=='PICK');
+  const salary=r.reduce((s,a)=>s+Number(a.salary||0),0);
+  const value=r.reduce((s,a)=>s+modelValue(a),0);
+  const efficiency=salary?value/salary:value;
+  const cheapCore=r.filter(a=>Number(a.salary||0)<=25&&modelValue(a)>=3500).length;
+  return {salary,value,efficiency,cheapCore};
+}
+function teamDraftMetrics(team){
+  const picks=teamAssets(team).filter(a=>a.type==='PICK');
+  return {count:picks.length,value:picks.reduce((s,a)=>s+modelValue(a),0)}
+}
+function fullTeamProfile(team){
+  const base=teamMetrics(team),cap=teamCapMetrics(team),draft=teamDraftMetrics(team);
+  const positions=teamPositionMetrics(team);
+  const roster=teamAssets(team).filter(a=>a.type!=='PICK');
+  const ageVals=roster.map(a=>Number(a.age||0)).filter(Boolean);
+  const avgAge=ageVals.length?ageVals.reduce((s,x)=>s+x,0)/ageVals.length:0;
+  const risk=roster.length?roster.reduce((s,a)=>s+Number(a.risk||45),0)/roster.length:45;
+  return {...base,cap,draft,positions,avgAge,risk};
+}
+function renderLeagueAnalyzer(){
+  const arr=leaguePower().map(x=>({...x,...fullTeamProfile(x.team)}));
+  const pw=currentProductionWeight(),wk=nflWeekEstimate(),mine=arr.find(x=>x.team===db.config.teamName);
+  leagueanalyzer.innerHTML=`
+  <div class="card"><div class="sectionhead"><h2>League Analyzer</h2><span class="pill">${wk?'WEEK '+wk:'PRESEASON'} · 14-TEAM POWER BOARD</span></div>
+    <div class="notice"><b>Real-time league model.</b> Preseason is projection-heavy. As games are played, actual production gains weight. Boom/bust, roster value, cap efficiency, depth and draft capital remain separate lenses so one hot week does not hide a weak roster.</div>
+    <div class="analysisHero" style="margin-top:10px">
+      <div class="metric"><b>${Math.round((1-pw)*100)}%</b><span>Projection weight</span></div>
+      <div class="metric"><b>${Math.round(pw*100)}%</b><span>Production weight</span></div>
+      <div class="metric"><b>${mine?'#'+mine.rank:'—'}</b><span>${db.config.teamName} rank</span></div>
+      <div class="metric"><b>${mine?mine.label:'—'}</b><span>Volatility profile</span></div>
+      <div class="metric"><b>${arr.length}</b><span>Teams modeled</span></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px;overflow:auto">
+    <table class="powerTable"><thead><tr><th>#</th><th>Franchise</th><th>Power</th><th>Proj</th><th>Actual</th><th>Floor/Ceiling</th><th>Profile</th><th>Cap Eff.</th><th>Draft Capital</th></tr></thead>
+    <tbody>${arr.map(x=>`<tr onclick="window.teamAnalyzerTeam='${String(x.team).replace(/'/g,"\\'")}';showView('teamanalyzer')" style="cursor:pointer">
+      <td><b>${x.rank}</b></td><td><b>${x.team}</b>${x.team===db.config.teamName?' <span class="teamBadge">YOU</span>':''}</td>
+      <td><div class="powerBar"><i style="width:${x.powerPct}%"></i></div><span class="small">${x.score.toFixed(0)}</span></td>
+      <td>${x.projected.toFixed(0)}</td><td>${x.actual?x.actual.toFixed(1):'—'}</td>
+      <td>${x.floor.toFixed(0)} / ${x.ceiling.toFixed(0)}</td>
+      <td><span class="riskBadge ${volatilityClass(x.label)}">${x.label}</span></td>
+      <td>${x.cap.efficiency.toFixed(1)}</td><td>${fmt(x.draft.value)}</td>
+    </tr>`).join('')}</tbody></table>
+  </div>`;
+}
+window.teamAnalyzerTeam=window.teamAnalyzerTeam||db?.config?.teamName||'Capitol Carnage';
+function renderTeamAnalyzer(){
+  const teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(Boolean);
+  if(!teams.includes(window.teamAnalyzerTeam))window.teamAnalyzerTeam=db.config.teamName||teams[0]||'';
+  const t=window.teamAnalyzerTeam,p=fullTeamProfile(t),ranks=leaguePositionRanks()[t]||{},roster=teamAssets(t).filter(a=>a.type!=='PICK').sort((a,b)=>modelValue(b)-modelValue(a));
+  teamanalyzer.innerHTML=`
+  <div class="card"><div class="teamSelectRow">
+    <div class="field"><label>Analyze franchise</label><select onchange="window.teamAnalyzerTeam=this.value;renderTeamAnalyzer()">${teams.map(n=>`<option ${n===t?'selected':''}>${n}</option>`).join('')}</select></div>
+    <button class="secondary" onclick="showView('leagueanalyzer')">Compare to League</button>
+  </div></div>
+  <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>${t} — Team Analyzer</h2><span class="pill">${p.label}</span></div>
+    <div class="analysisHero">
+      <div class="metric"><b>${p.projected.toFixed(0)}</b><span>Projected starter pts</span></div>
+      <div class="metric"><b>${p.actual?p.actual.toFixed(1):'—'}</b><span>Actual production</span></div>
+      <div class="metric"><b>${p.floor.toFixed(0)}</b><span>Floor</span></div>
+      <div class="metric"><b>${p.ceiling.toFixed(0)}</b><span>Ceiling</span></div>
+      <div class="metric"><b>${fmt(p.cap.value+p.draft.value)}</b><span>Total asset base</span></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px"><h2>Position Strength vs League</h2><div class="strengthGrid">
+    ${['QB','RB','WR','TE','DL','LB','DB'].map(pos=>`<div class="strengthCard"><b>${pos}: #${ranks[pos]||'—'}/14</b><div class="percentileBar"><i style="width:${ranks[pos]?((15-ranks[pos])/14*100):0}%"></i></div><span class="small">Position asset score ${fmt(p.positions[pos]||0)}</span></div>`).join('')}
+  </div></div>
+  <div class="grid" style="margin-top:12px">
+    <div class="card"><h2>Front Office Profile</h2>
+      <div class="gate"><span>Cap committed</span><b>$${p.cap.salary.toFixed(2)}</b></div>
+      <div class="gate"><span>Cap efficiency</span><b>${p.cap.efficiency.toFixed(1)}</b></div>
+      <div class="gate"><span>Cheap core players</span><b>${p.cap.cheapCore}</b></div>
+      <div class="gate"><span>Future picks</span><b>${p.draft.count} · ${fmt(p.draft.value)}</b></div>
+      <div class="gate"><span>Average roster age</span><b>${p.avgAge?p.avgAge.toFixed(1):'—'}</b></div>
+      <div class="gate"><span>Average risk</span><b>${p.risk.toFixed(0)}/100</b></div>
+    </div>
+    <div class="card"><h2>Top Assets</h2>${roster.slice(0,10).map(a=>`<div class="gate"><span><b>${a.name}</b><br><span class="small">${normalizedPos(a.pos)} · $${Number(a.salary||0).toFixed(2)} · ${a.years||0} yr</span></span><span><b>${fmt(modelValue(a))}</b><br>${sourceBadge(a,'roster')}</span></div>`).join('')}</div>
+  </div>`;
+}
+
+
+async function postImagesToWorker(path,files){
+  let base=(db.mfl?.proxyUrl||'').trim().replace(/\/$/,'');if(!base)throw new Error('Worker URL not configured.');
+  const fd=new FormData();Array.from(files||[]).forEach((f,i)=>fd.append('images',f,f.name||`image-${i}.png`));
+  const res=await fetch(base+path,{method:'POST',body:fd,mode:'cors'});let p;try{p=await res.json()}catch{throw new Error(`Worker returned HTTP ${res.status} without JSON.`)}
+  if(!res.ok||!p.ok)throw new Error(p.error||`HTTP ${res.status}`);return p;
+}
+window.pendingRosterImports=[];
+async function handleRosterScreenshots(files){
+  const out=document.getElementById('rosterImportReview');if(!files?.length)return;out.innerHTML='<div class="notice">Reading roster screenshots…</div>';
+  try{const p=await postImagesToWorker('/parse-roster-images',files);window.pendingRosterImports=p.teams||[];renderRosterImportReview()}
+  catch(e){out.innerHTML=`<div class="notice"><b>Roster import failed:</b> ${e.message}</div>`}
+}
+function renderRosterImportReview(){
+  const out=document.getElementById('rosterImportReview'),rows=window.pendingRosterImports||[];
+  if(!rows.length){out.innerHTML='<div class="notice">No teams detected.</div>';return}
+  out.innerHTML=`<div style="overflow:auto;margin-top:10px"><table class="reconTable"><thead><tr><th>Team</th><th>Detected player</th><th>Match</th><th>Salary</th><th>Years</th><th>Status</th></tr></thead><tbody>
+    ${rows.flatMap(t=>(t.players||[]).map(p=>{const a=findAssetByLooseName(p.name,t.team);return `<tr class="${a?'':'conflict'}"><td>${t.team||'Unknown'}</td><td>${p.name||''}</td><td class="${a?'matchGood':'matchBad'}">${a?'MATCHED':'NEW/UNMATCHED'}</td><td>${p.salary??'—'}</td><td>${p.years??'—'}</td><td>${p.status||'—'}</td></tr>`})).join('')}
+    </tbody></table></div><div class="actions"><button onclick="commitRosterMerge()">Commit Reviewed Merge</button><button class="secondary" onclick="window.pendingRosterImports=[];document.getElementById('rosterImportReview').innerHTML=''">Discard</button></div>`;
+}
+function commitRosterMerge(){
+  const mode=document.getElementById('rosterMergeMode')?.value||'missing';
+  for(const teamBlock of (window.pendingRosterImports||[])){
+    const team=teamBlock.team||'';if(!team)continue;
+    for(const p of (teamBlock.players||[])){
+      let a=findAssetByLooseName(p.name,team)||findAssetByLooseName(p.name);
+      if(!a){
+        a={id:uid('shot'),mflId:'',name:p.name||'Unknown',type:'PLAYER',pos:(p.position||'').toUpperCase(),nfl:'',age:0,market:1000,adp:0,ecr:0,proj:0,ppg:0,role:50,trend:0,risk:45,liquidity:50,salary:Number(p.salary||0),years:Number(p.years||0),roster:team,source:'Screenshot Import',sources:{roster:'Screenshot Import',salary:'Screenshot Import',years:'Screenshot Import'}};
+        db.assets.push(a);continue;
+      }
+      if(mode==='missing' && String(a.roster||'').toLowerCase()!==team.toLowerCase()){a.roster=team;setFieldSource(a,'roster','Screenshot Import')}
+      if(mode==='fields'||mode==='reconcile'){
+        if((!a.salary||mode==='reconcile')&&p.salary!==undefined&&p.salary!==''){a.salary=Number(p.salary);setFieldSource(a,'salary','Screenshot Import')}
+        if((!a.years||mode==='reconcile')&&p.years!==undefined&&p.years!==''){a.years=Number(p.years);setFieldSource(a,'years','Screenshot Import')}
+        if(p.status){a.status=p.status;setFieldSource(a,'status','Screenshot Import')}
+        if(mode==='reconcile'){a.roster=team;setFieldSource(a,'roster','Screenshot Import')}
+      }
+    }
+  }
+  window.pendingRosterImports=[];persist();renderAssetList();renderSync();alert('Roster screenshot merge committed.')
+}
+window.pendingFAImports=[];
+async function handleFAScreenshots(files){
+  const out=document.getElementById('faImportReview');if(!files?.length)return;out.innerHTML='<div class="notice">Reading free-agent screenshots…</div>';
+  try{const p=await postImagesToWorker('/parse-fa-images',files);window.pendingFAImports=p.players||[];renderFAImportReview()}
+  catch(e){out.innerHTML=`<div class="notice"><b>FA import failed:</b> ${e.message}</div>`}
+}
+function renderFAImportReview(){
+  const out=document.getElementById('faImportReview'),rows=window.pendingFAImports||[];
+  if(!rows.length){out.innerHTML='<div class="notice">No free agents detected.</div>';return}
+  out.innerHTML=`<div style="overflow:auto;margin-top:10px"><table class="reconTable"><thead><tr><th>Player</th><th>Pos</th><th>Existing match</th><th>Visible salary/bid</th></tr></thead><tbody>
+  ${rows.map(p=>{const a=findAssetByLooseName(p.name);return `<tr><td>${p.name||''}</td><td>${p.position||''}</td><td>${a?'YES':'NEW'}</td><td>${p.salary??p.bid??'—'}</td></tr>`}).join('')}
+  </tbody></table></div><div class="actions"><button onclick="commitFAImport()">Merge Into Free Agency</button><button class="secondary" onclick="window.pendingFAImports=[];document.getElementById('faImportReview').innerHTML=''">Discard</button></div>`;
+}
+function commitFAImport(){
+  for(const p of (window.pendingFAImports||[])){
+    let a=findAssetByLooseName(p.name);
+    if(!a){a={id:uid('faShot'),mflId:'',name:p.name||'Unknown',type:'PLAYER',pos:(p.position||'').toUpperCase(),nfl:'',age:0,market:1000,adp:0,ecr:0,proj:0,ppg:0,role:50,trend:0,risk:45,liquidity:50,salary:Number(p.salary||p.bid||0),years:0,roster:'FREE AGENT',source:'Screenshot Import',sources:{roster:'Screenshot Import'}};db.assets.push(a)}
+    else{a.roster='FREE AGENT';setFieldSource(a,'roster','Screenshot Import');if((!a.salary)&&p.salary!==undefined){a.salary=Number(p.salary);setFieldSource(a,'salary','Screenshot Import')}}
+  }
+  window.pendingFAImports=[];persist();renderAssetList();renderFA();alert('Free-agent screenshot merge committed.')
+}
+
 function renderTrade(){
   ensureTradeOpponent();
   const a=tradeAnalysis(),impact=postTradeImpact();
@@ -388,7 +590,10 @@ function saveTrade(){
   db.savedTrades=db.savedTrades.slice(0,50);persist();alert('Trade saved on this device.')
 }
 
-function renderFA(){let e=faEval();fa.innerHTML=`<div class="grid"><div class="card"><h2>Free Agency Value Checker</h2><div class="field"><label>Player</label><select onchange="faState.assetId=this.value;renderFA()"><option value="">Select player</option>${db.assets.filter(a=>a.type==='PLAYER').map(a=>`<option value="${a.id}" ${faState.assetId===a.id?'selected':''}>${a.name} · ${a.pos}</option>`).join('')}</select></div><div class="grid3"><div class="field"><label>Your contemplated bid</label><input type="number" value="${faState.bid}" oninput="faState.bid=Number(this.value);renderFA()"></div><div class="field"><label>Contract years</label><input type="number" value="${faState.years}" oninput="faState.years=Number(this.value);renderFA()"></div><div class="field"><label>Available cap</label><input value="$${db.config.salaryCap}" disabled></div></div>${e?`<div class="grid4"><div class="metric"><b>$${e.modelBid}</b><span>Model value bid</span></div><div class="metric"><b>$${e.expected}</b><span>Expected competitive bid</span></div><div class="metric"><b>$${e.maxBid}</b><span>Our hard max</span></div><div class="metric"><b class="${e.zc}">${e.zone}</b><span>Current bid zone</span></div></div><div class="barWrap"><div class="balance"><div class="needle" style="left:${clamp((e.bid/(Math.max(1,e.maxBid*1.3)))*100,3,97)}%"></div></div><div class="barlabels"><span>STEAL</span><span>FAIR/MAX</span><span>OVERPAY</span></div></div><div class="notice"><b>${e.a.name}</b>: projected ${e.a.proj||0} points, ${e.par.toFixed(0)} points above replacement, contract score ${e.contract.toFixed(0)}, Pride value ${fmt(e.mv)}. The max bid rises for scarce starting roles and falls when replacement alternatives are close.</div>`:'<div class="notice">Select a player to generate a bid range.</div>'}</div><div class="card"><h2>Replacement Tree</h2>${e?replacementTree(e.a):'<div class="small">The app will show cheaper alternatives at the same position once a target is selected.</div>'}</div></div><div class="card" style="margin-top:12px"><h2>Free Agent Comparison</h2>${faComparison()}</div>`}
+function renderFA(){let e=faEval();fa.innerHTML=`<div class="card"><div class="sectionhead"><h2>FA Screenshot Import</h2><span class="pill">MFL CORRECTION</span></div>
+    <div class="notice">Upload one or multiple screenshots of the free-agent pool. GM's Locker will extract names and visible values, then show a review before merging them into Free Agency.</div>
+    <div class="importZone" style="margin-top:10px" onclick="document.getElementById('faShots').click()"><b>Upload free-agent screenshots</b><br><span class="small">Multiple screenshots supported.</span><input id="faShots" type="file" accept="image/*" multiple style="display:none" onchange="handleFAScreenshots(this.files)"></div>
+    <div id="faImportReview"></div></div><div style="height:12px"></div><div class="grid"><div class="card"><h2>Free Agency Value Checker</h2><div class="field"><label>Player</label><select onchange="faState.assetId=this.value;renderFA()"><option value="">Select player</option>${db.assets.filter(a=>a.type==='PLAYER').map(a=>`<option value="${a.id}" ${faState.assetId===a.id?'selected':''}>${a.name} · ${a.pos}</option>`).join('')}</select></div><div class="grid3"><div class="field"><label>Your contemplated bid</label><input type="number" value="${faState.bid}" oninput="faState.bid=Number(this.value);renderFA()"></div><div class="field"><label>Contract years</label><input type="number" value="${faState.years}" oninput="faState.years=Number(this.value);renderFA()"></div><div class="field"><label>Available cap</label><input value="$${db.config.salaryCap}" disabled></div></div>${e?`<div class="grid4"><div class="metric"><b>$${e.modelBid}</b><span>Model value bid</span></div><div class="metric"><b>$${e.expected}</b><span>Expected competitive bid</span></div><div class="metric"><b>$${e.maxBid}</b><span>Our hard max</span></div><div class="metric"><b class="${e.zc}">${e.zone}</b><span>Current bid zone</span></div></div><div class="barWrap"><div class="balance"><div class="needle" style="left:${clamp((e.bid/(Math.max(1,e.maxBid*1.3)))*100,3,97)}%"></div></div><div class="barlabels"><span>STEAL</span><span>FAIR/MAX</span><span>OVERPAY</span></div></div><div class="notice"><b>${e.a.name}</b>: projected ${e.a.proj||0} points, ${e.par.toFixed(0)} points above replacement, contract score ${e.contract.toFixed(0)}, Pride value ${fmt(e.mv)}. The max bid rises for scarce starting roles and falls when replacement alternatives are close.</div>`:'<div class="notice">Select a player to generate a bid range.</div>'}</div><div class="card"><h2>Replacement Tree</h2>${e?replacementTree(e.a):'<div class="small">The app will show cheaper alternatives at the same position once a target is selected.</div>'}</div></div><div class="card" style="margin-top:12px"><h2>Free Agent Comparison</h2>${faComparison()}</div>`}
 function replacementTree(a){let sims=db.assets.filter(x=>x.type==='PLAYER'&&x.pos===a.pos&&x.id!==a.id).map(x=>({x,ratio:(Number(x.proj)||0)/Math.max(1,Number(a.proj)||1)})).sort((p,q)=>Math.abs(1-p.ratio)-Math.abs(1-q.ratio)).slice(0,4);return sims.length?sims.map((o,i)=>`<div class="gate"><span><b>Fallback ${i+1}: ${o.x.name}</b><br><span class="small">${(o.ratio*100).toFixed(0)}% of target projection · Pride ${fmt(modelValue(o.x))}</span></span><b>${signal(o.x)[0]}</b></div>`).join(''):'<div class="small">Add more players at this position to build replacement options.</div>'}
 function faComparison(){return `<div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Proj</th><th>Above repl</th><th>Market</th><th>Pride</th><th>Signal</th></tr></thead><tbody>${db.assets.filter(a=>a.type==='PLAYER').sort((a,b)=>modelValue(b)-modelValue(a)).slice(0,30).map(a=>`<tr><td>${a.name}</td><td>${a.pos}</td><td>${a.proj||0}</td><td>${((a.proj||0)-replacement(a)).toFixed(0)}</td><td>${fmt(a.market)}</td><td>${fmt(modelValue(a))}</td><td class="${signal(a)[1]}">${signal(a)[0]}</td></tr>`).join('')}</tbody></table></div>`}
 function prospectValue(p){let posP={QB:1.15,RB:.95,WR:1.08,TE:.82,EDGE:.85,DL:.72,LB:.65,S:.58,CB:.5}[p.pos]||.65;let score=(p.nflDraftCapital*.28+p.production*.24+p.athletic*.12+p.earlyDeclare*.10+p.competition*.10+(100-p.risk)*.16);return Math.round(6200*posP*(score/90)*(1+(100-Math.min(100,p.rank*4))/450))}
@@ -433,7 +638,17 @@ function renderSync(){
       ].map(x=>`<div class="gate"><span><b>${x[0]}</b><br><span class="small">${x[1]}</span></span><b class="good">SYNC</b></div>`).join('')}
     </div>
   </div>
-  <div class="grid" style="margin-top:12px">
+  
+  <div class="card" style="margin-top:12px">
+    <div class="sectionhead"><h2>Roster Screenshot Merge</h2><span class="pill">CORRECTION LAYER</span></div>
+    <div class="notice"><b>MFL stays primary.</b> Upload screenshots only to fill missing players/fields or reconcile a team. Nothing is committed until you review it.</div>
+    <div class="importGrid" style="margin-top:10px">
+      <div class="importZone" onclick="document.getElementById('rosterShots').click()"><b>Upload roster screenshots</b><br><span class="small">One or many screenshots, up to all 14 teams.</span><input id="rosterShots" type="file" accept="image/*" multiple style="display:none" onchange="handleRosterScreenshots(this.files)"></div>
+      <div class="field"><label>Merge mode</label><select id="rosterMergeMode"><option value="missing">Missing players only</option><option value="fields">Fill missing salary/years/status</option><option value="reconcile">Full reconciliation review</option></select><div class="small" style="margin-top:8px">Safest default: Missing players only.</div></div>
+    </div>
+    <div id="rosterImportReview"></div>
+  </div>
+<div class="grid" style="margin-top:12px">
     <div class="card"><h2>Synced Franchises</h2>${(m.franchises||[]).length?(m.franchises||[]).map(f=>`<div class="gate"><span>${f.name}</span><span class="small">${f.id}</span></div>`).join(''):'<div class="muted">Connect the Worker, then run the first sync.</div>'}</div>
     <div class="card"><h2>Recent MFL Activity</h2>${(m.transactions||[]).length?(m.transactions||[]).slice(0,12).map(t=>`<div class="gate"><span><b>${t.franchise||'League'}</b><br><span class="small">${t.type||'transaction'}${t.player?' · '+t.player:''}</span></span></div>`).join(''):'<div class="muted">Transactions will appear here after sync.</div>'}</div>
   </div>`;

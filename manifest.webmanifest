@@ -1,7 +1,7 @@
 {
   "name": "GM's Locker",
   "short_name": "GM's Locker",
-  "description": "Roster-first Pride LG salary-cap GM app with live MFL sync, trades, FA and draft capital.",
+  "description": "Dynasty front-office intelligence with live league and team analysis, roster reconciliation, trades, FA, draft capital and MFL sync.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
