@@ -2,3 +2,6 @@ name = "capitol-carnage-mfl-sync"
 main = "src/worker.js"
 compatibility_date = "2026-08-08"
 workers_dev = true
+
+[ai]
+binding = "AI"

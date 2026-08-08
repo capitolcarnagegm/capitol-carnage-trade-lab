@@ -1,0 +1,10 @@
+GM'S LOCKER v2.5 — BLACK / GOLD / WHITE
+Brand palette:
+- Background: black
+- Panels: near-black
+- Primary accent: metallic-style gold
+- Primary copy: white
+- Secondary copy: light gray
+- No blue UI surfaces
+
+Upload/overwrite the contents of this package in the existing GitHub repository.

@@ -1,12 +1,12 @@
 {
-  "name": "Capitol Carnage GM Lab",
-  "short_name": "Carnage GM",
+  "name": "GM's Locker",
+  "short_name": "GM's Locker",
   "description": "Roster-first Pride LG salary-cap GM app with live MFL sync, trades, FA and draft capital.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#08101d",
-  "theme_color": "#0b1020",
+  "background_color": "#050505",
+  "theme_color": "#050505",
   "icons": [
     {
       "src": "icon-192.png",

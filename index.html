@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
-<title>Capitol Carnage GM Lab</title>
+<title>GM's Locker</title>
 <style>
 :root{--bg:#08101d;--panel:#111b2d;--panel2:#17243a;--line:#2b3a57;--text:#f8fafc;--muted:#9fb0ca;--gold:#f59e0b;--good:#22c55e;--bad:#ef4444;--blue:#38bdf8;--violet:#a78bfa;--warn:#facc15;--shadow:0 12px 36px rgba(0,0,0,.28)}
 *{box-sizing:border-box}html,body{margin:0;background:radial-gradient(circle at top,#13213a 0,#08101d 42%,#070c16 100%);color:var(--text);font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100%}button,input,select,textarea{font:inherit}.app{max-width:1180px;margin:auto;padding:14px 12px 90px}.topbar{position:sticky;top:0;z-index:20;background:rgba(8,16,29,.92);backdrop-filter:blur(14px);border-bottom:1px solid rgba(70,90,125,.35);margin:0 -12px 12px;padding:12px}.toprow{max-width:1180px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand h1{font-size:21px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:11px}.actions{display:flex;gap:7px;flex-wrap:wrap}.btn,button{border:0;border-radius:11px;padding:9px 12px;font-weight:800;background:var(--gold);color:#111827;cursor:pointer}.btn.secondary,button.secondary{background:#263650;color:var(--text)}button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}button.danger{background:#4b1820;color:#fecaca}.nav{display:flex;gap:7px;overflow:auto;padding-bottom:4px}.nav button{white-space:nowrap;background:#17243a;color:#c8d4e8;padding:9px 12px}.nav button.active{background:var(--gold);color:#111827}.view{display:none}.view.active{display:block}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.card{background:linear-gradient(180deg,rgba(23,36,58,.98),rgba(15,25,43,.98));border:1px solid var(--line);border-radius:16px;padding:13px;box-shadow:var(--shadow)}.card h2,.card h3{margin:0 0 9px}.card h2{font-size:16px}.card h3{font-size:14px}.muted,.small{color:var(--muted)}.small{font-size:11px}.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.pill{display:inline-flex;align-items:center;gap:5px;background:#0c1628;border:1px solid var(--line);border-radius:999px;padding:5px 9px;color:#b8c5db;font-size:11px;font-weight:800}.metric{background:#0b1526;border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:19px}.metric span{color:var(--muted);font-size:10px}.field{margin-bottom:8px}.field label{display:block;font-size:10px;color:var(--muted);margin:0 0 4px;font-weight:700}.field input,.field select,.field textarea,input,select,textarea{width:100%;background:#0a1425;color:var(--text);border:1px solid #344560;border-radius:10px;padding:9px 10px;outline:none}.field textarea{min-height:70px;resize:vertical}.asset{background:#111d31;border:1px solid #31425e;border-radius:13px;padding:10px;margin:8px 0}.assetrow{display:grid;grid-template-columns:1.45fr .7fr .55fr;gap:7px}.assetmetrics{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:7px}.signal{font-weight:900}.good{color:#86efac}.bad{color:#fca5a5}.warn{color:#fde68a}.blue{color:#7dd3fc}.barWrap{padding:12px 2px}.balance{height:22px;border-radius:999px;background:linear-gradient(90deg,rgba(34,197,94,.8),rgba(34,197,94,.28) 36%,#475569 50%,rgba(239,68,68,.28) 64%,rgba(239,68,68,.85));position:relative;border:1px solid #475569;overflow:visible}.balance:before{content:"";position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;background:#fff;opacity:.8}.needle{position:absolute;top:50%;width:24px;height:24px;border-radius:50%;background:#fff;border:5px solid var(--gold);transform:translate(-50%,-50%);box-shadow:0 2px 10px #000;transition:left .25s ease}.barlabels{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;margin-top:5px}.acceptable{height:5px;margin-top:6px;border-radius:99px;background:linear-gradient(90deg,transparent 0,transparent 36%,rgba(250,204,21,.8) 36%,rgba(250,204,21,.8) 64%,transparent 64%)}.verdict{padding:12px;border-radius:12px;text-align:center;font-size:18px;font-weight:900;margin-top:10px}.vgood{background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.55);color:#86efac}.vbad{background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.55);color:#fca5a5}.vwarn{background:rgba(245,158,11,.13);border:1px solid rgba(245,158,11,.55);color:#fde68a}.gate{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#0a1425;border:1px solid #263753;border-radius:10px;padding:8px 9px;margin:6px 0}.tableWrap{overflow:auto;border-radius:12px;border:1px solid var(--line)}table{width:100%;border-collapse:collapse;min-width:780px;background:#0a1425}th,td{padding:8px 9px;border-bottom:1px solid #26344d;text-align:left;font-size:11px}th{position:sticky;top:0;background:#17243a;color:#dce6f5}tr:hover td{background:#101c30}.tag{display:inline-block;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:900;background:#283852}.progress{height:9px;border-radius:99px;background:#1f2937;overflow:hidden}.progress>i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#22c55e)}.searchline{display:grid;grid-template-columns:1.7fr .7fr .7fr;gap:8px}.notice{padding:10px;border-radius:10px;background:#0a1425;border-left:3px solid var(--blue);color:#cbd5e1}.footer{color:var(--muted);font-size:10px;text-align:center;margin-top:16px}@media(max-width:800px){.grid,.grid3,.grid4{grid-template-columns:1fr}.assetmetrics{grid-template-columns:1fr 1fr}.assetrow{grid-template-columns:1fr 1fr}.toprow{align-items:flex-start;flex-direction:column}.searchline{grid-template-columns:1fr}.app{padding-bottom:110px}.brand h1{font-size:19px}.nav{margin:0 -2px}}
@@ -43,24 +43,62 @@
   .rosterList{max-height:440px}
 }
 
+
+.powerTable{width:100%;border-collapse:collapse}.powerTable th,.powerTable td{padding:10px 8px;border-bottom:1px solid #243754;text-align:left;font-size:12px}.powerTable th{color:#91a4bf;font-size:11px;text-transform:uppercase}.powerBar{height:9px;background:#172842;border-radius:999px;overflow:hidden;min-width:90px}.powerBar>i{display:block;height:100%;background:#f6a500}.riskBadge{padding:4px 7px;border-radius:999px;font-size:10px;font-weight:900}.riskStable{background:#123d2e;color:#8ef0c4}.riskMixed{background:#493a15;color:#ffd979}.riskBoom{background:#48212b;color:#ff9bac}.uploadZone{border:2px dashed #395273;border-radius:14px;padding:18px;text-align:center;background:#0c1829;cursor:pointer}.tradePreview{max-width:100%;max-height:320px;border-radius:12px;margin-top:10px;border:1px solid #29405f}.aiResult{background:#0b1628;border:1px solid #29405f;border-radius:12px;padding:12px;margin-top:10px}.teamProfileGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}@media(max-width:900px){.teamProfileGrid{grid-template-columns:1fr 1fr}}
+
+/* GM'S LOCKER — BLACK / GOLD / WHITE BRAND THEME */
+:root{
+  --bg:#050505;--panel:#0d0d0d;--panel2:#141414;--line:#3a321e;
+  --gold:#d4af37;--gold2:#f1cf62;--text:#ffffff;--muted:#c9c9c9;
+}
+html,body{background:#050505!important;color:#fff!important}
+body{background:linear-gradient(180deg,#050505 0%,#090909 100%)!important}
+header,.topbar,nav,.nav,.sidebar{background:#080808!important;border-color:#3a321e!important}
+.card,.rosterPanel,.cartBox,.aiResult,.rosterPlayer,.notice,.gate,.metric,
+input,select,textarea,.uploadZone{background:#0d0d0d!important;color:#fff!important;border-color:#3a321e!important}
+h1,h2,h3,h4,strong,b,.name,label,th,td,p,span,div{color:inherit}
+.small,.muted,.meta,.smallrow,.confidence{color:#c9c9c9!important}
+button{background:#d4af37!important;color:#050505!important;border-color:#d4af37!important;font-weight:900}
+button.secondary,.secondary{background:#151515!important;color:#f1cf62!important;border-color:#6b5720!important}
+button.danger,.danger{background:#1b1010!important;color:#fff!important;border-color:#6a3434!important}
+button:disabled{opacity:.48}
+.pill,.teamBadge,.riskBadge{background:#151515!important;color:#f1cf62!important;border-color:#6b5720!important}
+.good,.trendUp{color:#f1cf62!important}.bad,.trendDown{color:#ff8d8d!important}
+.vgood{border-color:#d4af37!important;background:#171307!important;color:#fff!important}
+.vwarn{border-color:#8a7028!important;background:#171307!important;color:#fff!important}
+.vbad{background:#1b1010!important;color:#fff!important}
+.balance,.powerBar{background:#252525!important}
+.balance:before,.powerBar>i{background:#d4af37!important}
+.acceptable{border-color:#d4af37!important}
+.needle{background:#fff!important;box-shadow:0 0 0 2px #050505,0 0 0 3px #d4af37!important}
+.posTitle{background:#0d0d0d!important;color:#f1cf62!important}
+.posTabs button.active{background:#d4af37!important;color:#050505!important}
+.rosterPlayer{background:#090909!important}
+.uploadZone{border-color:#6b5720!important}
+.uploadZone:hover{border-color:#f1cf62!important}
+a{color:#f1cf62!important}
+input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;border-color:#d4af37!important}
+::-webkit-scrollbar{background:#080808}::-webkit-scrollbar-thumb{background:#6b5720;border-radius:8px}
+
 </style>
 </head>
 <body>
 <div class="app">
-<header class="topbar"><div class="toprow"><div class="brand"><h1>Capitol Carnage GM Lab</h1><p id="subline">Pride LG engine • SF • TEP • sack-premium IDP • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav></header>
+<header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Pride LG engine • SF • TEP • sack-premium IDP • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav></header>
 
 <section id="dashboard" class="view"></section>
 <section id="trade" class="view"></section>
 <section id="fa" class="view"></section>
 <section id="draft" class="view"></section>
 <section id="market" class="view"></section>
+<section id="analyzer" class="view"></section>
 <section id="sync" class="view"></section>
 <section id="settings" class="view"></section>
 <div class="footer">Local-first PWA. Public hosting contains app code only; your league edits, values and saved transactions remain on this device unless you export them.</div>
 </div>
 <datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='2.3.0-roster-first';
+const APP_VERSION='2.5.0-black-gold';
 const DEFAULT_CONFIG={leagueName:'Pride LG',teamName:'Capitol Carnage',teams:12,salaryCap:1000,superflex:true,tep:true,idp:true,sackPremium:true,threshold:80,requiredProngs:4,hardReq:3,consolidationPremium:4,elitePremium:7,replacement:{QB:265,RB:155,WR:170,TE:145,EDGE:145,DL:130,LB:150,S:135,CB:120,PICK:0},weights:{market:.18,projection:.18,replacement:.12,contract:.15,age:.08,role:.08,trend:.08,scarcity:.06,liquidity:.04,risk:.03}};
 const seedAssets=[
 {id:'love',name:'Jordan Love',type:'PLAYER',pos:'QB',nfl:'GB',age:27,market:8200,adp:26,ecr:20,proj:352,ppg:20.7,role:93,trend:3,risk:18,liquidity:90,salary:87.81,years:3,roster:'Capitol Carnage',source:'Manual seed'},
@@ -252,12 +290,29 @@ function tradeAnalysis(){
   let vc=verdict.includes('ACCEPT')||verdict==='APPROVE'?'vgood':verdict==='REJECT'?'vbad':'vwarn';
   return {r,g,edge,needle,prongRows,gates,gc,majority,hard,grade,verdict,vc}
 }
+
+function nflWeekEstimate(){const d=new Date(),y=d.getFullYear(),kickoff=new Date(`${y}-09-03T00:00:00`);if(d<kickoff)return 0;return clamp(Math.floor((d-kickoff)/(7*86400000))+1,1,18)}
+function currentProductionWeight(){const w=nflWeekEstimate();if(w<=0)return 0;return clamp(.12+(w-1)*.07,.12,.75)}
+function normalizedPos(p){p=String(p||'').toUpperCase();if(['DE','DT','EDGE','DL'].includes(p))return'DL';if(['CB','S','DB'].includes(p))return'DB';return p}
+function teamStarterPool(team){const counts={QB:2,RB:2,WR:3,TE:1,DL:2,LB:2,DB:2},by={},out=[];teamAssets(team).filter(a=>a.type!=='PICK').forEach(a=>(by[normalizedPos(a.pos)]??=[]).push(a));for(const [p,n] of Object.entries(counts)){(by[p]||[]).sort((a,b)=>Number(b.proj||0)-Number(a.proj||0));out.push(...(by[p]||[]).slice(0,n))}return out}
+function weeklyVector(a){return Array.isArray(a.weeklyScores)?a.weeklyScores.map(Number).filter(Number.isFinite):[]}
+function playerVolatility(a){const w=weeklyVector(a);if(w.length>=2){const m=w.reduce((s,x)=>s+x,0)/w.length,v=w.reduce((s,x)=>s+(x-m)**2,0)/w.length;return m?Math.sqrt(v)/m:0}return clamp((Number(a.risk||45)*.007)+((100-Number(a.role||50))*.002),.12,.95)}
+function playerProduction(a){const w=weeklyVector(a);return w.length?w.reduce((s,x)=>s+x,0):Number(a.actual||a.ytd||0)}
+function teamMetrics(team){const starters=teamStarterPool(team),roster=teamAssets(team).filter(a=>a.type!=='PICK'),projected=starters.reduce((s,a)=>s+Number(a.proj||0),0),actual=starters.reduce((s,a)=>s+playerProduction(a),0),pw=currentProductionWeight(),wk=nflWeekEstimate(),ann=(wk&&actual)?actual/wk*17:0,blend=projected*(1-pw)+(ann||projected)*pw,vol=starters.length?starters.reduce((s,a)=>s+playerVolatility(a),0)/starters.length:0,floor=blend*(1-clamp(vol*.38,.05,.32)),ceiling=blend*(1+clamp(vol*.52,.08,.45)),asset=roster.reduce((s,a)=>s+modelValue(a),0),label=vol<.28?'STABLE':vol<.48?'MIXED':'BOOM/BUST';return{team,projected,actual,blend,vol,floor,ceiling,asset,label,score:blend+asset*.002}}
+function leaguePower(){const a=(db.mfl?.franchises||[]).map(f=>teamMetrics(f.name)).sort((x,y)=>y.score-x.score),mx=a[0]?.score||1,mn=a[a.length-1]?.score||0;a.forEach((x,i)=>{x.rank=i+1;x.powerPct=mx===mn?100:55+45*(x.score-mn)/(mx-mn)});return a}
+function volatilityClass(x){return x==='STABLE'?'riskStable':x==='MIXED'?'riskMixed':'riskBoom'}
+function renderAnalyzer(){const arr=leaguePower(),pw=currentProductionWeight(),wk=nflWeekEstimate(),mine=arr.find(x=>x.team===db.config.teamName);analyzer.innerHTML=`<div class="card"><div class="sectionhead"><h2>League Power Analyzer</h2><span class="pill">${wk?'WEEK '+wk:'PRESEASON'}</span></div><div class="notice"><b>Adaptive rankings:</b> preseason is projection-driven; actual production gains weight as the season grows.</div><div class="teamProfileGrid" style="margin-top:10px"><div class="metric"><b>${Math.round((1-pw)*100)}%</b><span>Projection weight</span></div><div class="metric"><b>${Math.round(pw*100)}%</b><span>Production weight</span></div><div class="metric"><b>${mine?'#'+mine.rank:'—'}</b><span>Your rank</span></div><div class="metric"><b>${mine?mine.label:'—'}</b><span>Volatility</span></div><div class="metric"><b>${mine?Math.round(mine.blend):0}</b><span>Power points</span></div></div></div><div class="card" style="margin-top:12px;overflow:auto"><table class="powerTable"><thead><tr><th>#</th><th>Team</th><th>Power</th><th>Proj</th><th>Actual</th><th>Floor/Ceiling</th><th>Profile</th><th>Roster Value</th></tr></thead><tbody>${arr.map(x=>`<tr><td><b>${x.rank}</b></td><td><b>${x.team}</b></td><td><div class="powerBar"><i style="width:${x.powerPct}%"></i></div><span class="small">${x.score.toFixed(0)}</span></td><td>${x.projected.toFixed(0)}</td><td>${x.actual?x.actual.toFixed(1):'—'}</td><td>${x.floor.toFixed(0)} / ${x.ceiling.toFixed(0)}</td><td><span class="riskBadge ${volatilityClass(x.label)}">${x.label}</span></td><td>${fmt(x.asset)}</td></tr>`).join('')}</tbody></table></div>`}
+
+let pendingScreenshotTrade=null;
+async function handleTradeScreenshot(file){if(!file)return;const out=document.getElementById('tradeShotResult'),r=new FileReader();r.onload=()=>out.innerHTML=`<img class="tradePreview" src="${r.result}"><div class="notice">Analyzing screenshot…</div>`;r.readAsDataURL(file);try{let base=(db.mfl.proxyUrl||'').trim().replace(/\/$/,'');if(!base)throw new Error('Worker URL not configured');const fd=new FormData();fd.append('image',file);const res=await fetch(base+'/parse-trade-image',{method:'POST',body:fd});const p=await res.json();if(!res.ok||!p.ok)throw new Error(p.error||'Image parse failed');pendingScreenshotTrade=p.trade;out.innerHTML+=`<div class="aiResult"><b>Detected Trade</b><div class="grid"><div><b>${p.trade.sideA?.team||'Side A'}</b>${(p.trade.sideA?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div><div><b>${p.trade.sideB?.team||'Side B'}</b>${(p.trade.sideB?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div></div><button onclick="loadScreenshotTrade()">Confirm & Load</button></div>`}catch(e){out.innerHTML+=`<div class="notice"><b>Screenshot import:</b> ${e.message}</div>`}}
+function findAssetByLooseName(n,t=''){n=String(n||'').toLowerCase();return (t?teamAssets(t):db.assets).find(a=>String(a.name||'').toLowerCase()===n)||(t?teamAssets(t):db.assets).find(a=>String(a.name||'').toLowerCase().includes(n))}
+function loadScreenshotTrade(){const t=pendingScreenshotTrade;if(!t)return;const sides=[t.sideA,t.sideB],ours=sides.find(s=>String(s.team||'').toLowerCase().includes(String(db.config.teamName||'').toLowerCase())),theirs=sides.find(s=>s!==ours);if(theirs?.team)tradeState.opponent=theirs.team;tradeState.give=[];tradeState.receive=[];(ours?.assets||[]).forEach(n=>{const a=findAssetByLooseName(n,db.config.teamName);if(a)tradeState.give.push({assetId:a.id,salaryOverride:'',yearsOverride:''})});(theirs?.assets||[]).forEach(n=>{const a=findAssetByLooseName(n,theirs.team);if(a)tradeState.receive.push({assetId:a.id,salaryOverride:'',yearsOverride:''})});renderTrade()}
 function renderTrade(){
   ensureTradeOpponent();
   const a=tradeAnalysis(),impact=postTradeImpact();
   const teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(n=>n&&n!==db.config.teamName);
   trade.innerHTML=`
-  <div class="card">
+  <div class="card"><div class="sectionhead"><h2>Import Trade Screenshot</h2><span class="pill">VISION BETA</span></div><div class="uploadZone" onclick="document.getElementById('tradeShot').click()"><b>Upload or photograph a proposed trade</b><br><span class="small">GM's Locker will identify both sides, then ask you to confirm before loading it.</span><input id="tradeShot" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleTradeScreenshot(this.files[0])"></div><div id="tradeShotResult"></div></div><div class="card">
     <div class="sectionhead"><h2>Roster-First Trade Builder</h2><span class="pill">${db.lastSync?'MFL snapshot '+new Date(db.lastSync).toLocaleDateString():'SYNC NEEDED'}</span></div>
     <div class="notice"><b>${db.config.teamName}</b> is always your side. Choose an opponent, then tap players or picks directly from either roster. Synced league data stays on this device between sessions.</div>
   </div>

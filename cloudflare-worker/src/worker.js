@@ -1,12 +1,12 @@
-const ALLOWED_ORIGIN = "https://capitolcarnagegm.github.io";
+const ALLOWED_ORIGINS = new Set(["https://capitolcarnagegm.github.io","https://gmslocker.com","https://www.gmslocker.com"]);
 const MFL_HOST = "www45.myfantasyleague.com";
 const SEASON = "2026";
 const LEAGUE_ID = "29218";
 
 function cors(origin) {
   return {
-    "Access-Control-Allow-Origin": origin === ALLOWED_ORIGIN ? ALLOWED_ORIGIN : "null",
-    "Access-Control-Allow-Methods": "GET,OPTIONS",
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : "null",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
@@ -51,15 +51,15 @@ async function getMFL(type, extraParams = {}) {
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {
-      if (origin !== ALLOWED_ORIGIN) return new Response(null, { status: 403 });
+      if (!ALLOWED_ORIGINS.has(origin)) return new Response(null, { status: 403 });
       return new Response(null, { status: 204, headers: cors(origin) });
     }
 
-    if (request.method !== "GET") {
+    if (!["GET","POST"].includes(request.method)) {
       return json({ ok: false, error: "Method not allowed" }, 405, origin);
     }
 
@@ -77,9 +77,10 @@ export default {
         season: SEASON,
         leagueId: LEAGUE_ID,
         upstream: MFL_HOST
-      }, 200, origin || ALLOWED_ORIGIN);
+      }, 200, origin || "https://gmslocker.com");
     }
 
+    if (u.pathname === "/parse-trade-image" && request.method === "POST") { if(!env.AI)return json({ok:false,error:"Workers AI binding not configured"},500,origin); try{const form=await request.formData(),file=form.get("image");if(!file||typeof file==="string")return json({ok:false,error:"No image"},400,origin);const bytes=[...new Uint8Array(await file.arrayBuffer())];const prompt=`Read this fantasy football trade screenshot. Return ONLY JSON: {"sideA":{"team":"team name if visible","assets":["asset"]},"sideB":{"team":"team name if visible","assets":["asset"]},"confidence":0.0}. Do not invent missing assets.`;const ai=await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct",{image:bytes,prompt});const text=ai?.response||String(ai||""),m=text.match(/\{[\s\S]*\}/);if(!m)return json({ok:false,error:"Could not structure trade"},422,origin);const p=JSON.parse(m[0]);return json({ok:true,trade:{sideA:p.sideA||{},sideB:p.sideB||{}},confidence:Number(p.confidence||.75)},200,origin)}catch(e){return json({ok:false,error:String(e?.message||e)},500,origin)} }
     if (u.pathname === "/sync") {
       try {
         const results = await Promise.allSettled([
