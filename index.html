@@ -100,6 +100,28 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 .percentileBar{height:8px;background:#252525;border-radius:999px;overflow:hidden}.percentileBar i{display:block;height:100%;background:#d4af37}
 @media(max-width:900px){.analysisHero{grid-template-columns:1fr 1fr}.strengthGrid,.importGrid{grid-template-columns:1fr}}
 
+
+/* v3.2 FA BID LAB */
+.faMasterGrid{display:grid;grid-template-columns:1.35fr .65fr;gap:12px}
+.faFilters{display:grid;grid-template-columns:1.4fr .6fr .6fr .6fr;gap:8px}
+.faTable{width:100%;border-collapse:collapse}
+.faTable th,.faTable td{padding:8px;border-bottom:1px solid #302815;font-size:11px;text-align:left}
+.faTable tbody tr:hover{background:#12100a}
+.bidBox{border:1px solid #5a4a1b;background:#0d0d0d;border-radius:14px;padding:14px}
+.bidDollar{font-size:42px;font-weight:1000;color:#f1cf62}
+.bidFactor{display:grid;grid-template-columns:120px 1fr 42px;gap:8px;align-items:center;margin:7px 0}
+.bidFactorBar{height:8px;background:#232323;border-radius:999px;overflow:hidden}
+.bidFactorBar i{display:block;height:100%;background:#d4af37}
+.bidGrade{display:inline-flex;padding:4px 8px;border-radius:999px;border:1px solid #6b5720;color:#f1cf62;font-weight:900}
+@media(max-width:1000px){.faMasterGrid{grid-template-columns:1fr}.faFilters{grid-template-columns:1fr 1fr}}
+
+
+/* v3.3 SAFARI-SAFE SCREENSHOT UPLOADS */
+.nativeUpload{display:block;border:2px dashed #6b5720;background:#0b0b0b;border-radius:14px;padding:16px;text-align:center}
+.nativeUpload input[type=file]{display:block;width:100%;margin-top:10px;padding:10px;background:#111;color:#fff;border:1px solid #6b5720;border-radius:10px}
+.nativeUpload strong{color:#f1cf62;font-size:13px}
+.uploadHint{font-size:10px;color:#aaa;margin-top:5px}
+
 </style>
 </head>
 <body>
@@ -119,7 +141,7 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 </div>
 <datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='3.0.0-front-office';
+const APP_VERSION='3.3.0-upload-fix';
 const DEFAULT_CONFIG={leagueName:'Pride LG',teamName:'Capitol Carnage',teams:12,salaryCap:1000,superflex:true,tep:true,idp:true,sackPremium:true,threshold:80,requiredProngs:4,hardReq:3,consolidationPremium:4,elitePremium:7,replacement:{QB:265,RB:155,WR:170,TE:145,EDGE:145,DL:130,LB:150,S:135,CB:120,PICK:0},weights:{market:.18,projection:.18,replacement:.12,contract:.15,age:.08,role:.08,trend:.08,scarcity:.06,liquidity:.04,risk:.03}};
 const seedAssets=[
 {id:'love',name:'Jordan Love',type:'PLAYER',pos:'QB',nfl:'GB',age:27,market:8200,adp:26,ecr:20,proj:352,ppg:20.7,role:93,trend:3,risk:18,liquidity:90,salary:87.81,years:3,roster:'Capitol Carnage',source:'Manual seed'},
@@ -455,6 +477,7 @@ async function postImagesToWorker(path,files){
 }
 window.pendingRosterImports=[];
 async function handleRosterScreenshots(files){
+  if(files && files.length){const n=document.getElementById('rosterImportReview');if(n)n.innerHTML=`<div class="notice"><b>${files.length} screenshot${files.length===1?'':'s'} selected.</b> Sending to AI reader…</div>`;}
   const out=document.getElementById('rosterImportReview');if(!files?.length)return;out.innerHTML='<div class="notice">Reading roster screenshots…</div>';
   try{const p=await postImagesToWorker('/parse-roster-images',files);window.pendingRosterImports=p.teams||[];renderRosterImportReview()}
   catch(e){out.innerHTML=`<div class="notice"><b>Roster import failed:</b> ${e.message}</div>`}
@@ -489,6 +512,7 @@ function commitRosterMerge(){
 }
 window.pendingFAImports=[];
 async function handleFAScreenshots(files){
+  if(files && files.length){const n=document.getElementById('faImportReview');if(n)n.innerHTML=`<div class="notice"><b>${files.length} screenshot${files.length===1?'':'s'} selected.</b> Sending to AI reader…</div>`;}
   const out=document.getElementById('faImportReview');if(!files?.length)return;out.innerHTML='<div class="notice">Reading free-agent screenshots…</div>';
   try{const p=await postImagesToWorker('/parse-fa-images',files);window.pendingFAImports=p.players||[];renderFAImportReview()}
   catch(e){out.innerHTML=`<div class="notice"><b>FA import failed:</b> ${e.message}</div>`}
@@ -590,10 +614,186 @@ function saveTrade(){
   db.savedTrades=db.savedTrades.slice(0,50);persist();alert('Trade saved on this device.')
 }
 
-function renderFA(){let e=faEval();fa.innerHTML=`<div class="card"><div class="sectionhead"><h2>FA Screenshot Import</h2><span class="pill">MFL CORRECTION</span></div>
-    <div class="notice">Upload one or multiple screenshots of the free-agent pool. GM's Locker will extract names and visible values, then show a review before merging them into Free Agency.</div>
-    <div class="importZone" style="margin-top:10px" onclick="document.getElementById('faShots').click()"><b>Upload free-agent screenshots</b><br><span class="small">Multiple screenshots supported.</span><input id="faShots" type="file" accept="image/*" multiple style="display:none" onchange="handleFAScreenshots(this.files)"></div>
-    <div id="faImportReview"></div></div><div style="height:12px"></div><div class="grid"><div class="card"><h2>Free Agency Value Checker</h2><div class="field"><label>Player</label><select onchange="faState.assetId=this.value;renderFA()"><option value="">Select player</option>${db.assets.filter(a=>a.type==='PLAYER').map(a=>`<option value="${a.id}" ${faState.assetId===a.id?'selected':''}>${a.name} · ${a.pos}</option>`).join('')}</select></div><div class="grid3"><div class="field"><label>Your contemplated bid</label><input type="number" value="${faState.bid}" oninput="faState.bid=Number(this.value);renderFA()"></div><div class="field"><label>Contract years</label><input type="number" value="${faState.years}" oninput="faState.years=Number(this.value);renderFA()"></div><div class="field"><label>Available cap</label><input value="$${db.config.salaryCap}" disabled></div></div>${e?`<div class="grid4"><div class="metric"><b>$${e.modelBid}</b><span>Model value bid</span></div><div class="metric"><b>$${e.expected}</b><span>Expected competitive bid</span></div><div class="metric"><b>$${e.maxBid}</b><span>Our hard max</span></div><div class="metric"><b class="${e.zc}">${e.zone}</b><span>Current bid zone</span></div></div><div class="barWrap"><div class="balance"><div class="needle" style="left:${clamp((e.bid/(Math.max(1,e.maxBid*1.3)))*100,3,97)}%"></div></div><div class="barlabels"><span>STEAL</span><span>FAIR/MAX</span><span>OVERPAY</span></div></div><div class="notice"><b>${e.a.name}</b>: projected ${e.a.proj||0} points, ${e.par.toFixed(0)} points above replacement, contract score ${e.contract.toFixed(0)}, Pride value ${fmt(e.mv)}. The max bid rises for scarce starting roles and falls when replacement alternatives are close.</div>`:'<div class="notice">Select a player to generate a bid range.</div>'}</div><div class="card"><h2>Replacement Tree</h2>${e?replacementTree(e.a):'<div class="small">The app will show cheaper alternatives at the same position once a target is selected.</div>'}</div></div><div class="card" style="margin-top:12px"><h2>Free Agent Comparison</h2>${faComparison()}</div>`}
+
+function mflPlayerUniverse(){
+  const raw=db.mfl?.rawPlayers||db.mfl?.playersRaw||db.mfl?.players||{};
+  if(Array.isArray(raw)) return raw;
+  if(Array.isArray(raw?.players?.player)) return raw.players.player;
+  if(Array.isArray(raw?.player)) return raw.player;
+  if(raw?.players?.player && typeof raw.players.player==='object') return Object.values(raw.players.player);
+  if(raw && typeof raw==='object'){
+    const vals=Object.values(raw);
+    if(vals.length && vals.some(v=>v&&typeof v==='object')) return vals;
+  }
+  return [];
+}
+function ownedLeaguePlayerIds(){
+  const ids=new Set();
+  for(const a of (db.assets||[])){
+    const r=String(a.roster||'').toUpperCase();
+    if(r && r!=='FREE AGENT' && r!=='FA'){
+      if(a.mflId) ids.add(String(a.mflId));
+      if(String(a.id||'').match(/^\d+$/)) ids.add(String(a.id));
+    }
+  }
+  return ids;
+}
+function activeFantasyPlayer(p){
+  const pos=String(p.position||p.pos||'').toUpperCase();
+  if(!['QB','RB','WR','TE','DL','DE','DT','LB','CB','S','DB','K','PK'].includes(pos)) return false;
+  const st=String(p.status||p.playerStatus||'').toLowerCase();
+  if(/retired|inactive permanently/.test(st)) return false;
+  return !!(p.id||p.player_id||p.name);
+}
+function deriveLeagueFreeAgents(){
+  const owned=ownedLeaguePlayerIds();
+  const byMfl=new Map((db.assets||[]).filter(a=>a.mflId).map(a=>[String(a.mflId),a]));
+  const byName=new Map((db.assets||[]).map(a=>[String(a.name||'').toLowerCase(),a]));
+  const out=[];
+  for(const p of mflPlayerUniverse()){
+    const id=String(p.id||p.player_id||p.playerId||'');
+    if(id && owned.has(id)) continue;
+    if(!activeFantasyPlayer(p)) continue;
+    const name=p.name||p.fullName||p.player_name||'';
+    if(!name) continue;
+    const local=byMfl.get(id)||byName.get(String(name).toLowerCase());
+    if(local){
+      const r=String(local.roster||'').toUpperCase();
+      if(r && r!=='FREE AGENT' && r!=='FA') continue;
+    }
+    out.push({
+      id:id||local?.id||name,
+      mflId:id,
+      name,
+      pos:String(p.position||p.pos||local?.pos||'').toUpperCase(),
+      nfl:String(p.team||p.nflTeam||local?.nfl||''),
+      age:Number(p.age||local?.age||0),
+      proj:Number(p.proj||p.projectedPoints||local?.proj||0),
+      role:Number(local?.role||50),
+      trend:Number(local?.trend||0),
+      risk:Number(local?.risk||45),
+      market:Number(local?.market||0),
+      roster:'FREE AGENT',
+      source:local?.source||'MFL'
+    });
+  }
+  if(!out.length){
+    for(const a of (db.assets||[])){
+      const r=String(a.roster||'').toUpperCase();
+      if(r==='FREE AGENT'||r==='FA') out.push({...a});
+    }
+  }
+  return out.sort((a,b)=>(Number(b.proj||0)-Number(a.proj||0))||(modelValue(b)-modelValue(a)));
+}
+window.faSelectedPlayer=null;
+function blindBidModel(a,ov={}){
+  const pos=normalizedPos(a?.pos||ov.pos||'WR');
+  const proj=Math.max(0,Number(ov.proj??a?.proj??0));
+  const role=Math.max(0,Math.min(100,Number(ov.role??a?.role??50)));
+  const sentiment=Math.max(0,Math.min(100,Number(ov.sentiment??(50+Number(a?.trend||0)*3))));
+  const breakout=Math.max(0,Math.min(100,Number(ov.breakout??Math.max(15,Math.min(85,35+(100-Number(a?.risk||45))*.2+(role-50)*.35)))));
+  const security=Math.max(0,Math.min(100,Number(ov.security??(100-Number(a?.risk||45)))));
+  const age=Number(ov.age??a?.age??25);
+  const budget=Math.max(1,Number(ov.budget??db.config?.faBudget??100));
+  const baseline={QB:260,RB:150,WR:165,TE:145,DL:120,LB:130,DB:115}[pos]||150;
+  const scarcity={QB:1.18,RB:1.24,WR:1.00,TE:1.12,DL:1.10,LB:1.05,DB:.92}[pos]||1;
+  const production=Math.max(.15,Math.min(1.6,proj/baseline));
+  const roleM=.55+role/100*.75, sentM=.82+sentiment/100*.36, breakM=.82+breakout/100*.50, secM=.78+security/100*.42;
+  let ageM=1;
+  if(pos==='RB') ageM=age<=24?1.08:age<=27?1:age<=29?.90:.75;
+  else if(['WR','TE'].includes(pos)) ageM=age<=25?1.06:age<=29?1:age<=31?.92:.82;
+  else if(pos==='QB') ageM=age<=30?1.03:age<=34?1:.92;
+  else ageM=age<=27?1.04:age<=30?1:.90;
+  let pct=.018+.105*production*roleM*sentM*breakM*secM*scarcity*ageM;
+  pct=Math.max(.005,Math.min(.42,pct));
+  const target=Math.max(1,Math.round(budget*pct));
+  const floor=Math.max(1,Math.round(target*.72));
+  const ceiling=Math.max(target,Math.round(target*1.28));
+  const score=Math.round(Math.min(100,production*30+role*.20+sentiment*.12+breakout*.18+security*.10+scarcity/1.24*10));
+  const grade=score>=88?'A+':score>=82?'A':score>=76?'A-':score>=70?'B+':score>=64?'B':score>=58?'B-':'C';
+  return {target,floor,ceiling,score,grade,proj,role,sentiment,breakout,security,pos,scarcity};
+}
+function selectFABidPlayer(id){
+  const arr=deriveLeagueFreeAgents();
+  window.faSelectedPlayer=arr.find(a=>String(a.mflId||a.id)===String(id))||null;
+  renderFABidPanel();
+}
+function renderFABidPanel(){
+  const el=document.getElementById('faBidPanel'); if(!el)return;
+  const a=window.faSelectedPlayer;
+  if(!a){el.innerHTML='<div class="bidBox"><h2>Blind Bid Analysis</h2><div class="notice">Select any unowned active player or add one manually.</div></div>';return}
+  const b=blindBidModel(a,{breakout:a._breakout});
+  el.innerHTML=`<div class="bidBox"><div class="sectionhead"><h2>${a.name}</h2><span class="bidGrade">${b.grade}</span></div>
+    <div class="bidDollar">$${b.target}</div><div class="small">Recommended blind bid · range $${b.floor}–$${b.ceiling}</div>
+    ${[['Projection',Math.min(100,b.proj/3)],['Role',b.role],['Sentiment',b.sentiment],['Breakout',b.breakout],['Security',b.security],['Scarcity',Math.min(100,b.scarcity/1.24*100)]].map(([n,v])=>`<div class="bidFactor"><span>${n}</span><div class="bidFactorBar"><i style="width:${Math.max(0,Math.min(100,v))}%"></i></div><b>${Math.round(v)}</b></div>`).join('')}
+    <div class="notice" style="margin-top:10px"><b>Model:</b> projection sets the base; role and security decide how bankable it is; sentiment prices room demand; breakout logic prices upside; scarcity adjusts replacement value.</div></div>`;
+}
+function manualFABid(){
+  const a={id:'manual_'+Date.now(),name:(document.getElementById('faManualName')?.value||'Manual Player').trim(),
+    pos:document.getElementById('faManualPos')?.value||'WR',
+    age:Number(document.getElementById('faManualAge')?.value||25),
+    proj:Number(document.getElementById('faManualProj')?.value||0),
+    role:Number(document.getElementById('faManualRole')?.value||50),
+    trend:(Number(document.getElementById('faManualSent')?.value||50)-50)/3,
+    risk:100-Number(document.getElementById('faManualSecurity')?.value||50),
+    roster:'FREE AGENT',source:'Manual'};
+  a._breakout=Number(document.getElementById('faManualBreakout')?.value||35);
+  window.faSelectedPlayer=a; renderFABidPanel();
+}
+function renderFreeAgentMaster(){
+  const root=document.getElementById('faMasterList'); if(!root)return;
+  let arr=deriveLeagueFreeAgents();
+  const q=String(document.getElementById('faSearch')?.value||'').toLowerCase();
+  const pos=String(document.getElementById('faPosFilter')?.value||'ALL');
+  if(q) arr=arr.filter(a=>String(a.name||'').toLowerCase().includes(q)||String(a.nfl||'').toLowerCase().includes(q));
+  if(pos!=='ALL') arr=arr.filter(a=>normalizedPos(a.pos)===pos);
+  root.innerHTML=`<div style="overflow:auto"><table class="faTable"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Proj</th><th>Age</th><th>Blind Bid</th><th>Grade</th><th></th></tr></thead><tbody>
+    ${arr.slice(0,500).map(a=>{const b=blindBidModel(a);return `<tr><td><b>${a.name}</b></td><td>${normalizedPos(a.pos)}</td><td>${a.nfl||'—'}</td><td>${a.proj?Math.round(a.proj):'—'}</td><td>${a.age||'—'}</td><td><b>$${b.target}</b><br><span class="small">$${b.floor}–$${b.ceiling}</span></td><td><span class="bidGrade">${b.grade}</span></td><td><button onclick="selectFABidPlayer('${String(a.mflId||a.id).replace(/'/g,"\\'")}')">Analyze Bid</button></td></tr>`}).join('')}
+  </tbody></table></div><div class="small" style="margin-top:8px">${arr.length} active unowned players. Pool = MFL active player universe minus all Pride LG owned players.</div>`;
+}
+
+function renderFA(){
+  fa.innerHTML=`
+  <div class="card">
+    <div class="sectionhead"><h2>Free Agency — Active Unowned Players</h2><span class="pill">14-TEAM PRIDE LG</span></div>
+    <div class="notice"><b>Automatic list:</b> every active NFL player from MFL minus everybody owned by any Pride LG franchise. Active roster, minors/taxi, IR and reserve ownership all count as owned.</div>
+    <div class="faFilters" style="margin-top:10px">
+      <div class="field"><label>Search player / NFL team</label><input id="faSearch" oninput="renderFreeAgentMaster()" placeholder="Search free agents"></div>
+      <div class="field"><label>Position</label><select id="faPosFilter" onchange="renderFreeAgentMaster()"><option>ALL</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>DL</option><option>LB</option><option>DB</option></select></div>
+      <div class="field"><label>Available FA cap</label><input type="number" value="${Number(db.config?.faBudget||100)}" onchange="db.config.faBudget=Number(this.value||100);persist();renderFreeAgentMaster();renderFABidPanel()"></div>
+      <div class="field"><label>Pool source</label><input value="MFL minus owned" disabled></div>
+    </div>
+  </div>
+  <div class="faMasterGrid" style="margin-top:12px">
+    <div>
+      <div class="card"><div id="faMasterList"></div></div>
+      <div class="card" style="margin-top:12px">
+        <div class="sectionhead"><h2>FA Screenshot Import</h2><span class="pill">CORRECTION LAYER</span></div>
+        <div class="notice">If MFL misses a player, upload the FA screen and merge him here.</div>
+        <label class="nativeUpload"><strong>Upload free-agent screenshots</strong><div class="uploadHint">Choose one or multiple screenshots.</div><input id="faShots" type="file" accept="image/*" multiple onchange="handleFAScreenshots(this.files)"></label>
+        <div id="faImportReview"></div>
+      </div>
+    </div>
+    <div>
+      <div id="faBidPanel"></div>
+      <div class="card" style="margin-top:12px">
+        <div class="sectionhead"><h2>Add Player + Price Bid</h2><span class="pill">MANUAL OVERRIDE</span></div>
+        <div class="field"><label>Player</label><input id="faManualName" placeholder="Any player"></div>
+        <div class="grid" style="margin-top:8px">
+          <div class="field"><label>Pos</label><select id="faManualPos"><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>DL</option><option>LB</option><option>DB</option></select></div>
+          <div class="field"><label>Age</label><input id="faManualAge" type="number" value="25"></div>
+          <div class="field"><label>Projection</label><input id="faManualProj" type="number" value="120"></div>
+          <div class="field"><label>Role %</label><input id="faManualRole" type="number" value="50"></div>
+          <div class="field"><label>Sentiment</label><input id="faManualSent" type="number" min="0" max="100" value="50"></div>
+          <div class="field"><label>Breakout %</label><input id="faManualBreakout" type="number" min="0" max="100" value="35"></div>
+          <div class="field"><label>Role security</label><input id="faManualSecurity" type="number" min="0" max="100" value="50"></div>
+        </div>
+        <div class="actions"><button onclick="manualFABid()">PRICE BLIND BID</button></div>
+      </div>
+    </div>
+  </div>`;
+  renderFreeAgentMaster(); renderFABidPanel();
+}
 function replacementTree(a){let sims=db.assets.filter(x=>x.type==='PLAYER'&&x.pos===a.pos&&x.id!==a.id).map(x=>({x,ratio:(Number(x.proj)||0)/Math.max(1,Number(a.proj)||1)})).sort((p,q)=>Math.abs(1-p.ratio)-Math.abs(1-q.ratio)).slice(0,4);return sims.length?sims.map((o,i)=>`<div class="gate"><span><b>Fallback ${i+1}: ${o.x.name}</b><br><span class="small">${(o.ratio*100).toFixed(0)}% of target projection · Pride ${fmt(modelValue(o.x))}</span></span><b>${signal(o.x)[0]}</b></div>`).join(''):'<div class="small">Add more players at this position to build replacement options.</div>'}
 function faComparison(){return `<div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Proj</th><th>Above repl</th><th>Market</th><th>Pride</th><th>Signal</th></tr></thead><tbody>${db.assets.filter(a=>a.type==='PLAYER').sort((a,b)=>modelValue(b)-modelValue(a)).slice(0,30).map(a=>`<tr><td>${a.name}</td><td>${a.pos}</td><td>${a.proj||0}</td><td>${((a.proj||0)-replacement(a)).toFixed(0)}</td><td>${fmt(a.market)}</td><td>${fmt(modelValue(a))}</td><td class="${signal(a)[1]}">${signal(a)[0]}</td></tr>`).join('')}</tbody></table></div>`}
 function prospectValue(p){let posP={QB:1.15,RB:.95,WR:1.08,TE:.82,EDGE:.85,DL:.72,LB:.65,S:.58,CB:.5}[p.pos]||.65;let score=(p.nflDraftCapital*.28+p.production*.24+p.athletic*.12+p.earlyDeclare*.10+p.competition*.10+(100-p.risk)*.16);return Math.round(6200*posP*(score/90)*(1+(100-Math.min(100,p.rank*4))/450))}
@@ -643,7 +843,7 @@ function renderSync(){
     <div class="sectionhead"><h2>Roster Screenshot Merge</h2><span class="pill">CORRECTION LAYER</span></div>
     <div class="notice"><b>MFL stays primary.</b> Upload screenshots only to fill missing players/fields or reconcile a team. Nothing is committed until you review it.</div>
     <div class="importGrid" style="margin-top:10px">
-      <div class="importZone" onclick="document.getElementById('rosterShots').click()"><b>Upload roster screenshots</b><br><span class="small">One or many screenshots, up to all 14 teams.</span><input id="rosterShots" type="file" accept="image/*" multiple style="display:none" onchange="handleRosterScreenshots(this.files)"></div>
+      <label class="nativeUpload"><strong>Upload roster screenshots</strong><div class="uploadHint">Choose one or multiple team screenshots. Up to all 14 teams.</div><input id="rosterShots" type="file" accept="image/*" multiple onchange="handleRosterScreenshots(this.files)"></label>
       <div class="field"><label>Merge mode</label><select id="rosterMergeMode"><option value="missing">Missing players only</option><option value="fields">Fill missing salary/years/status</option><option value="reconcile">Full reconciliation review</option></select><div class="small" style="margin-top:8px">Safest default: Missing players only.</div></div>
     </div>
     <div id="rosterImportReview"></div>
