@@ -29,7 +29,7 @@
 </div>
 <datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='2.1.0-mfl';
+const APP_VERSION='2.2.0-proxy';
 const DEFAULT_CONFIG={leagueName:'Pride LG',teamName:'Capitol Carnage',teams:12,salaryCap:1000,superflex:true,tep:true,idp:true,sackPremium:true,threshold:80,requiredProngs:4,hardReq:3,consolidationPremium:4,elitePremium:7,replacement:{QB:265,RB:155,WR:170,TE:145,EDGE:145,DL:130,LB:150,S:135,CB:120,PICK:0},weights:{market:.18,projection:.18,replacement:.12,contract:.15,age:.08,role:.08,trend:.08,scarcity:.06,liquidity:.04,risk:.03}};
 const seedAssets=[
 {id:'love',name:'Jordan Love',type:'PLAYER',pos:'QB',nfl:'GB',age:27,market:8200,adp:26,ecr:20,proj:352,ppg:20.7,role:93,trend:3,risk:18,liquidity:90,salary:87.81,years:3,roster:'Capitol Carnage',source:'Manual seed'},
@@ -122,14 +122,15 @@ function renderSync(){
   sync.innerHTML=`<div class="grid">
     <div class="card">
       <div class="sectionhead"><h2>MFL Sync — Pride LG</h2><span class="pill">2026 · LEAGUE 29218</span></div>
-      <div class="notice"><b>One-button read-only sync.</b> It imports the live MFL league into GM Lab. It never submits bids, drops, lineups or trades.</div>
+      <div class="notice"><b>Secure server-side sync.</b> GM Lab talks to your Cloudflare Worker; the Worker talks to MFL. No MFL password is stored and this connection is read-only.</div>
+      <div class="field" style="margin-top:10px"><label>Cloudflare Worker URL</label><input placeholder="https://capitol-carnage-mfl-sync.YOUR-SUBDOMAIN.workers.dev" value="${m.proxyUrl||''}" onchange="db.mfl.proxyUrl=this.value.trim();persist()"></div>
       <div class="grid3" style="margin-top:10px">
-        <div class="field"><label>MFL host</label><input value="${m.host}" onchange="db.mfl.host=this.value;persist()"></div>
-        <div class="field"><label>Season</label><input type="number" value="${m.year}" onchange="db.mfl.year=Number(this.value);persist()"></div>
-        <div class="field"><label>League ID</label><input value="${m.leagueId}" onchange="db.mfl.leagueId=this.value;persist()"></div>
+        <div class="field"><label>MFL host</label><input value="www45.myfantasyleague.com" disabled></div>
+        <div class="field"><label>Season</label><input value="2026" disabled></div>
+        <div class="field"><label>League ID</label><input value="29218" disabled></div>
       </div>
-      <div class="actions"><button onclick="syncMFL()">SYNC PRIDE LG NOW</button><button class="secondary" onclick="testMFLConnection()">Test Connection</button></div>
-      <div id="syncStatus" class="small" style="margin-top:9px">${db.lastSync?'Last successful sync: '+new Date(db.lastSync).toLocaleString():'Not synced yet'}</div>
+      <div class="actions"><button onclick="syncMFL()">SYNC PRIDE LG NOW</button><button class="secondary" onclick="testMFLConnection()">Test Sync Service</button></div>
+      <div id="syncStatus" class="small" style="margin-top:9px">${db.lastSync?'Last successful sync: '+new Date(db.lastSync).toLocaleString():'Worker not connected yet'}</div>
       ${renderSyncSummary()}
     </div>
     <div class="card">
@@ -138,7 +139,7 @@ function renderSync(){
         ['Franchises','All Pride LG team names and IDs'],
         ['Rosters','Current owner of every rostered player'],
         ['Free agents','Unowned MFL players become searchable FAs'],
-        ['Player IDs','Stable MFL identity, team and position'],
+        ['Player IDs','Stable MFL identity, NFL team and position'],
         ['Salary / contract','Imported whenever MFL exposes those roster fields'],
         ['Standings','Foundation for future-pick slot probabilities'],
         ['Transactions','League-specific market history'],
@@ -147,8 +148,8 @@ function renderSync(){
     </div>
   </div>
   <div class="grid" style="margin-top:12px">
-    <div class="card"><h2>Synced Franchises</h2>${(m.franchises||[]).length?(m.franchises||[]).map(f=>`<div class="gate"><span>${f.name}</span><span class="small">${f.id}</span></div>`).join(''):'<div class="muted">Run the first sync to populate all Pride LG franchises.</div>'}</div>
-    <div class="card"><h2>Recent MFL Activity</h2>${(m.transactions||[]).length?(m.transactions||[]).slice(0,12).map(t=>`<div class="gate"><span><b>${t.franchise||'League'}</b><br><span class="small">${t.type||'transaction'}${t.player?' · '+t.player:''}</span></span></div>`).join(''):'<div class="muted">Transactions will appear here after sync when MFL returns them.</div>'}</div>
+    <div class="card"><h2>Synced Franchises</h2>${(m.franchises||[]).length?(m.franchises||[]).map(f=>`<div class="gate"><span>${f.name}</span><span class="small">${f.id}</span></div>`).join(''):'<div class="muted">Connect the Worker, then run the first sync.</div>'}</div>
+    <div class="card"><h2>Recent MFL Activity</h2>${(m.transactions||[]).length?(m.transactions||[]).slice(0,12).map(t=>`<div class="gate"><span><b>${t.franchise||'League'}</b><br><span class="small">${t.type||'transaction'}${t.player?' · '+t.player:''}</span></span></div>`).join(''):'<div class="muted">Transactions will appear here after sync.</div>'}</div>
   </div>`;
 }
 
@@ -184,6 +185,7 @@ function ensureMFLDefaults(){
   db.mfl.year=Number(db.mfl.year)||2026;
   db.mfl.leagueId=String(db.mfl.leagueId||'29218');
   db.mfl.apiKey=db.mfl.apiKey||'';
+  db.mfl.proxyUrl=db.mfl.proxyUrl||'';
   db.mfl.franchises=db.mfl.franchises||[];
   db.mfl.standings=db.mfl.standings||[];
   db.mfl.transactions=db.mfl.transactions||[];
@@ -247,13 +249,23 @@ function renderSyncSummary(){
     <div class="metric"><b>${c.transactions||0}</b><span>Transactions loaded</span></div>
   </div>`;
 }
+
+async function proxyFetch(path){
+  ensureMFLDefaults();
+  let base=(db.mfl.proxyUrl||'').trim().replace(/\/$/,'');
+  if(!base) throw new Error('Cloudflare Worker URL is not set yet.');
+  const res=await fetch(base+path,{method:'GET',mode:'cors',cache:'no-store',headers:{'Accept':'application/json'}});
+  let payload;
+  try{payload=await res.json()}catch(e){throw new Error(`Sync service returned HTTP ${res.status} without JSON.`)}
+  if(!res.ok || payload?.ok===false) throw new Error(payload?.error||`Sync service HTTP ${res.status}`);
+  return payload;
+}
 async function testMFLConnection(){
   const el=document.getElementById('syncStatus');
-  el.textContent='Testing MFL connection…';
+  el.textContent='Testing secure sync service…';
   try{
-    const league=await mflFetch('league');
-    const name=league?.league?.name||'Pride LG';
-    el.innerHTML=`<span class="good">CONNECTED</span> · ${name} · league ${db.mfl.leagueId}`;
+    const x=await proxyFetch('/health');
+    el.innerHTML=`<span class="good">SYNC SERVICE ONLINE</span> · Pride LG ${x.leagueId} · ${x.season}`;
   }catch(err){
     el.innerHTML=`<span class="bad">CONNECTION FAILED:</span> ${err.message}`;
   }
@@ -261,16 +273,15 @@ async function testMFLConnection(){
 async function syncMFL(){
   ensureMFLDefaults();
   const el=document.getElementById('syncStatus');
-  el.innerHTML='Syncing <b>Pride LG 29218</b> from MFL…';
+  el.innerHTML='Securely syncing <b>Pride LG 29218</b> through the Worker…';
   try{
-    const [league,players,rosters]=await Promise.all([
-      mflFetch('league'),mflFetch('players'),mflFetch('rosters')
-    ]);
-
-    const optional={};
-    for(const t of ['standings','transactions','draftResults']){
-      try{optional[t]=await mflFetch(t)}catch(e){optional[t]=null}
-    }
+    const bundle=await proxyFetch('/sync');
+    const league=bundle.data?.league||{};
+    const players=bundle.data?.players||{};
+    const rosters=bundle.data?.rosters||{};
+    const standings=bundle.data?.standings||{};
+    const transactions=bundle.data?.transactions||{};
+    const draftResults=bundle.data?.draftResults||{};
 
     const franchises=mflDeepArray(league,['league.franchises.franchise','franchises.franchise']);
     const franchiseMap={};
@@ -307,13 +318,13 @@ async function syncMFL(){
       freeAgents++;
     }
 
-    db.mfl.standings=mflDeepArray(optional.standings||{},['leagueStandings.franchise','standings.franchise','franchise']).map(s=>{
+    db.mfl.standings=mflDeepArray(standings,['leagueStandings.franchise','standings.franchise','franchise']).map(s=>{
       const fid=String(s.id||s.franchise_id||'');
       return {franchise:franchiseMap[fid]||fid,wins:s.h2hw||s.wins||s.w||0,
         losses:s.h2hl||s.losses||s.l||0,points:s.pf||s.points_for||s.points||0,raw:s};
     });
-    db.mfl.transactions=parseMFLTransactions(optional.transactions||{},franchiseMap,playerMap);
-    db.mfl.draftResults=mflDeepArray(optional.draftResults||{},['draftResults.draftUnit.draftPick','draftResults.draftPick','draftPick']);
+    db.mfl.transactions=parseMFLTransactions(transactions,franchiseMap,playerMap);
+    db.mfl.draftResults=mflDeepArray(draftResults,['draftResults.draftUnit.draftPick','draftResults.draftPick','draftPick']);
     db.mfl.franchises=franchises.map(f=>({id:String(f.id||f.franchise_id||''),name:f.name||f.owner_name||String(f.id||'')}));
 
     if(league?.league?.name)db.config.leagueName=league.league.name;
@@ -322,12 +333,13 @@ async function syncMFL(){
 
     db.mfl.lastCounts={franchises:db.mfl.franchises.length,rostered:owned.size,freeAgents,
       transactions:db.mfl.transactions.length,indexedPlayers:plist.length};
-    db.lastSync=new Date().toISOString();
+    db.lastSync=bundle.syncedAt||new Date().toISOString();
     persist();renderAssetList();renderSync();
+
     const out=document.getElementById('syncStatus');
     if(out)out.innerHTML=`<span class="good">SYNC COMPLETE</span> · ${new Date(db.lastSync).toLocaleString()} · ${db.mfl.lastCounts.franchises} franchises · ${db.mfl.lastCounts.rostered} rostered · ${db.mfl.lastCounts.indexedPlayers} MFL players indexed`;
   }catch(err){
-    el.innerHTML=`<span class="bad">SYNC FAILED:</span> ${err.message}<br><span class="small">Target is already locked to www45.myfantasyleague.com / 2026 / league 29218. If Safari reports a cross-origin block, MFL is refusing browser API access and the next build needs a tiny secure proxy; no password should ever be stored in the public app.</span>`;
+    el.innerHTML=`<span class="bad">SYNC FAILED:</span> ${err.message}`;
   }
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "Capitol Carnage GM Lab",
   "short_name": "Carnage GM",
-  "description": "Pride LG 29218 dynasty salary-cap GM decision engine with MFL sync.",
+  "description": "Pride LG 29218 dynasty salary-cap GM decision engine with secure MFL sync.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
