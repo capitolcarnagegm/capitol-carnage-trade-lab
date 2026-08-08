@@ -12,6 +12,37 @@
 <style>
 :root{--bg:#08101d;--panel:#111b2d;--panel2:#17243a;--line:#2b3a57;--text:#f8fafc;--muted:#9fb0ca;--gold:#f59e0b;--good:#22c55e;--bad:#ef4444;--blue:#38bdf8;--violet:#a78bfa;--warn:#facc15;--shadow:0 12px 36px rgba(0,0,0,.28)}
 *{box-sizing:border-box}html,body{margin:0;background:radial-gradient(circle at top,#13213a 0,#08101d 42%,#070c16 100%);color:var(--text);font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100%}button,input,select,textarea{font:inherit}.app{max-width:1180px;margin:auto;padding:14px 12px 90px}.topbar{position:sticky;top:0;z-index:20;background:rgba(8,16,29,.92);backdrop-filter:blur(14px);border-bottom:1px solid rgba(70,90,125,.35);margin:0 -12px 12px;padding:12px}.toprow{max-width:1180px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand h1{font-size:21px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:11px}.actions{display:flex;gap:7px;flex-wrap:wrap}.btn,button{border:0;border-radius:11px;padding:9px 12px;font-weight:800;background:var(--gold);color:#111827;cursor:pointer}.btn.secondary,button.secondary{background:#263650;color:var(--text)}button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}button.danger{background:#4b1820;color:#fecaca}.nav{display:flex;gap:7px;overflow:auto;padding-bottom:4px}.nav button{white-space:nowrap;background:#17243a;color:#c8d4e8;padding:9px 12px}.nav button.active{background:var(--gold);color:#111827}.view{display:none}.view.active{display:block}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.card{background:linear-gradient(180deg,rgba(23,36,58,.98),rgba(15,25,43,.98));border:1px solid var(--line);border-radius:16px;padding:13px;box-shadow:var(--shadow)}.card h2,.card h3{margin:0 0 9px}.card h2{font-size:16px}.card h3{font-size:14px}.muted,.small{color:var(--muted)}.small{font-size:11px}.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.pill{display:inline-flex;align-items:center;gap:5px;background:#0c1628;border:1px solid var(--line);border-radius:999px;padding:5px 9px;color:#b8c5db;font-size:11px;font-weight:800}.metric{background:#0b1526;border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:19px}.metric span{color:var(--muted);font-size:10px}.field{margin-bottom:8px}.field label{display:block;font-size:10px;color:var(--muted);margin:0 0 4px;font-weight:700}.field input,.field select,.field textarea,input,select,textarea{width:100%;background:#0a1425;color:var(--text);border:1px solid #344560;border-radius:10px;padding:9px 10px;outline:none}.field textarea{min-height:70px;resize:vertical}.asset{background:#111d31;border:1px solid #31425e;border-radius:13px;padding:10px;margin:8px 0}.assetrow{display:grid;grid-template-columns:1.45fr .7fr .55fr;gap:7px}.assetmetrics{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:7px}.signal{font-weight:900}.good{color:#86efac}.bad{color:#fca5a5}.warn{color:#fde68a}.blue{color:#7dd3fc}.barWrap{padding:12px 2px}.balance{height:22px;border-radius:999px;background:linear-gradient(90deg,rgba(34,197,94,.8),rgba(34,197,94,.28) 36%,#475569 50%,rgba(239,68,68,.28) 64%,rgba(239,68,68,.85));position:relative;border:1px solid #475569;overflow:visible}.balance:before{content:"";position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;background:#fff;opacity:.8}.needle{position:absolute;top:50%;width:24px;height:24px;border-radius:50%;background:#fff;border:5px solid var(--gold);transform:translate(-50%,-50%);box-shadow:0 2px 10px #000;transition:left .25s ease}.barlabels{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;margin-top:5px}.acceptable{height:5px;margin-top:6px;border-radius:99px;background:linear-gradient(90deg,transparent 0,transparent 36%,rgba(250,204,21,.8) 36%,rgba(250,204,21,.8) 64%,transparent 64%)}.verdict{padding:12px;border-radius:12px;text-align:center;font-size:18px;font-weight:900;margin-top:10px}.vgood{background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.55);color:#86efac}.vbad{background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.55);color:#fca5a5}.vwarn{background:rgba(245,158,11,.13);border:1px solid rgba(245,158,11,.55);color:#fde68a}.gate{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#0a1425;border:1px solid #263753;border-radius:10px;padding:8px 9px;margin:6px 0}.tableWrap{overflow:auto;border-radius:12px;border:1px solid var(--line)}table{width:100%;border-collapse:collapse;min-width:780px;background:#0a1425}th,td{padding:8px 9px;border-bottom:1px solid #26344d;text-align:left;font-size:11px}th{position:sticky;top:0;background:#17243a;color:#dce6f5}tr:hover td{background:#101c30}.tag{display:inline-block;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:900;background:#283852}.progress{height:9px;border-radius:99px;background:#1f2937;overflow:hidden}.progress>i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#22c55e)}.searchline{display:grid;grid-template-columns:1.7fr .7fr .7fr;gap:8px}.notice{padding:10px;border-radius:10px;background:#0a1425;border-left:3px solid var(--blue);color:#cbd5e1}.footer{color:var(--muted);font-size:10px;text-align:center;margin-top:16px}@media(max-width:800px){.grid,.grid3,.grid4{grid-template-columns:1fr}.assetmetrics{grid-template-columns:1fr 1fr}.assetrow{grid-template-columns:1fr 1fr}.toprow{align-items:flex-start;flex-direction:column}.searchline{grid-template-columns:1fr}.app{padding-bottom:110px}.brand h1{font-size:19px}.nav{margin:0 -2px}}
+
+.rosterTradeGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rosterPanel{background:#101c2f;border:1px solid #243754;border-radius:14px;padding:12px;min-width:0}
+.rosterToolbar{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:10px}
+.rosterToolbar .field{flex:1;min-width:180px}
+.posTabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 10px}
+.posTabs button{padding:7px 10px;font-size:12px}
+.posTabs button.active{background:#f6a500;color:#06111f}
+.rosterList{max-height:540px;overflow:auto;padding-right:3px}
+.posGroup{margin:10px 0 14px}
+.posTitle{position:sticky;top:0;z-index:2;background:#101c2f;padding:7px 0 5px;color:#9fb2ce;font-weight:800;font-size:12px;letter-spacing:.08em}
+.rosterPlayer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid #273a56;background:#0b1628;border-radius:10px;padding:9px;margin:6px 0}
+.rosterPlayer .name{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rosterPlayer .meta{font-size:11px;color:#91a4bf;margin-top:2px}
+.rosterPlayer .quick{display:flex;align-items:center;gap:7px}
+.rosterPlayer .val{font-weight:900;min-width:62px;text-align:right}
+.rosterPlayer button{padding:7px 9px;font-size:11px}
+.tradeCart{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.cartBox{background:#101c2f;border:1px solid #243754;border-radius:14px;padding:12px}
+.cartItem{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;border-bottom:1px solid #243754;padding:8px 0}
+.cartItem:last-child{border-bottom:0}
+.cartItem .smallrow{font-size:11px;color:#91a4bf}
+.rosterImpact{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.teamBadge{display:inline-flex;padding:4px 8px;border-radius:999px;background:#182943;border:1px solid #314763;font-size:11px;font-weight:800}
+.pickBadge{color:#f6c55b}
+@media(max-width:900px){
+  .rosterTradeGrid,.tradeCart{grid-template-columns:1fr}
+  .rosterImpact{grid-template-columns:1fr 1fr}
+  .rosterList{max-height:440px}
+}
+
 </style>
 </head>
 <body>
@@ -29,7 +60,7 @@
 </div>
 <datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='2.2.0-proxy';
+const APP_VERSION='2.3.0-roster-first';
 const DEFAULT_CONFIG={leagueName:'Pride LG',teamName:'Capitol Carnage',teams:12,salaryCap:1000,superflex:true,tep:true,idp:true,sackPremium:true,threshold:80,requiredProngs:4,hardReq:3,consolidationPremium:4,elitePremium:7,replacement:{QB:265,RB:155,WR:170,TE:145,EDGE:145,DL:130,LB:150,S:135,CB:120,PICK:0},weights:{market:.18,projection:.18,replacement:.12,contract:.15,age:.08,role:.08,trend:.08,scarcity:.06,liquidity:.04,risk:.03}};
 const seedAssets=[
 {id:'love',name:'Jordan Love',type:'PLAYER',pos:'QB',nfl:'GB',age:27,market:8200,adp:26,ecr:20,proj:352,ppg:20.7,role:93,trend:3,risk:18,liquidity:90,salary:87.81,years:3,roster:'Capitol Carnage',source:'Manual seed'},
@@ -89,19 +120,219 @@ function renderView(id){({dashboard:renderDashboard,trade:renderTrade,fa:renderF
 function dashboardCards(){let mine=db.assets.filter(a=>a.roster===db.config.teamName&&a.type==='PLAYER');let total=mine.reduce((s,a)=>s+modelValue(a),0);let proj=mine.reduce((s,a)=>s+(Number(a.proj)||0),0);let cap=mine.reduce((s,a)=>s+(Number(a.salary)||0),0);let buys=db.assets.filter(a=>signal(a)[0].includes('BUY')).length;return {mine,total,proj,cap,buys}}
 function renderDashboard(){let x=dashboardCards();let movers=db.history.slice(0,6);let buys=db.assets.slice().sort((a,b)=>arbitrage(b)-arbitrage(a)).slice(0,5);dashboard.innerHTML=`<div class="grid4"><div class="metric"><b>${fmt(x.total)}</b><span>Roster Pride value</span></div><div class="metric"><b>${fmt(x.proj)}</b><span>Projected points on roster</span></div><div class="metric"><b>$${x.cap.toFixed(2)}</b><span>Known active salary</span></div><div class="metric"><b>${x.buys}</b><span>Current buy signals</span></div></div><div class="grid" style="margin-top:12px"><div class="card"><div class="sectionhead"><h2>Best Market Inefficiencies</h2><span class="pill">Model vs market</span></div>${buys.map(a=>assetMini(a)).join('')}</div><div class="card"><div class="sectionhead"><h2>Recent Value Movement</h2><span class="pill">History</span></div>${movers.length?movers.map(h=>`<div class="gate"><span><b>${h.name}</b><br><span class="small">${h.reason}</span></span><b class="${h.newValue>=h.oldValue?'good':'bad'}">${h.newValue>=h.oldValue?'+':''}${fmt(h.newValue-h.oldValue)}</b></div>`).join(''):'<div class="notice">Value changes will appear here as you edit players, sync the league or update projections/ADP.</div>'}</div></div><div class="card" style="margin-top:12px"><h2>GM Philosophy</h2><div class="small">The app separates public market price from our calculated football value. The goal is not to predict every breakout; it is to repeatedly buy production, cap efficiency and appreciating assets below the market price and sell expensive assets when the market outruns the underlying football value.</div></div>`}
 function assetMini(a){let s=signal(a),mv=modelValue(a),edge=(mv-(Number(a.market)||0))/Math.max(1,Number(a.market)||1);return `<div class="gate"><span><b>${a.name}</b> <span class="tag">${a.pos}</span><br><span class="small">Market ${fmt(a.market)} · Pride ${fmt(mv)} · ${pct(edge)} mispricing</span></span><b class="${s[1]}">${s[0]}</b></div>`}
-let tradeState={receive:[],give:[],lens:'overall'};
+
+let tradeState={receive:[],give:[],lens:'overall',opponent:'',ourPos:'ALL',oppPos:'ALL'};
+
+function ensureTradeOpponent(){
+  const teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(Boolean);
+  if(!tradeState.opponent || tradeState.opponent===db.config.teamName || !teams.includes(tradeState.opponent)){
+    tradeState.opponent=teams.find(n=>n!==db.config.teamName) || '';
+  }
+}
+function teamAssets(team){
+  return db.assets.filter(a=>String(a.roster||'').toLowerCase()===String(team||'').toLowerCase());
+}
+function assetPos(a){
+  if(a.type==='PICK') return 'PICKS';
+  let p=String(a.pos||'').toUpperCase();
+  if(['DE','DT','EDGE','DL'].includes(p)) return 'DL';
+  if(['CB','S','DB'].includes(p)) return 'DB';
+  if(['PK','K'].includes(p)) return 'K';
+  return p||'OTHER';
+}
+function addAssetToTrade(side,assetId){
+  if(!assetId)return;
+  if(tradeState[side].some(x=>x.assetId===assetId)) return;
+  tradeState[side].push({assetId,salaryOverride:'',yearsOverride:''});
+  renderTrade();
+}
 function addTrade(side){tradeState[side].push({assetId:'',salaryOverride:'',yearsOverride:''});renderTrade()}
 function removeTrade(side,i){tradeState[side].splice(i,1);renderTrade()}
-function tradeAsset(obj){let a=db.assets.find(x=>x.id===obj.assetId);if(!a)return null;a=clone(a);if(obj.salaryOverride!=='')a.salary=Number(obj.salaryOverride);if(obj.yearsOverride!=='')a.years=Number(obj.yearsOverride);return a}
-function sideValue(side,lens='overall'){return tradeState[side].reduce((s,o)=>{let a=tradeAsset(o);if(!a)return s;if(lens==='market')return s+(Number(a.market)||0);if(lens==='points')return s+(Number(a.proj)||0)*20;if(lens==='contract')return s+contractScore(a)*70;if(lens==='title')return s+titleImpact(a)*75;if(lens==='future')return s+(a.type==='PICK'?modelValue(a):modelValue(a)*(ageScore(a)/100));return s+modelValue(a)},0)}
-function sideAvgProng(side,k){let arr=tradeState[side].map(tradeAsset).filter(Boolean);return arr.length?arr.reduce((s,a)=>s+prongs(a)[k],0)/arr.length:0}
-function tradeRows(side){if(!tradeState[side].length)return `<div class="notice">Add players or picks to this side.</div>`;return tradeState[side].map((o,i)=>{let a=tradeAsset(o);return `<div class="asset"><div class="assetrow"><div class="field"><label>Asset</label><select onchange="tradeState.${side}[${i}].assetId=this.value;renderTrade()"><option value="">Select asset</option>${assetOptions(o.assetId)}</select></div><div class="field"><label>Salary override</label><input type="number" step=".01" value="${o.salaryOverride}" placeholder="${a?.salary??''}" onchange="tradeState.${side}[${i}].salaryOverride=this.value;renderTrade()"></div><div class="field"><label>Years</label><input type="number" value="${o.yearsOverride}" placeholder="${a?.years??''}" onchange="tradeState.${side}[${i}].yearsOverride=this.value;renderTrade()"></div></div>${a?`<div class="assetmetrics"><div class="metric"><b>${fmt(a.market)}</b><span>Market</span></div><div class="metric"><b>${fmt(modelValue(a))}</b><span>Pride value</span></div><div class="metric"><b>${a.proj??'—'}</b><span>Projected pts</span></div><div class="metric"><b>${contractScore(a).toFixed(0)}</b><span>Contract score</span></div></div>`:''}<button class="danger" onclick="removeTrade('${side}',${i})">Remove</button></div>`}).join('')}
-function assetOptions(sel){return db.assets.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}" ${a.id===sel?'selected':''}>${a.name} · ${a.pos}${a.roster?' · '+a.roster:''}</option>`).join('')}
-function tradeAnalysis(){let lens=tradeState.lens,r=sideValue('receive',lens),g=sideValue('give',lens),edge=g?(r-g)/g:0;let needle=clamp(50-edge*110,5,95);let prongKeys=['Production','Roster Fit','Market Timing','Contract Value','Championship Impact','Cap Leverage','Outside Market'];let pass=0;let prongRows=prongKeys.map(k=>{let rv=sideAvgProng('receive',k),gv=sideAvgProng('give',k),p=rv>=db.config.threshold;pass+=p?1:0;return `<div class="gate"><span><b>${k}</b><br><span class="small">Receive ${rv.toFixed(0)} vs Give ${gv.toFixed(0)}</span></span><b class="${p?'good':'bad'}">${p?'PASS':'FAIL'} ${rv>=gv?'▲':'▼'}</b></div>`}).join('');let gates=[r>=g*.95,sideAvgProng('receive','Roster Fit')>=sideAvgProng('give','Roster Fit'),sideAvgProng('receive','Contract Value')>=sideAvgProng('give','Contract Value')-5,sideAvgProng('receive','Outside Market')>=sideAvgProng('give','Outside Market')-5];let gc=gates.filter(Boolean).length;let majority=pass>=db.config.requiredProngs,hard=gc>=db.config.hardReq;let grade=edge>=.18?'A+':edge>=.12?'A':edge>=.07?'A-':edge>=.03?'B+':edge>=0?'B':edge>=-.04?'B-':edge>=-.08?'C+':'C';let verdict=!g?'ENTER TRADE':(majority&&hard&&edge>=-.04?(edge>=.12?'SMASH ACCEPT':edge>=.03?'ACCEPT':'APPROVE'):(edge>=-.08?'RENEGOTIATE':'REJECT'));let vc=verdict.includes('ACCEPT')||verdict==='APPROVE'?'vgood':verdict==='REJECT'?'vbad':'vwarn';return {r,g,edge,needle,prongRows,gates,gc,majority,hard,grade,verdict,vc}}
-function renderTrade(){let a=tradeAnalysis();trade.innerHTML=`<div class="grid"><div class="card"><div class="sectionhead"><h2>${db.config.teamName} RECEIVES</h2><span class="pill">${fmt(a.r)}</span></div>${tradeRows('receive')}<button class="secondary" onclick="addTrade('receive')">+ Add asset</button></div><div class="card"><div class="sectionhead"><h2>${db.config.teamName} GIVES</h2><span class="pill">${fmt(a.g)}</span></div>${tradeRows('give')}<button class="secondary" onclick="addTrade('give')">+ Add asset</button></div></div><div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Trade Balance Meter</h2><select style="width:auto" onchange="tradeState.lens=this.value;renderTrade()"><option value="overall" ${tradeState.lens==='overall'?'selected':''}>Overall Pride Value</option><option value="market" ${tradeState.lens==='market'?'selected':''}>Market / ADP</option><option value="points" ${tradeState.lens==='points'?'selected':''}>Projected Points</option><option value="contract" ${tradeState.lens==='contract'?'selected':''}>Contract & Cap</option><option value="title" ${tradeState.lens==='title'?'selected':''}>Championship Impact</option><option value="future" ${tradeState.lens==='future'?'selected':''}>Future / Draft Capital</option></select></div><div class="grid4"><div class="metric"><b>${fmt(a.r)}</b><span>Receive</span></div><div class="metric"><b>${fmt(a.g)}</b><span>Give</span></div><div class="metric"><b class="${a.edge>=0?'good':'bad'}">${a.edge>=0?'+':''}${pct(a.edge)}</b><span>Value tilt</span></div><div class="metric"><b>${a.grade}</b><span>Grade</span></div></div><div class="barWrap"><div class="balance"><div class="needle" style="left:${a.needle}%"></div></div><div class="acceptable"></div><div class="barlabels"><span>CAP CARNAGE WIN</span><span>FAIR</span><span>OTHER SIDE WIN</span></div></div><div class="${'verdict '+a.vc}">${a.verdict}</div></div><div class="grid" style="margin-top:12px"><div class="card"><h2>7-Prong Majority Test</h2>${a.prongRows}<div class="gate"><span><b>Majority</b></span><b class="${a.majority?'good':'bad'}">${a.majority?'PASS':'FAIL'}</b></div></div><div class="card"><h2>4 Hard Value Gates</h2>${['Receive ≥95% adjusted value','Roster construction improves/holds','Contract/cap remains defensible','Outside-market liquidity holds'].map((x,i)=>`<div class="gate"><span>${x}</span><b class="${a.gates[i]?'good':'bad'}">${a.gates[i]?'PASS':'FAIL'}</b></div>`).join('')}<div class="gate"><span><b>Hard Gate</b></span><b class="${a.hard?'good':'bad'}">${a.gc}/4 ${a.hard?'PASS':'FAIL'}</b></div><button onclick="saveTrade()">Save Analysis</button></div></div>`}
-function saveTrade(){db.savedTrades.unshift({id:uid('trade'),date:new Date().toISOString(),state:clone(tradeState),analysis:tradeAnalysis()});db.savedTrades=db.savedTrades.slice(0,50);persist();alert('Trade saved on this device.')}
-let faState={assetId:'',bid:0,years:3};
-function faEval(){let a=db.assets.find(x=>x.id===faState.assetId);if(!a)return null;a=clone(a);a.salary=Number(faState.bid)||0;a.years=Number(faState.years)||1;let mv=modelValue(a),baseProj=Number(a.proj)||0,repl=replacement(a),par=Math.max(0,baseProj-repl),contract=contractScore(a);let rawMax=Math.max(1,(mv/900)+(par/11)+(posScarcity(a.pos)-70)/5+(a.role-70)/7+(Math.max(0,a.trend||0))/3);let maxBid=Math.min(db.config.salaryCap*.16,Math.round(rawMax));let modelBid=Math.max(1,Math.round(maxBid*.76));let expected=Math.round(maxBid*.9);let bid=Number(faState.bid)||0;let zone=bid<=modelBid*.65?'STEAL':bid<=modelBid?'BUY':bid<=maxBid?'ACCEPTABLE':bid<=maxBid*1.18?'AGGRESSIVE':'PASS';let zc=zone==='STEAL'||zone==='BUY'?'good':zone==='PASS'?'bad':'warn';return {a,mv,par,contract,maxBid,modelBid,expected,bid,zone,zc}}
+function tradeAsset(obj){
+  let a=db.assets.find(x=>x.id===obj.assetId);if(!a)return null;a=clone(a);
+  if(obj.salaryOverride!=='')a.salary=Number(obj.salaryOverride);
+  if(obj.yearsOverride!=='')a.years=Number(obj.yearsOverride);
+  return a
+}
+function sideValue(side,lens='overall'){
+  return tradeState[side].reduce((s,o)=>{
+    let a=tradeAsset(o);if(!a)return s;
+    if(lens==='market')return s+(Number(a.market)||0);
+    if(lens==='points')return s+(Number(a.proj)||0)*20;
+    if(lens==='contract')return s+contractScore(a)*70;
+    if(lens==='title')return s+titleImpact(a)*75;
+    if(lens==='future')return s+(a.type==='PICK'?modelValue(a):modelValue(a)*(ageScore(a)/100));
+    return s+modelValue(a)
+  },0)
+}
+function sideAvgProng(side,k){
+  let arr=tradeState[side].map(tradeAsset).filter(Boolean);
+  return arr.length?arr.reduce((s,a)=>s+prongs(a)[k],0)/arr.length:0
+}
+function tradeCartRows(side){
+  const arr=tradeState[side].map((o,i)=>({o,i,a:tradeAsset(o)})).filter(x=>x.a);
+  if(!arr.length)return `<div class="notice">Tap an asset from the roster above.</div>`;
+  return arr.map(({o,i,a})=>`<div class="cartItem">
+    <div><div class="name">${a.name} ${a.type==='PICK'?'<span class="pickBadge">PICK</span>':''}</div>
+      <div class="smallrow">${assetPos(a)} · ${a.type==='PICK'?'Draft capital':('$'+Number(a.salary||0).toFixed(2)+' / '+(a.years||0)+' yr')} · ${fmt(modelValue(a))} Pride</div>
+    </div>
+    <button class="danger" onclick="removeTrade('${side}',${i})">×</button>
+  </div>`).join('')
+}
+function rosterPositionTabs(side,selected){
+  const tabs=['ALL','QB','RB','WR','TE','DL','LB','DB','PICKS'];
+  return `<div class="posTabs">${tabs.map(p=>`<button class="${selected===p?'active secondary':'secondary'}" onclick="tradeState.${side}Pos='${p}';renderTrade()">${p}</button>`).join('')}</div>`;
+}
+function rosterPanel(team,side,posFilter,isOpponent=false){
+  const assets=teamAssets(team).sort((a,b)=>{
+    const pa=assetPos(a),pb=assetPos(b);
+    const order=['QB','RB','WR','TE','DL','LB','DB','K','PICKS','OTHER'];
+    return order.indexOf(pa)-order.indexOf(pb) || modelValue(b)-modelValue(a);
+  });
+  if(!assets.length){
+    return `<div class="notice">No synced roster assets found for <b>${team||'this team'}</b>. Run MFL Sync once; GM Lab will retain the snapshot afterward.</div>`;
+  }
+  const visible=posFilter==='ALL'?assets:assets.filter(a=>assetPos(a)===posFilter);
+  const groups={};
+  visible.forEach(a=>(groups[assetPos(a)]??=[]).push(a));
+  const order=['QB','RB','WR','TE','DL','LB','DB','K','PICKS','OTHER'];
+  return order.filter(p=>groups[p]?.length).map(p=>`<div class="posGroup">
+    <div class="posTitle">${p} · ${groups[p].length}</div>
+    ${groups[p].map(a=>{
+      const inTrade=tradeState[side].some(x=>x.assetId===a.id);
+      return `<div class="rosterPlayer">
+        <div>
+          <div class="name">${a.name}</div>
+          <div class="meta">${a.type==='PICK'
+            ? `Draft asset · ${a.year||''} ${a.round?('R'+a.round):''}`
+            : `${a.nfl||''} · $${Number(a.salary||0).toFixed(2)} · ${a.years||0} yr · Proj ${Number(a.proj||0).toFixed(0)}`}</div>
+        </div>
+        <div class="quick"><span class="val">${fmt(modelValue(a))}</span>
+          <button ${inTrade?'disabled':''} onclick="addAssetToTrade('${side}','${a.id}')">${inTrade?'Added':'+ Trade'}</button>
+        </div>
+      </div>`
+    }).join('')}
+  </div>`).join('') || `<div class="muted">No ${posFilter} assets on this roster.</div>`;
+}
+function postTradeImpact(){
+  const get=tradeState.receive.map(tradeAsset).filter(Boolean);
+  const give=tradeState.give.map(tradeAsset).filter(Boolean);
+  const points=get.reduce((s,a)=>s+(Number(a.proj)||0),0)-give.reduce((s,a)=>s+(Number(a.proj)||0),0);
+  const salary=get.reduce((s,a)=>s+(Number(a.salary)||0),0)-give.reduce((s,a)=>s+(Number(a.salary)||0),0);
+  const value=get.reduce((s,a)=>s+modelValue(a),0)-give.reduce((s,a)=>s+modelValue(a),0);
+
+  const warnings=[];
+  const our=teamAssets(db.config.teamName).filter(a=>a.type!=='PICK');
+  const giveIds=new Set(give.map(a=>a.id));
+  const getPlayers=get.filter(a=>a.type!=='PICK');
+  for(const pos of ['QB','RB','WR','TE','DL','LB','DB']){
+    const before=our.filter(a=>assetPos(a)===pos).length;
+    const outgoing=give.filter(a=>assetPos(a)===pos && a.type!=='PICK').length;
+    const incoming=getPlayers.filter(a=>assetPos(a)===pos).length;
+    const after=before-outgoing+incoming;
+    if(before>=2 && after<2) warnings.push(`${pos} depth falls to ${after}`);
+    if(before===1 && after===0) warnings.push(`${pos} room becomes empty`);
+  }
+  return {points,salary,value,warnings};
+}
+function tradeAnalysis(){
+  let lens=tradeState.lens,r=sideValue('receive',lens),g=sideValue('give',lens),edge=g?(r-g)/g:0;
+  let needle=clamp(50-edge*110,5,95);
+  let prongKeys=['Production','Roster Fit','Market Timing','Contract Value','Championship Impact','Cap Leverage','Outside Market'];
+  let pass=0;
+  let prongRows=prongKeys.map(k=>{
+    let rv=sideAvgProng('receive',k),gv=sideAvgProng('give',k),p=rv>=db.config.threshold;
+    pass+=p?1:0;
+    return `<div class="gate"><span><b>${k}</b><br><span class="small">Receive ${rv.toFixed(0)} vs Give ${gv.toFixed(0)}</span></span><b class="${p?'good':'bad'}">${p?'PASS':'FAIL'} ${rv>=gv?'▲':'▼'}</b></div>`
+  }).join('');
+  let gates=[r>=g*.95,sideAvgProng('receive','Roster Fit')>=sideAvgProng('give','Roster Fit'),sideAvgProng('receive','Contract Value')>=sideAvgProng('give','Contract Value')-5,sideAvgProng('receive','Outside Market')>=sideAvgProng('give','Outside Market')-5];
+  let gc=gates.filter(Boolean).length,majority=pass>=db.config.requiredProngs,hard=gc>=db.config.hardReq;
+  let grade=edge>=.18?'A+':edge>=.12?'A':edge>=.07?'A-':edge>=.03?'B+':edge>=0?'B':edge>=-.04?'B-':edge>=-.08?'C+':'C';
+  let verdict=!g?'ENTER TRADE':(majority&&hard&&edge>=-.04?(edge>=.12?'SMASH ACCEPT':edge>=.03?'ACCEPT':'APPROVE'):(edge>=-.08?'RENEGOTIATE':'REJECT'));
+  let vc=verdict.includes('ACCEPT')||verdict==='APPROVE'?'vgood':verdict==='REJECT'?'vbad':'vwarn';
+  return {r,g,edge,needle,prongRows,gates,gc,majority,hard,grade,verdict,vc}
+}
+function renderTrade(){
+  ensureTradeOpponent();
+  const a=tradeAnalysis(),impact=postTradeImpact();
+  const teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(n=>n&&n!==db.config.teamName);
+  trade.innerHTML=`
+  <div class="card">
+    <div class="sectionhead"><h2>Roster-First Trade Builder</h2><span class="pill">${db.lastSync?'MFL snapshot '+new Date(db.lastSync).toLocaleDateString():'SYNC NEEDED'}</span></div>
+    <div class="notice"><b>${db.config.teamName}</b> is always your side. Choose an opponent, then tap players or picks directly from either roster. Synced league data stays on this device between sessions.</div>
+  </div>
+
+  <div class="rosterTradeGrid" style="margin-top:12px">
+    <div class="rosterPanel">
+      <div class="rosterToolbar">
+        <div class="field"><label>Your franchise</label><input value="${db.config.teamName}" disabled></div>
+        <span class="teamBadge">${teamAssets(db.config.teamName).length} assets</span>
+      </div>
+      ${rosterPositionTabs('our',tradeState.ourPos)}
+      <div class="rosterList">${rosterPanel(db.config.teamName,'give',tradeState.ourPos,false)}</div>
+    </div>
+
+    <div class="rosterPanel">
+      <div class="rosterToolbar">
+        <div class="field"><label>Trade partner</label><select onchange="tradeState.opponent=this.value;tradeState.receive=[];renderTrade()">
+          ${teams.map(n=>`<option ${tradeState.opponent===n?'selected':''}>${n}</option>`).join('')}
+        </select></div>
+        <span class="teamBadge">${teamAssets(tradeState.opponent).length} assets</span>
+      </div>
+      ${rosterPositionTabs('opp',tradeState.oppPos)}
+      <div class="rosterList">${rosterPanel(tradeState.opponent,'receive',tradeState.oppPos,true)}</div>
+    </div>
+  </div>
+
+  <div class="tradeCart">
+    <div class="cartBox"><div class="sectionhead"><h2>${db.config.teamName} GIVES</h2><span class="pill">${fmt(a.g)}</span></div>${tradeCartRows('give')}</div>
+    <div class="cartBox"><div class="sectionhead"><h2>${db.config.teamName} RECEIVES</h2><span class="pill">${fmt(a.r)}</span></div>${tradeCartRows('receive')}</div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="sectionhead"><h2>Trade Balance Meter</h2><select style="width:auto" onchange="tradeState.lens=this.value;renderTrade()">
+      <option value="overall" ${tradeState.lens==='overall'?'selected':''}>Overall Pride Value</option>
+      <option value="market" ${tradeState.lens==='market'?'selected':''}>Market / ADP</option>
+      <option value="points" ${tradeState.lens==='points'?'selected':''}>Projected Points</option>
+      <option value="contract" ${tradeState.lens==='contract'?'selected':''}>Contract & Cap</option>
+      <option value="title" ${tradeState.lens==='title'?'selected':''}>Championship Impact</option>
+      <option value="future" ${tradeState.lens==='future'?'selected':''}>Future / Draft Capital</option>
+    </select></div>
+    <div class="grid4">
+      <div class="metric"><b>${fmt(a.r)}</b><span>Receive</span></div>
+      <div class="metric"><b>${fmt(a.g)}</b><span>Give</span></div>
+      <div class="metric"><b class="${a.edge>=0?'good':'bad'}">${a.edge>=0?'+':''}${pct(a.edge)}</b><span>Value tilt</span></div>
+      <div class="metric"><b>${a.grade}</b><span>Grade</span></div>
+    </div>
+    <div class="barWrap"><div class="balance"><div class="needle" style="left:${a.needle}%"></div></div><div class="acceptable"></div>
+      <div class="barlabels"><span>CAP CARNAGE WIN</span><span>FAIR</span><span>OTHER SIDE WIN</span></div>
+    </div>
+    <div class="${'verdict '+a.vc}">${a.verdict}</div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="sectionhead"><h2>Post-Trade Roster Impact</h2><span class="pill">${tradeState.opponent||'Opponent'}</span></div>
+    <div class="rosterImpact">
+      <div class="metric"><b class="${impact.points>=0?'good':'bad'}">${impact.points>=0?'+':''}${impact.points.toFixed(0)}</b><span>Projected points</span></div>
+      <div class="metric"><b class="${impact.salary<=0?'good':'bad'}">${impact.salary>=0?'+':''}$${impact.salary.toFixed(2)}</b><span>Salary change</span></div>
+      <div class="metric"><b class="${impact.value>=0?'good':'bad'}">${impact.value>=0?'+':''}${fmt(impact.value)}</b><span>Pride value change</span></div>
+      <div class="metric"><b class="${impact.warnings.length?'bad':'good'}">${impact.warnings.length}</b><span>Depth warnings</span></div>
+    </div>
+    ${impact.warnings.length?`<div class="notice" style="margin-top:9px"><b>Roster warning:</b> ${impact.warnings.join(' · ')}</div>`:`<div class="notice" style="margin-top:9px"><b>No obvious position-room hole</b> from the current asset swap.</div>`}
+  </div>
+
+  <div class="grid" style="margin-top:12px">
+    <div class="card"><h2>7-Prong Majority Test</h2>${a.prongRows}<div class="gate"><span><b>Majority</b></span><b class="${a.majority?'good':'bad'}">${a.majority?'PASS':'FAIL'}</b></div></div>
+    <div class="card"><h2>4 Hard Value Gates</h2>${['Receive ≥95% adjusted value','Roster construction improves/holds','Contract/cap remains defensible','Outside-market liquidity holds'].map((x,i)=>`<div class="gate"><span>${x}</span><b class="${a.gates[i]?'good':'bad'}">${a.gates[i]?'PASS':'FAIL'}</b></div>`).join('')}
+      <div class="gate"><span><b>Hard Gate</b></span><b class="${a.hard?'good':'bad'}">${a.gc}/4 ${a.hard?'PASS':'FAIL'}</b></div><button onclick="saveTrade()">Save Analysis</button>
+    </div>
+  </div>`;
+}
+function saveTrade(){
+  db.savedTrades.unshift({id:uid('trade'),date:new Date().toISOString(),opponent:tradeState.opponent,state:clone(tradeState),analysis:tradeAnalysis(),impact:postTradeImpact()});
+  db.savedTrades=db.savedTrades.slice(0,50);persist();alert('Trade saved on this device.')
+}
+
 function renderFA(){let e=faEval();fa.innerHTML=`<div class="grid"><div class="card"><h2>Free Agency Value Checker</h2><div class="field"><label>Player</label><select onchange="faState.assetId=this.value;renderFA()"><option value="">Select player</option>${db.assets.filter(a=>a.type==='PLAYER').map(a=>`<option value="${a.id}" ${faState.assetId===a.id?'selected':''}>${a.name} · ${a.pos}</option>`).join('')}</select></div><div class="grid3"><div class="field"><label>Your contemplated bid</label><input type="number" value="${faState.bid}" oninput="faState.bid=Number(this.value);renderFA()"></div><div class="field"><label>Contract years</label><input type="number" value="${faState.years}" oninput="faState.years=Number(this.value);renderFA()"></div><div class="field"><label>Available cap</label><input value="$${db.config.salaryCap}" disabled></div></div>${e?`<div class="grid4"><div class="metric"><b>$${e.modelBid}</b><span>Model value bid</span></div><div class="metric"><b>$${e.expected}</b><span>Expected competitive bid</span></div><div class="metric"><b>$${e.maxBid}</b><span>Our hard max</span></div><div class="metric"><b class="${e.zc}">${e.zone}</b><span>Current bid zone</span></div></div><div class="barWrap"><div class="balance"><div class="needle" style="left:${clamp((e.bid/(Math.max(1,e.maxBid*1.3)))*100,3,97)}%"></div></div><div class="barlabels"><span>STEAL</span><span>FAIR/MAX</span><span>OVERPAY</span></div></div><div class="notice"><b>${e.a.name}</b>: projected ${e.a.proj||0} points, ${e.par.toFixed(0)} points above replacement, contract score ${e.contract.toFixed(0)}, Pride value ${fmt(e.mv)}. The max bid rises for scarce starting roles and falls when replacement alternatives are close.</div>`:'<div class="notice">Select a player to generate a bid range.</div>'}</div><div class="card"><h2>Replacement Tree</h2>${e?replacementTree(e.a):'<div class="small">The app will show cheaper alternatives at the same position once a target is selected.</div>'}</div></div><div class="card" style="margin-top:12px"><h2>Free Agent Comparison</h2>${faComparison()}</div>`}
 function replacementTree(a){let sims=db.assets.filter(x=>x.type==='PLAYER'&&x.pos===a.pos&&x.id!==a.id).map(x=>({x,ratio:(Number(x.proj)||0)/Math.max(1,Number(a.proj)||1)})).sort((p,q)=>Math.abs(1-p.ratio)-Math.abs(1-q.ratio)).slice(0,4);return sims.length?sims.map((o,i)=>`<div class="gate"><span><b>Fallback ${i+1}: ${o.x.name}</b><br><span class="small">${(o.ratio*100).toFixed(0)}% of target projection · Pride ${fmt(modelValue(o.x))}</span></span><b>${signal(o.x)[0]}</b></div>`).join(''):'<div class="small">Add more players at this position to build replacement options.</div>'}
 function faComparison(){return `<div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Proj</th><th>Above repl</th><th>Market</th><th>Pride</th><th>Signal</th></tr></thead><tbody>${db.assets.filter(a=>a.type==='PLAYER').sort((a,b)=>modelValue(b)-modelValue(a)).slice(0,30).map(a=>`<tr><td>${a.name}</td><td>${a.pos}</td><td>${a.proj||0}</td><td>${((a.proj||0)-replacement(a)).toFixed(0)}</td><td>${fmt(a.market)}</td><td>${fmt(modelValue(a))}</td><td class="${signal(a)[1]}">${signal(a)[0]}</td></tr>`).join('')}</tbody></table></div>`}
@@ -187,6 +418,15 @@ function ensureMFLDefaults(){
   db.mfl.apiKey=db.mfl.apiKey||'';
   db.mfl.proxyUrl=db.mfl.proxyUrl||'';
   db.mfl.franchises=db.mfl.franchises||[];
+  if(!db.mfl.franchises.length) db.mfl.franchises=[
+    {id:'0001',name:'Classy Strippers'},{id:'0002',name:'[redacted] adp1897'},
+    {id:'0003',name:'Agent Smith'},{id:'0004',name:'Chicago Challupas'},
+    {id:'0005',name:'DieNasty Sage'},{id:'0006',name:'Disabled Vigilantes'},
+    {id:'0007',name:'Capitol Carnage'},{id:'0008',name:'Killers Next Door'},
+    {id:'0009',name:'Hollywood Cole Bros.'},{id:'0010',name:'Stackinyards'},
+    {id:'0011',name:'The Boss'},{id:'0012',name:'Unfuckwitable'},
+    {id:'0013',name:'West Coast Giants'},{id:'0014',name:'MakeWubaGreatAgain'}
+  ];
   db.mfl.standings=db.mfl.standings||[];
   db.mfl.transactions=db.mfl.transactions||[];
   db.mfl.draftResults=db.mfl.draftResults||[];
@@ -282,6 +522,7 @@ async function syncMFL(){
     const standings=bundle.data?.standings||{};
     const transactions=bundle.data?.transactions||{};
     const draftResults=bundle.data?.draftResults||{};
+    const futureDraftPicks=bundle.data?.futureDraftPicks||{};
 
     const franchises=mflDeepArray(league,['league.franchises.franchise','franchises.franchise']);
     const franchiseMap={};
@@ -324,7 +565,46 @@ async function syncMFL(){
         losses:s.h2hl||s.losses||s.l||0,points:s.pf||s.points_for||s.points||0,raw:s};
     });
     db.mfl.transactions=parseMFLTransactions(transactions,franchiseMap,playerMap);
+    
     db.mfl.draftResults=mflDeepArray(draftResults,['draftResults.draftUnit.draftPick','draftResults.draftPick','draftPick']);
+
+    // Best-effort future pick ownership ingestion. MFL's exact nesting can vary by league/year.
+    const pickRows=mflDeepArray(futureDraftPicks,[
+      'futureDraftPicks.franchise',
+      'futureDraftPicks.futureDraftPick',
+      'futureDraftPicks.draftPick',
+      'franchise',
+      'futureDraftPick',
+      'draftPick'
+    ]);
+    if(pickRows.length){
+      // Remove only prior MFL-generated future picks so a refresh does not duplicate them.
+      db.assets=db.assets.filter(a=>!(a.type==='PICK' && a.source==='MFL future picks'));
+      const seen=new Set();
+      function addPick(owner,year,round,slotLabel=''){
+        owner=franchiseMap[String(owner)]||owner||'';
+        year=Number(year)||2027; round=Number(round)||1;
+        const key=`${owner}|${year}|${round}|${slotLabel}`;
+        if(!owner||seen.has(key))return; seen.add(key);
+        const name=`${year} ${slotLabel?slotLabel+' ':''}${round===1?'1st':round===2?'2nd':round===3?'3rd':round+'th'}`.replace(/\s+/g,' ').trim();
+        db.assets.push({
+          id:uid('pick'),name,type:'PICK',pos:'PICK',roster:owner,year,round,
+          market:round===1?5200:round===2?2400:round===3?1000:500,
+          classStrength:80,slot:slotLabel||'MID',trend:0,risk:35,liquidity:90,
+          salary:0,years:0,proj:0,role:70,source:'MFL future picks',lastReason:'MFL future pick sync'
+        });
+      }
+      pickRows.forEach(row=>{
+        const owner=row.franchise_id||row.franchise||row.owner||row.id;
+        const nested=normalizeArr(row.pick||row.draftPick||row.futureDraftPick);
+        if(nested.length){
+          nested.forEach(p=>addPick(owner,p.year||p.season,p.round,p.slot||p.position||''));
+        }else{
+          addPick(owner,row.year||row.season,row.round,row.slot||row.position||'');
+        }
+      });
+    }
+
     db.mfl.franchises=franchises.map(f=>({id:String(f.id||f.franchise_id||''),name:f.name||f.owner_name||String(f.id||'')}));
 
     if(league?.league?.name)db.config.leagueName=league.league.name;
@@ -352,7 +632,21 @@ function resetAll(){if(confirm('Erase local app data and return to seed database
 function renderAssetList(){document.getElementById('assetList').innerHTML=db.assets.map(a=>`<option value="${a.name}">`).join('')}
 let deferredPrompt;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn.hidden=false});installBtn.onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;installBtn.hidden=true}};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('service-worker.js');
-ensureMFLDefaults();persist();nav();renderAssetList();cset('leagueName',db.config.leagueName);let initial=localStorage.getItem('ccgm_view')||'dashboard';if(!tradeState.receive.length)addTrade('receive');if(!tradeState.give.length)addTrade('give');showView(initial);
+
+async function autoRefreshMFL(){
+  try{
+    ensureMFLDefaults();
+    if(!db.mfl.proxyUrl) return;
+    const last=db.lastSync?new Date(db.lastSync).getTime():0;
+    const stale=!last || (Date.now()-last)>6*60*60*1000;
+    if(stale){
+      await syncMFL();
+      if(localStorage.getItem('ccgm_view')==='trade') renderTrade();
+    }
+  }catch(e){console.warn('Background MFL refresh skipped',e)}
+}
+
+ensureMFLDefaults();persist();nav();renderAssetList();cset('leagueName',db.config.leagueName);let initial=localStorage.getItem('ccgm_view')||'dashboard';showView(initial);setTimeout(autoRefreshMFL,800);
 </script>
 </body>
 </html>

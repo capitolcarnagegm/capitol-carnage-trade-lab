@@ -88,10 +88,11 @@ export default {
           getMFL("rosters"),
           getMFL("standings"),
           getMFL("transactions"),
-          getMFL("draftResults")
+          getMFL("draftResults"),
+          getMFL("futureDraftPicks")
         ]);
 
-        const names = ["league","players","rosters","standings","transactions","draftResults"];
+        const names = ["league","players","rosters","standings","transactions","draftResults","futureDraftPicks"];
         const data = {};
         const errors = {};
 
