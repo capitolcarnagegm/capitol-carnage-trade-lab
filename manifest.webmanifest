@@ -1,7 +1,7 @@
 {
   "name": "GM's Locker",
   "short_name": "GM's Locker",
-  "description": "Dynasty front-office intelligence with live league and team analysis, roster reconciliation, trades, FA, draft capital and MFL sync.",
+  "description": "Fantasy front-office intelligence with MFL sync, integrity reconciliation, roster and league analysis, Edge Finder, blind bids, transaction imports, trade intelligence, and live pick forecasts.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

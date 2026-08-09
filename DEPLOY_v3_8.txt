@@ -1,0 +1,23 @@
+GM'S LOCKER v3.8 — MY ROSTER + WORKING CORRECTION IMPORT
+
+FIXED ROOT CAUSE:
+The screenshot handlers were not declared async even though they used await.
+That prevented image processing from completing correctly.
+
+NEW IMPORT FLOW:
+1) Choose screenshots
+2) Process Screenshots
+3) Review extracted players/data
+4) Apply corrections to site
+
+No screenshot changes the database just by being selected.
+
+NEW MY ROSTER PAGE:
+- Dedicated Capitol Carnage roster page
+- Active / Minors-Taxi / IR-Reserve groups
+- Salary, contract years, projections, modeled value, source
+- Exact cap snapshot
+- Missing projection count
+- Buttons for correction, full team analysis, Edge Finder
+
+Upload this consolidated build when back at the Mac.

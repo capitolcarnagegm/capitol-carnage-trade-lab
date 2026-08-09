@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+<meta name="robots" content="noindex,nofollow,noarchive">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0b1020" />
@@ -122,6 +123,112 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 .nativeUpload strong{color:#f1cf62;font-size:13px}
 .uploadHint{font-size:10px;color:#aaa;margin-top:5px}
 
+
+/* v3.4 EDGE FINDER */
+.edgeHero{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.edgeGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.edgeCard{border:1px solid #3a321e;background:#0b0b0b;border-radius:14px;padding:12px}
+.edgeCard.hot{border-color:#d4af37;box-shadow:0 0 0 1px rgba(212,175,55,.18)}
+.edgeType{display:inline-flex;padding:3px 7px;border-radius:999px;font-size:9px;font-weight:1000;letter-spacing:.07em;background:#171307;color:#f1cf62;border:1px solid #6b5720}
+.edgeScore{font-size:26px;font-weight:1000;color:#f1cf62}
+.edgeWhy{font-size:11px;color:#ccc;line-height:1.45}
+.edgeAction{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:9px;padding-top:9px;border-top:1px solid #302815}
+.edgeMissing{border:1px solid #6a4a25;background:#1b1209;border-radius:10px;padding:9px;font-size:11px;color:#ffd9a0}
+.edgeGood{color:#f1cf62}.edgeBad{color:#ff9797}
+.edgeFilterRow{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.edgeFilterRow .field{min-width:170px;flex:1}
+@media(max-width:900px){.edgeHero{grid-template-columns:1fr 1fr}.edgeGrid{grid-template-columns:1fr}}
+
+
+/* v3.5 LIVE DRAFT PICK FORECAST */
+.pickBoard{width:100%;border-collapse:collapse}
+.pickBoard th,.pickBoard td{padding:9px 8px;border-bottom:1px solid #302815;font-size:11px;text-align:left;vertical-align:middle}
+.pickRange{font-weight:1000;color:#f1cf62}
+.pickProb{height:8px;background:#242424;border-radius:999px;overflow:hidden;min-width:100px}
+.pickProb i{display:block;height:100%;background:#d4af37}
+.pickTier{display:inline-flex;padding:3px 7px;border-radius:999px;border:1px solid #6b5720;background:#15120a;color:#f1cf62;font-size:9px;font-weight:900}
+.pickOwner{font-weight:900}
+.pickOrigin{font-size:10px;color:#aaa}
+.forecastGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media(max-width:900px){.forecastGrid{grid-template-columns:1fr 1fr}.pickBoard th:nth-child(6),.pickBoard td:nth-child(6){display:none}}
+
+
+/* v3.6 WAR ROOM ACTION CENTER */
+.warActionGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.warItem{border-bottom:1px solid #302815;padding:9px 0}
+.warItem:last-child{border-bottom:0}
+.warScore{font-size:18px;font-weight:1000;color:#f1cf62}
+.capSource{display:inline-flex;padding:3px 7px;border-radius:999px;border:1px solid #6b5720;color:#f1cf62;font-size:9px;font-weight:900}
+.capFix{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+@media(max-width:900px){.warActionGrid{grid-template-columns:1fr}}
+
+
+/* v3.7 UNIVERSAL 0–100 SCORING + CORRECTION ACTIONS */
+.score100{display:inline-flex;align-items:center;justify-content:center;min-width:48px;height:30px;padding:0 8px;border:1px solid #6b5720;border-radius:999px;background:#15120a;color:#f1cf62;font-size:16px;font-weight:1000}
+.scoreTrack{height:8px;background:#252525;border-radius:999px;overflow:hidden}
+.scoreTrack i{display:block;height:100%;background:#d4af37}
+.correctionBar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.correctionPanel{border:1px solid #6b5720;background:#0b0b0b;border-radius:14px;padding:12px;margin-top:10px}
+.correctionPanel[hidden]{display:none!important}
+.correctionLaunch{background:#151515!important;color:#f1cf62!important;border:1px solid #6b5720!important}
+.scoreLabel{font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:.06em}
+
+
+/* v3.8 MY ROSTER + IMPORT WORKFLOW */
+.rosterGroup{margin-top:12px}
+.rosterGroup h3{margin:0 0 8px;color:#f1cf62}
+.rosterRow{display:grid;grid-template-columns:1.5fr .5fr .6fr .6fr .6fr .7fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #302815;font-size:11px}
+.importSteps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.importStep{border:1px solid #3a321e;border-radius:10px;padding:9px;background:#0d0d0d}
+.importStep b{color:#f1cf62}
+.fileSummary{margin-top:8px;font-size:11px;color:#ddd}
+@media(max-width:900px){.rosterRow{grid-template-columns:1.2fr .5fr .6fr .7fr}.rosterRow>*:nth-child(5),.rosterRow>*:nth-child(6),.rosterRow>*:nth-child(7){display:none}.importSteps{grid-template-columns:1fr}}
+
+
+/* v3.9 TRANSACTION MANAGER */
+.txGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.txRow{display:grid;grid-template-columns:1.2fr 1fr 1fr .7fr .7fr auto;gap:8px;align-items:end}
+.txAsset{border:1px solid #302815;border-radius:10px;padding:9px;margin-top:7px;background:#0b0b0b}
+.txLog{border-bottom:1px solid #302815;padding:9px 0;font-size:11px}
+@media(max-width:900px){.txGrid,.txRow{grid-template-columns:1fr}}
+
+
+/* v4.0 TRANSACTION SCREENSHOT IMPORT */
+.txShotPanel{border:1px solid #6b5720;background:#0b0b0b;border-radius:14px;padding:12px}
+.txShotGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.txDetected{border:1px solid #302815;border-radius:10px;padding:9px;background:#0d0d0d}
+.txDetected h4{margin:0 0 6px;color:#f1cf62}
+@media(max-width:900px){.txShotGrid{grid-template-columns:1fr}}
+
+/* GM'S LOCKER v5 MASTER PROTOTYPE */
+.integrityHero{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.integrityGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.integrityIssue{border:1px solid #3a321e;background:#0b0b0b;border-radius:12px;padding:10px;margin-top:8px}
+.integrityIssue.high{border-color:#8a5b2a}.integrityIssue.critical{border-color:#8a2d2d}
+.integrityState{display:inline-flex;padding:3px 7px;border-radius:999px;border:1px solid #6b5720;color:#f1cf62;font-size:9px;font-weight:900}
+.integrityState.bad{color:#ff9a9a;border-color:#6a3434}
+.integrityScore{font-size:36px;font-weight:1000;color:#f1cf62}
+.dataMatrix{width:100%;border-collapse:collapse}.dataMatrix th,.dataMatrix td{padding:8px;border-bottom:1px solid #302815;text-align:left;font-size:11px}
+.sourcePriority{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.sourcePriority .cardlet{border:1px solid #3a321e;border-radius:10px;padding:9px;background:#0d0d0d}
+.masterBanner{border:1px solid #6b5720;background:#11100a;border-radius:14px;padding:12px;margin-bottom:12px}
+@media(max-width:900px){.integrityHero,.sourcePriority{grid-template-columns:1fr 1fr}.integrityGrid{grid-template-columns:1fr}}
+
+
+/* GM'S LOCKER v6 — FRANCHISE OPERATING SYSTEM */
+.osGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.osHero{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.feedRow{display:grid;grid-template-columns:1.2fr .6fr .6fr 1fr;gap:8px;padding:8px 0;border-bottom:1px solid #302815;font-size:11px;align-items:center}
+.lineupRow{display:grid;grid-template-columns:.6fr 1.4fr .5fr .6fr .7fr;gap:8px;padding:7px 0;border-bottom:1px solid #302815;font-size:11px}
+.ownerRow{display:grid;grid-template-columns:1.2fr .6fr .6fr .6fr .6fr;gap:8px;padding:7px 0;border-bottom:1px solid #302815;font-size:11px}
+.alertItem{border:1px solid #3a321e;border-radius:10px;padding:9px;margin-top:8px;background:#0c0c0c}
+.alertHit{border-color:#d4af37}
+.scheduleCell{display:inline-flex;min-width:38px;justify-content:center;padding:4px 5px;border:1px solid #3a321e;border-radius:7px;margin:2px;font-size:9px}
+.scheduleCell.bye{color:#f1cf62;border-color:#6b5720}
+.backupBox{border:1px solid #6b5720;background:#11100a;border-radius:12px;padding:10px}
+.privacyLock{position:fixed;inset:0;background:#050505;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px}
+.privacyLock .box{width:min(420px,100%);background:#0d0d0d;border:1px solid #6b5720;border-radius:16px;padding:20px}
+@media(max-width:900px){.osGrid{grid-template-columns:1fr}.osHero{grid-template-columns:1fr 1fr}.feedRow,.ownerRow{grid-template-columns:1fr 1fr}.lineupRow{grid-template-columns:.6fr 1.4fr .6fr}.lineupRow>*:nth-child(4),.lineupRow>*:nth-child(5){display:none}}
+
 </style>
 </head>
 <body>
@@ -129,6 +236,12 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 <header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Pride LG engine • SF • TEP • sack-premium IDP • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav></header>
 
 <section id="dashboard" class="view"></section>
+<section id="myroster" class="view"></section>
+<section id="transactions" class="view"></section>
+<section id="integrity" class="view"></section>
+<section id="season" class="view"></section>
+<section id="watchlist" class="view"></section>
+<section id="edgefinder" class="view"></section>
 <section id="trade" class="view"></section>
 <section id="fa" class="view"></section>
 <section id="draft" class="view"></section>
@@ -141,7 +254,7 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 </div>
 <datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='3.3.0-upload-fix';
+const APP_VERSION='6.0.0-franchise-os';
 const DEFAULT_CONFIG={leagueName:'Pride LG',teamName:'Capitol Carnage',teams:12,salaryCap:1000,superflex:true,tep:true,idp:true,sackPremium:true,threshold:80,requiredProngs:4,hardReq:3,consolidationPremium:4,elitePremium:7,replacement:{QB:265,RB:155,WR:170,TE:145,EDGE:145,DL:130,LB:150,S:135,CB:120,PICK:0},weights:{market:.18,projection:.18,replacement:.12,contract:.15,age:.08,role:.08,trend:.08,scarcity:.06,liquidity:.04,risk:.03}};
 const seedAssets=[
 {id:'love',name:'Jordan Love',type:'PLAYER',pos:'QB',nfl:'GB',age:27,market:8200,adp:26,ecr:20,proj:352,ppg:20.7,role:93,trend:3,risk:18,liquidity:90,salary:87.81,years:3,roster:'Capitol Carnage',source:'Manual seed'},
@@ -195,11 +308,742 @@ function titleImpact(a){if(a.type==='PICK')return clamp(55+(a.year===2027?10:0))
 function prongs(a){return {Production:projectionScore(a),'Roster Fit':clamp((titleImpact(a)+posScarcity(a.pos))/2),'Market Timing':trendScore(a),'Contract Value':contractScore(a),'Championship Impact':titleImpact(a),'Cap Leverage':clamp(contractScore(a)*.72+liquidityScore(a)*.28),'Outside Market':liquidityScore(a)}}
 function signal(a){let ar=arbitrage(a);let mv=modelValue(a),m=Number(a.market)||1;let edge=(mv-m)/m;if(edge>.18&&Number(a.trend)>=0)return ['STRONG BUY','good'];if(edge>.07)return ['BUY','good'];if(edge<-.18)return ['SELL HIGH','bad'];if(edge<-.07)return ['SHOP','warn'];if(Number(a.trend)<-6)return ['FALLING','bad'];return ['HOLD','blue']}
 function recordHistory(asset,oldValue){let nv=modelValue(asset);if(oldValue&&Math.abs(nv-oldValue)/oldValue<.01)return;db.history.unshift({id:uid('hist'),assetId:asset.id,name:asset.name,date:new Date().toISOString(),oldValue:oldValue||nv,newValue:nv,reason:asset.lastReason||'Data/model update'});db.history=db.history.slice(0,300)}
-function nav(){const tabs=[['dashboard','War Room'],['trade','Trade Lab'],['fa','Free Agency'],['draft','Draft & Picks'],['market','Market Board'],['sync','MFL Sync'],['settings','Settings']];document.getElementById('nav').innerHTML=tabs.map(([id,l])=>`<button data-view="${id}" onclick="showView('${id}')">${l}</button>`).join('')}
+function nav(){const tabs=[['dashboard','War Room'],['myroster','My Roster'],['transactions','Transactions'],['integrity','Integrity'],['season','Season'],['watchlist','Watchlist'],['edgefinder','Edge Finder'],['trade','Trade Lab'],['fa','Free Agency'],['draft','Draft & Picks'],['market','Market Board'],['leagueanalyzer','League Analyzer'],['teamanalyzer','Team Analyzer'],['sync','MFL Sync'],['settings','Settings']];document.getElementById('nav').innerHTML=tabs.map(([id,l])=>`<button data-view="${id}" onclick="showView('${id}')">${l}</button>`).join('')}
 function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===id));renderView(id);localStorage.setItem('ccgm_view',id)}
-function renderView(id){({dashboard:renderDashboard,trade:renderTrade,fa:renderFA,draft:renderDraft,market:renderMarket,sync:renderSync,settings:renderSettings}[id]||renderDashboard)()}
-function dashboardCards(){let mine=db.assets.filter(a=>a.roster===db.config.teamName&&a.type==='PLAYER');let total=mine.reduce((s,a)=>s+modelValue(a),0);let proj=mine.reduce((s,a)=>s+(Number(a.proj)||0),0);let cap=mine.reduce((s,a)=>s+(Number(a.salary)||0),0);let buys=db.assets.filter(a=>signal(a)[0].includes('BUY')).length;return {mine,total,proj,cap,buys}}
-function renderDashboard(){let x=dashboardCards();let movers=db.history.slice(0,6);let buys=db.assets.slice().sort((a,b)=>arbitrage(b)-arbitrage(a)).slice(0,5);dashboard.innerHTML=`<div class="grid4"><div class="metric"><b>${fmt(x.total)}</b><span>Roster Pride value</span></div><div class="metric"><b>${fmt(x.proj)}</b><span>Projected points on roster</span></div><div class="metric"><b>$${x.cap.toFixed(2)}</b><span>Known active salary</span></div><div class="metric"><b>${x.buys}</b><span>Current buy signals</span></div></div><div class="grid" style="margin-top:12px"><div class="card"><div class="sectionhead"><h2>Best Market Inefficiencies</h2><span class="pill">Model vs market</span></div>${buys.map(a=>assetMini(a)).join('')}</div><div class="card"><div class="sectionhead"><h2>Recent Value Movement</h2><span class="pill">History</span></div>${movers.length?movers.map(h=>`<div class="gate"><span><b>${h.name}</b><br><span class="small">${h.reason}</span></span><b class="${h.newValue>=h.oldValue?'good':'bad'}">${h.newValue>=h.oldValue?'+':''}${fmt(h.newValue-h.oldValue)}</b></div>`).join(''):'<div class="notice">Value changes will appear here as you edit players, sync the league or update projections/ADP.</div>'}</div></div><div class="card" style="margin-top:12px"><h2>GM Philosophy</h2><div class="small">The app separates public market price from our calculated football value. The goal is not to predict every breakout; it is to repeatedly buy production, cap efficiency and appreciating assets below the market price and sell expensive assets when the market outruns the underlying football value.</div></div>`}
+function renderView(id){({dashboard:renderDashboard,myroster:renderMyRoster,transactions:renderTransactions,integrity:renderIntegrity,season:renderSeason,watchlist:renderWatchlist,edgefinder:renderEdgeFinder,trade:renderTrade,fa:renderFA,draft:renderDraft,market:renderMarket,leagueanalyzer:renderLeagueAnalyzer,teamanalyzer:renderTeamAnalyzer,sync:renderSync,settings:renderSettings}[id]||renderDashboard)()}
+
+function franchiseRecord(team){
+  const f=(db.mfl?.franchises||[]).find(x=>String(x.name||'').toLowerCase()===String(team||'').toLowerCase());
+  return f||{};
+}
+function firstFinite(obj,keys){
+  for(const k of keys){
+    const v=obj?.[k];
+    if(v!==undefined&&v!==null&&v!==''){
+      const n=Number(String(v).replace(/[$,]/g,''));
+      if(Number.isFinite(n))return n;
+    }
+  }
+  return undefined;
+}
+function teamCapSnapshot(team){
+  db.capOverrides=db.capOverrides||{};
+  const override=Number(db.capOverrides[team]);
+  if(Number.isFinite(override)&&override>=0)return {remaining:override,source:'MANUAL',confidence:'HIGH'};
+
+  const f=franchiseRecord(team);
+  const raw=f.raw||f;
+  const remaining=firstFinite(raw,[
+    'remainingCap','remaining_cap','capRoom','cap_room','availableCap','available_cap',
+    'salaryCapAvailable','salary_cap_available','remainingSalaryCap','remaining_salary_cap'
+  ]);
+  if(remaining!==undefined)return {remaining,source:'MFL',confidence:'HIGH'};
+
+  const spent=teamAssets(team).filter(a=>a.type!=='PICK').reduce((sum,a)=>sum+Number(a.salary||0),0);
+  const franchiseLimit=firstFinite(raw,[
+    'salaryCapAmount','salary_cap_amount','salaryCap','salary_cap','capLimit','cap_limit'
+  ]);
+  const leagueLimit=Number(db.config?.salaryCap);
+  const limit=Number.isFinite(franchiseLimit)?franchiseLimit:(Number.isFinite(leagueLimit)?leagueLimit:undefined);
+  if(limit!==undefined)return {remaining:Math.max(0,limit-spent),source:franchiseLimit!==undefined?'MFL DERIVED':'ESTIMATE',confidence:'MEDIUM',limit,spent};
+
+  return {remaining:0,source:'MISSING',confidence:'LOW',spent};
+}
+function setMyCapOverride(){
+  const el=document.getElementById('warCapOverride');
+  const n=Number(el?.value);
+  if(!Number.isFinite(n)||n<0)return alert('Enter your actual remaining cap.');
+  db.capOverrides=db.capOverrides||{};
+  db.capOverrides[db.config.teamName]=n;
+  persist();renderDashboard();
+}
+function clearMyCapOverride(){
+  db.capOverrides=db.capOverrides||{};
+  delete db.capOverrides[db.config.teamName];
+  persist();renderDashboard();
+}
+function warRoomFASuggestions(){
+  if(typeof scanFreeAgentEdges!=='function')return [];
+  return scanFreeAgentEdges().filter(e=>e.complete&&e.type==='FA BUY').sort((a,b)=>b.score-a.score).slice(0,5);
+}
+function warRoomTradeTargets(){
+  const ours=db.config.teamName;
+  const teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(n=>n&&n!==ours);
+  const positions=['QB','RB','WR','TE','DL','LB','DB'];
+  const ourNeeds=positions.map(pos=>({pos,need:rosterNeedScore(ours,pos)})).sort((a,b)=>b.need-a.need);
+  const targets=[];
+  for(const needRow of ourNeeds.slice(0,4)){
+    if(needRow.need<35)continue;
+    for(const team of teams){
+      const assets=teamAssets(team).filter(a=>a.type!=='PICK'&&normalizedPos(a.pos)===needRow.pos);
+      for(const a of assets){
+        const comp=dataCompleteness(a);
+        if(comp.missing.includes('projection'))continue;
+        const proj=Number(a.proj||0),role=Number(a.role||50),risk=Number(a.risk||45);
+        const salary=Number(a.salary||0),mv=modelValue(a),market=Number(a.market||0);
+        const capEff=proj?Math.max(0,100-Math.min(100,(salary/proj)*110)):50;
+        const marketEdge=market>0?Math.max(-30,Math.min(30,(mv-market)/market*100)):0;
+        const ownerNeed=rosterNeedScore(team,a.pos);
+        // We prefer players helping our weakness whose owner has enough depth that a deal is plausible.
+        const availability=Math.max(0,100-ownerNeed);
+        const score=needRow.need*.30+Math.min(100,proj/2.1)*.20+role*.13+(100-risk)*.09+capEff*.10+availability*.12+(50+marketEdge)*.06;
+        if(score>=63)targets.push({a,team,pos:needRow.pos,ourNeed:needRow.need,ownerNeed,score:Math.round(score),capEff});
+      }
+    }
+  }
+  return targets.sort((a,b)=>b.score-a.score).slice(0,7);
+}
+function warPickEdges(){
+  if(typeof scanPickEdges!=='function')return [];
+  return scanPickEdges().sort((a,b)=>b.score-a.score).slice(0,4);
+}
+
+
+function score100(v){
+  const n=Number(v);
+  if(!Number.isFinite(n))return 0;
+  return Math.max(0,Math.min(100,Math.round(n)));
+}
+function scoreMarkup(v,label='Score'){
+  const n=score100(v);
+  return `<div><div class="score100">${n}</div><div class="scoreLabel">${label}</div></div>`;
+}
+function toggleCorrectionPanel(id){
+  const el=document.getElementById(id);if(!el)return;
+  el.hidden=!el.hidden;
+  if(!el.hidden)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function openRosterCorrection(){
+  showView('sync');
+  setTimeout(()=>{const el=document.getElementById('rosterCorrectionPanel');if(el){el.hidden=false;el.scrollIntoView({behavior:'smooth',block:'start'})}},80);
+}
+function openFACorrection(){
+  showView('fa');
+  setTimeout(()=>{const el=document.getElementById('faCorrectionPanel');if(el){el.hidden=false;el.scrollIntoView({behavior:'smooth',block:'start'})}},80);
+}
+function openManualCorrection(){
+  showView('settings');
+  setTimeout(()=>{const el=document.getElementById('manualCorrectionPanel');if(el){el.hidden=false;el.scrollIntoView({behavior:'smooth',block:'start'})}},80);
+}
+function correctionActionBar(){
+  return `<div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Correction Layer</h2><span class="pill">MANUAL AUTHORITY</span></div>
+    <div class="notice">MFL remains primary. Corrections only fill or override bad/missing data after review.</div>
+    <div class="correctionBar" style="margin-top:8px">
+      <button class="correctionLaunch" onclick="openRosterCorrection()">ADD ROSTER CORRECTION</button><button class="correctionLaunch" onclick="showView('transactions')">ADD TRANSACTION / TRADE</button>
+      <button class="correctionLaunch" onclick="openFACorrection()">ADD FA CORRECTION</button>
+      <button class="correctionLaunch" onclick="openManualCorrection()">MANUAL OVERRIDE</button>
+    </div></div>`;
+}
+
+
+function rosterStatus(a){
+  return String(a.status||a.rosterStatus||'ACTIVE').toUpperCase();
+}
+function renderMyRoster(){
+  const team=db.config.teamName;
+  const rows=teamAssets(team).filter(a=>a.type!=='PICK').sort((a,b)=>{
+    const order={ACTIVE:0,MINORS:1,TAXI:1,IR:2,RESERVE:3};
+    return (order[rosterStatus(a)]??4)-(order[rosterStatus(b)]??4) || normalizedPos(a.pos).localeCompare(normalizedPos(b.pos)) || Number(b.proj||0)-Number(a.proj||0);
+  });
+  const cap=teamCapSnapshot(team);
+  const projMissing=rows.filter(a=>!(Number(a.proj)>0)).length;
+  const statuses=['ACTIVE','MINORS/TAXI','IR/RESERVE'];
+  const groups={
+    'ACTIVE':rows.filter(a=>!/(MINOR|TAXI|IR|RESERVE)/.test(rosterStatus(a))),
+    'MINORS/TAXI':rows.filter(a=>/(MINOR|TAXI)/.test(rosterStatus(a))),
+    'IR/RESERVE':rows.filter(a=>/(IR|RESERVE)/.test(rosterStatus(a)))
+  };
+  myroster.innerHTML=`
+  <div class="card"><div class="sectionhead"><h2>My Roster — ${team}</h2><span class="pill">FRONT OFFICE</span></div>
+    <div class="grid4">
+      <div class="metric"><b>${rows.length}</b><span>Players owned</span></div>
+      <div class="metric"><b>$${Number(cap.remaining||0).toFixed(2)}</b><span>Remaining cap · ${cap.source}</span></div>
+      <div class="metric"><b>${Math.round(rows.reduce((s,a)=>s+Number(a.proj||0),0))}</b><span>Projected points</span></div>
+      <div class="metric"><b>${projMissing}</b><span>Missing projections</span></div>
+    </div>
+    <div class="correctionBar" style="margin-top:10px">
+      <button onclick="openRosterCorrection()">ADD / CORRECT ROSTER</button><button class="secondary" onclick="showView('transactions')">ADD TRANSACTION</button>
+      <button class="secondary" onclick="showView('teamanalyzer');window.teamAnalyzerTeam='${String(team).replace(/'/g,"\\'")}';setTimeout(renderTeamAnalyzer,0)">FULL TEAM ANALYSIS</button>
+      <button class="secondary" onclick="showView('edgefinder')">SCAN FOR EDGES</button>
+    </div>
+  </div>
+  ${statuses.map(st=>`<div class="card rosterGroup"><h3>${st}</h3>
+    <div class="rosterRow" style="font-weight:900;color:#aaa"><span>Player</span><span>Pos</span><span>Proj</span><span>Salary</span><span>Years</span><span>Value</span><span>Source</span></div>
+    ${(groups[st]||[]).length?(groups[st]||[]).map(a=>`<div class="rosterRow"><span><b>${a.name}</b><br><span class="small">${a.nfl||''}</span></span><span>${normalizedPos(a.pos)}</span><span>${a.proj?Math.round(a.proj):'MISSING'}</span><span>$${Number(a.salary||0).toFixed(2)}</span><span>${a.years||0}</span><span>${fmt(modelValue(a))}</span><span>${typeof sourceBadge==='function'?sourceBadge(a,'roster'):(a.source||'MFL')}</span></div>`).join(''):'<div class="notice">No players in this status group.</div>'}
+  </div>`).join('')}`;
+}
+
+
+function allTeamNames(){
+  return (db.mfl?.franchises||[]).map(f=>f.name).filter(Boolean);
+}
+function transactionAssets(){
+  return (db.assets||[]).filter(a=>a.type==='PLAYER'||a.type==='PICK').slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+}
+function txAssetById(id){
+  return (db.assets||[]).find(a=>String(a.id)===String(id)||String(a.mflId||'')===String(id));
+}
+function ensureTxLog(){
+  db.manualTransactions=db.manualTransactions||[];
+  return db.manualTransactions;
+}
+function applyOwnershipMove(asset,toTeam,opts={}){
+  if(!asset||!toTeam)return false;
+  const oldTeam=asset.roster||'FREE AGENT';
+  asset.roster=toTeam;
+  asset.owner=toTeam;
+  if(asset.type==='PICK')asset.currentOwner=toTeam;
+  if(opts.salary!==undefined&&opts.salary!=='')asset.salary=Number(opts.salary);
+  if(opts.years!==undefined&&opts.years!=='')asset.years=Number(opts.years);
+  asset.source='Manual Transaction';
+  asset.sources=asset.sources||{};
+  asset.sources.roster='Manual Transaction';
+  if(opts.salary!==undefined&&opts.salary!=='')asset.sources.salary='Manual Transaction';
+  if(opts.years!==undefined&&opts.years!=='')asset.sources.years='Manual Transaction';
+  asset.lastReason=`Manual transaction: ${oldTeam} → ${toTeam}`;
+  return oldTeam;
+}
+function addManualTransaction(){saveUndoPoint('Before manual transaction');
+  const type=document.getElementById('txType')?.value||'TRADE';
+  const assetId=document.getElementById('txAsset')?.value||'';
+  const from=document.getElementById('txFrom')?.value||'';
+  const to=document.getElementById('txTo')?.value||'';
+  const salary=document.getElementById('txSalary')?.value;
+  const years=document.getElementById('txYears')?.value;
+  const asset=txAssetById(assetId);
+  if(!asset)return alert('Choose an asset.');
+  if(!to)return alert('Choose the destination team.');
+  if(from && asset.roster && String(asset.roster)!==String(from)){
+    const ok=confirm(`${asset.name} is currently listed on ${asset.roster}, not ${from}. Move him anyway?`);
+    if(!ok)return;
+  }
+  const oldTeam=applyOwnershipMove(asset,to,{salary,years});
+  ensureTxLog().unshift({
+    id:uid('tx'),
+    date:new Date().toISOString(),
+    type,
+    assetId:asset.id,
+    assetName:asset.name,
+    from:oldTeam||from||'Unknown',
+    to,
+    salary:salary!==''?Number(salary):undefined,
+    years:years!==''?Number(years):undefined,
+    source:'Manual Transaction'
+  });
+  persist();
+  renderAssetList();
+  renderTransactions();
+  if(document.getElementById('myroster')?.classList.contains('active'))renderMyRoster();
+  alert(`${asset.name} moved from ${oldTeam||from||'Unknown'} to ${to}.`);
+}
+function addTradePair(){saveUndoPoint('Before manual trade');
+  const give=document.getElementById('txGiveAsset')?.value||'';
+  const recv=document.getElementById('txRecvAsset')?.value||'';
+  const teamA=document.getElementById('txTeamA')?.value||'';
+  const teamB=document.getElementById('txTeamB')?.value||'';
+  if(!teamA||!teamB||teamA===teamB)return alert('Choose two different teams.');
+  const a=txAssetById(give),b=txAssetById(recv);
+  if(!a&&!b)return alert('Choose at least one asset.');
+  const log=ensureTxLog();
+  const batch=uid('trade');
+  if(a){
+    const old=applyOwnershipMove(a,teamB,{});
+    log.unshift({id:uid('tx'),batch,date:new Date().toISOString(),type:'TRADE',assetId:a.id,assetName:a.name,from:old||teamA,to:teamB,source:'Manual Transaction'});
+  }
+  if(b){
+    const old=applyOwnershipMove(b,teamA,{});
+    log.unshift({id:uid('tx'),batch,date:new Date().toISOString(),type:'TRADE',assetId:b.id,assetName:b.name,from:old||teamB,to:teamA,source:'Manual Transaction'});
+  }
+  audit('MANUAL TRANSACTION',{asset:asset?.name||'',to},'Transaction Manager');persist();renderAssetList();renderTransactions();
+  if(document.getElementById('myroster')?.classList.contains('active'))renderMyRoster();
+  alert('Trade transaction applied.');
+}
+
+window.selectedTransactionFiles=[];
+window.pendingTransactionImports=[];
+
+function handleTransactionScreenshots(files){
+  window.selectedTransactionFiles=Array.from(files||[]);
+  const out=document.getElementById('txScreenshotReview');
+  if(!out)return;
+  if(!window.selectedTransactionFiles.length){out.innerHTML='';return}
+  out.innerHTML=`<div class="notice"><b>${window.selectedTransactionFiles.length} screenshot${window.selectedTransactionFiles.length===1?'':'s'} selected.</b> Click PROCESS TRANSACTION SCREENSHOTS. Nothing has changed yet.</div>`;
+}
+
+async function processTransactionScreenshots(){
+  const files=window.selectedTransactionFiles||[];
+  const out=document.getElementById('txScreenshotReview');
+  if(!files.length){if(out)out.innerHTML='<div class="notice">Choose transaction screenshots first.</div>';return}
+  if(out)out.innerHTML='<div class="notice">Reading transaction screenshot(s)…</div>';
+  try{
+    const p=await postImagesToWorker('/parse-transaction-images',files);
+    window.pendingTransactionImports=p.transactions||[];
+    renderTransactionScreenshotReview();
+  }catch(e){
+    if(out)out.innerHTML=`<div class="notice"><b>Transaction screenshot processing failed:</b> ${e.message}</div>`;
+  }
+}
+
+function renderTransactionScreenshotReview(){
+  const out=document.getElementById('txScreenshotReview');
+  const rows=window.pendingTransactionImports||[];
+  if(!out)return;
+  if(!rows.length){out.innerHTML='<div class="notice">No transactions detected.</div>';return}
+  out.innerHTML=`
+    <div class="txShotGrid" style="margin-top:10px">
+      ${rows.map((t,i)=>`
+        <div class="txDetected">
+          <h4>Detected Transaction ${i+1}</h4>
+          <div class="gate"><span>Type</span><b>${t.type||'TRADE'}</b></div>
+          <div class="gate"><span>Team A</span><b>${t.teamA||'Unknown'}</b></div>
+          <div class="gate"><span>Team B</span><b>${t.teamB||'Unknown'}</b></div>
+          <div class="small" style="margin-top:7px"><b>${t.teamA||'Team A'} sends:</b><br>${(t.teamASends||[]).join('<br>')||'—'}</div>
+          <div class="small" style="margin-top:7px"><b>${t.teamB||'Team B'} sends:</b><br>${(t.teamBSends||[]).join('<br>')||'—'}</div>
+        </div>`).join('')}
+    </div>
+    <div class="actions">
+      <button onclick="applyTransactionScreenshotImports()">APPLY TRANSACTIONS TO SITE</button>
+      <button class="secondary" onclick="window.pendingTransactionImports=[];document.getElementById('txScreenshotReview').innerHTML=''">DISCARD</button>
+    </div>`;
+}
+
+function resolveTxAsset(name,team){
+  const n=String(name||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const pool=transactionAssets();
+  return pool.find(a=>String(a.name||'').toLowerCase().replace(/[^a-z0-9]/g,'')===n && (!team || String(a.roster||'').toLowerCase()===String(team).toLowerCase()))
+      || pool.find(a=>String(a.name||'').toLowerCase().replace(/[^a-z0-9]/g,'')===n)
+      || pool.find(a=>String(a.name||'').toLowerCase().includes(String(name||'').toLowerCase()));
+}
+
+function applyTransactionScreenshotImports(){saveUndoPoint('Before screenshot transaction import');
+  const rows=window.pendingTransactionImports||[];
+  if(!rows.length)return;
+  const log=ensureTxLog();
+  let moved=0,unresolved=[];
+  for(const t of rows){
+    const type=t.type||'TRADE',teamA=t.teamA||'',teamB=t.teamB||'';
+    for(const name of (t.teamASends||[])){
+      const a=resolveTxAsset(name,teamA);
+      if(!a){unresolved.push(`${name} (${teamA} → ${teamB})`);continue}
+      const old=applyOwnershipMove(a,teamB,{});
+      log.unshift({id:uid('tx'),date:new Date().toISOString(),type,assetId:a.id,assetName:a.name,from:old||teamA,to:teamB,source:'Screenshot Transaction'});
+      moved++;
+    }
+    for(const name of (t.teamBSends||[])){
+      const a=resolveTxAsset(name,teamB);
+      if(!a){unresolved.push(`${name} (${teamB} → ${teamA})`);continue}
+      const old=applyOwnershipMove(a,teamA,{});
+      log.unshift({id:uid('tx'),date:new Date().toISOString(),type,assetId:a.id,assetName:a.name,from:old||teamB,to:teamA,source:'Screenshot Transaction'});
+      moved++;
+    }
+  }
+  persist();renderAssetList();renderTransactions();
+  window.pendingTransactionImports=[];
+  alert(`${moved} asset move${moved===1?'':'s'} applied.${unresolved.length?`\nUnresolved: ${unresolved.join(', ')}`:''}`);
+}
+
+function renderTransactions(){
+  const teams=allTeamNames();
+  const assets=transactionAssets();
+  const logs=ensureTxLog();
+  const optTeams=teams.map(t=>`<option value="${t}">${t}</option>`).join('');
+  const optAssets=assets.map(a=>`<option value="${a.id}">${a.name} — ${a.roster||'FA'}</option>`).join('');
+  transactions.innerHTML=`
+  <div class="card"><div class="sectionhead"><h2>Transaction Manager</h2><span class="pill">MANUAL AUTHORITY</span></div>
+    <div class="notice"><b>Use this when MFL ownership is stale.</b> A transaction physically moves the asset off the old roster and onto the new roster, then every roster, trade, FA, cap and analyzer view recalculates from the corrected ownership.</div>
+  </div>
+  <div class="txShotPanel" style="margin-top:12px">
+    <div class="sectionhead"><h2>Import Transaction Screenshot</h2><span class="pill">AI REVIEW</span></div>
+    <div class="notice"><b>Choose → Process → Review → Apply.</b> Ownership does not change until you approve.</div>
+    <label class="nativeUpload" style="margin-top:10px"><strong>Choose transaction screenshot(s)</strong><div class="uploadHint">Trades, waiver claims, signings, cuts, pick transfers.</div><input id="txShots" type="file" accept="image/*" multiple onchange="handleTransactionScreenshots(this.files)"></label>
+    <div class="actions"><button onclick="processTransactionScreenshots()">PROCESS TRANSACTION SCREENSHOTS</button></div>
+    <div id="txScreenshotReview"></div>
+  </div>
+  <div class="txShotPanel" style="margin-top:12px"><div class="sectionhead"><h2>Upload Previous Transactions</h2><span class="pill">HISTORY / RECONCILIATION</span></div>
+      <div class="notice">Upload old transaction-history screenshots. You can add them to the audit history only, or use them to reconcile current ownership.</div>
+      <label class="nativeUpload"><strong>Choose previous transaction screenshot(s)</strong><input type="file" accept="image/*" multiple onchange="handleHistoricalTxScreens(this.files)"></label>
+      <div class="actions"><button onclick="processHistoricalTxScreens()">PROCESS PREVIOUS TRANSACTIONS</button></div><div id="historicalTxReview"></div>
+    </div><div class="txGrid" style="margin-top:12px">
+    <div class="card"><h2>Add Transaction</h2>
+      <div class="txRow">
+        <div class="field"><label>Type</label><select id="txType"><option>TRADE</option><option>WAIVER CLAIM</option><option>FREE AGENT SIGNING</option><option>CUT</option><option>ROSTER CORRECTION</option><option>PICK TRANSFER</option></select></div>
+        <div class="field"><label>Asset</label><select id="txAsset"><option value="">Choose asset</option>${optAssets}</select></div>
+        <div class="field"><label>From</label><select id="txFrom"><option value="">Use current owner</option>${optTeams}</select></div>
+        <div class="field"><label>To</label><select id="txTo"><option value="FREE AGENT">FREE AGENT</option>${optTeams}</select></div>
+        <div class="field"><label>Salary</label><input id="txSalary" type="number" step=".01" placeholder="optional"></div>
+        <div class="field"><label>Years</label><input id="txYears" type="number" placeholder="optional"></div>
+      </div>
+      <div class="actions"><button onclick="addManualTransaction()">APPLY TRANSACTION</button></div>
+    </div>
+    <div class="card"><h2>Manual Trade</h2>
+      <div class="grid">
+        <div class="field"><label>Team A</label><select id="txTeamA">${optTeams}</select></div>
+        <div class="field"><label>Team A sends</label><select id="txGiveAsset"><option value="">No asset</option>${optAssets}</select></div>
+        <div class="field"><label>Team B</label><select id="txTeamB">${optTeams}</select></div>
+        <div class="field"><label>Team B sends</label><select id="txRecvAsset"><option value="">No asset</option>${optAssets}</select></div>
+      </div>
+      <div class="actions"><button onclick="addTradePair()">APPLY TRADE</button></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Manual Transaction Log</h2><span class="pill">${logs.length}</span></div>
+    ${logs.length?logs.slice(0,50).map(x=>`<div class="txLog"><b>${x.type}</b> · ${x.assetName}<br><span class="small">${x.from} → ${x.to} · ${new Date(x.date).toLocaleString()}</span></div>`).join(''):'<div class="notice">No manual transactions yet.</div>'}
+  </div>`;
+}
+
+
+function authorityRank(source){
+  const x=String(source||'').toUpperCase();
+  if(x.includes('MANUAL'))return 4;
+  if(x.includes('SCREENSHOT')||x.includes('TRANSACTION'))return 3;
+  if(x.includes('MFL'))return 2;
+  return 1;
+}
+function integrityIssues(){
+  const issues=[],assets=db.assets||[],teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(Boolean);
+  const byMfl=new Map(),byName=new Map();
+  for(const a of assets.filter(x=>x.type==='PLAYER')){
+    if(a.mflId){const k=String(a.mflId);if(!byMfl.has(k))byMfl.set(k,[]);byMfl.get(k).push(a)}
+    const nk=String(a.name||'').toLowerCase().trim();if(nk){if(!byName.has(nk))byName.set(nk,[]);byName.get(nk).push(a)}
+  }
+  for(const [id,arr] of byMfl){
+    if(arr.length>1){const rosters=[...new Set(arr.map(a=>a.roster).filter(Boolean))];issues.push({severity:'critical',type:'DUPLICATE PLAYER',asset:arr[0]?.name||id,message:`MFL player ${id} appears ${arr.length} times${rosters.length>1?` across ${rosters.join(', ')}`:''}.`,action:'RECONCILE OWNERSHIP'})}
+  }
+  for(const [name,arr] of byName){
+    const ids=[...new Set(arr.map(a=>a.mflId).filter(Boolean))];if(arr.length>1&&ids.length>1)issues.push({severity:'high',type:'NAME COLLISION',asset:arr[0]?.name||name,message:'Multiple MFL IDs share this player name.',action:'REVIEW PLAYER MATCH'})
+  }
+  for(const a of assets.filter(x=>x.type==='PLAYER'&&x.roster&&String(x.roster).toUpperCase()!=='FREE AGENT')){
+    if(!(Number(a.proj)>0))issues.push({severity:'high',type:'MISSING PROJECTION',asset:a.name,message:`${a.roster} · ${normalizedPos(a.pos)} has no usable projection.`,action:'ADD PROJECTION'});
+    if(a.salary===undefined||a.salary===null||a.salary==='')issues.push({severity:'medium',type:'MISSING SALARY',asset:a.name,message:`${a.roster} has no salary recorded.`,action:'CORRECT CONTRACT'});
+  }
+  for(const team of teams){const snap=teamCapSnapshot(team);if(snap.source==='MISSING')issues.push({severity:'high',type:'CAP DATA',asset:team,message:'No trustworthy remaining-cap value is available.',action:'SET CAP OVERRIDE'})}
+  const picks=(typeof livePickForecasts==='function'?livePickForecasts():[]);
+  for(const q of picks){
+    if(!q.currentOwner||q.currentOwner==='Unknown')issues.push({severity:'high',type:'PICK OWNER',asset:`${q.year} R${q.round}`,message:'Current owner is unknown.',action:'CORRECT PICK OWNER'});
+    if(!q.originalTeam||q.originalTeam==='Unknown')issues.push({severity:'high',type:'PICK ORIGIN',asset:`${q.year} R${q.round}`,message:'Original franchise is unknown, so slot forecast is unreliable.',action:'SET ORIGINAL TEAM'});
+  }
+  for(const tx of (db.manualTransactions||[])){const a=(db.assets||[]).find(x=>String(x.id)===String(tx.assetId));if(a&&tx.to&&String(a.roster)!==String(tx.to))issues.push({severity:'critical',type:'TRANSACTION CONFLICT',asset:a.name,message:`Latest manual transaction says ${tx.to}, but asset currently says ${a.roster}.`,action:'APPLY LATEST TRANSACTION'})}
+  return issues;
+}
+function integrityScore(){
+  let score=100;const penalty={critical:18,high:8,medium:3,low:1};integrityIssues().forEach(i=>score-=penalty[i.severity]||2);return score100(score);
+}
+function dataCompletenessMatrix(){
+  const owned=(db.assets||[]).filter(a=>a.type==='PLAYER'&&a.roster&&String(a.roster).toUpperCase()!=='FREE AGENT');
+  const pct=f=>owned.length?Math.round(100*owned.filter(f).length/owned.length):0;
+  const picks=(db.assets||[]).filter(a=>a.type==='PICK');
+  return [
+    {name:'Roster ownership',score:pct(a=>!!a.roster)},{name:'Projections',score:pct(a=>Number(a.proj)>0)},
+    {name:'Salary',score:pct(a=>a.salary!==undefined&&a.salary!==null&&a.salary!=='')},{name:'Contract years',score:pct(a=>a.years!==undefined&&a.years!==null&&a.years!=='')},
+    {name:'Role score',score:pct(a=>a.role!==undefined&&a.role!==null)},{name:'Risk score',score:pct(a=>a.risk!==undefined&&a.risk!==null)},
+    {name:'Pick ownership',score:picks.length?Math.round(100*picks.filter(a=>a.roster||a.owner||a.currentOwner).length/picks.length):0},
+    {name:'Pick original team',score:picks.length?Math.round(100*picks.filter(a=>a.originalTeam||a.originalOwner||a.fromTeam||a.pickTeam).length/picks.length):0}
+  ];
+}
+function renderIntegrity(){
+  const issues=integrityIssues(),score=integrityScore(),matrix=dataCompletenessMatrix(),critical=issues.filter(i=>i.severity==='critical').length,high=issues.filter(i=>i.severity==='high').length;
+  integrity.innerHTML=`<div class="masterBanner"><div class="sectionhead"><h2>Integrity Layer</h2><span class="pill">MASTER STATE PROTECTION</span></div><div class="small">All feeds are evidence sources. Higher-authority corrections beat stale lower-authority data.</div></div>
+  <div class="card"><div class="integrityHero"><div class="metric"><b class="integrityScore">${score}</b><span>Integrity score /100</span></div><div class="metric"><b>${issues.length}</b><span>Total issues</span></div><div class="metric"><b>${critical}</b><span>Critical conflicts</span></div><div class="metric"><b>${high}</b><span>High-priority gaps</span></div><div class="metric"><b>${db.lastSync?new Date(db.lastSync).toLocaleString():'Never'}</b><span>Last MFL sync</span></div></div></div>
+  <div class="card" style="margin-top:12px"><h2>Source Authority</h2><div class="sourcePriority"><div class="cardlet"><b>1. Manual Override</b><br><span class="small">Final authority.</span></div><div class="cardlet"><b>2. Screenshot / Transaction</b><br><span class="small">Explicit correction.</span></div><div class="cardlet"><b>3. MFL Sync</b><br><span class="small">Primary automation.</span></div><div class="cardlet"><b>4. Model Defaults</b><br><span class="small">Fallback only.</span></div></div></div>
+  <div class="osGrid" style="margin-top:12px">
+    <div class="card"><div class="sectionhead"><h2>Data Feed Manager</h2><span class="pill">FRESHNESS + COVERAGE</span></div>
+      ${feedStatusRows().map(r=>`<div class="feedRow"><b>${r.name}</b><span>${score100(r.score)}/100</span><span>${r.time?Math.round(feedAgeHours(r.name.toLowerCase()))+'h':'—'}</span><span class="small">${r.source}</span></div>`).join('')}
+      <div class="actions"><label class="secondary" style="padding:9px;border-radius:8px;cursor:pointer">IMPORT PROJECTIONS / DATA<input type="file" accept=".csv,.json,text/csv,application/json" style="display:none" onchange="importProjectionFile(this.files[0])"></label></div>
+      <div class="small">CSV columns supported: name, projection/proj, role, sentiment/trend, breakout, risk, market, bye.</div>
+    </div>
+    <div class="card"><div class="sectionhead"><h2>Owner Tendencies</h2><span class="pill">LEAGUE BEHAVIOR</span></div>
+      ${ownerTendencies().map(o=>`<div class="ownerRow"><b>${o.team}</b><span>${o.aggressiveness}/100</span><span>${o.bids} bids</span><span>$${o.avg.toFixed(1)} avg</span><span>$${Number(o.cap||0).toFixed(0)} cap</span></div>`).join('')}
+    </div>
+  </div><div class="integrityGrid" style="margin-top:12px"><div class="card"><div class="sectionhead"><h2>Open Integrity Issues</h2><span class="pill">${issues.length}</span></div>${issues.length?issues.slice(0,80).map(i=>`<div class="integrityIssue ${i.severity}"><div class="sectionhead"><span class="integrityState ${i.severity==='critical'?'bad':''}">${i.severity.toUpperCase()}</span><b>${i.type}</b></div><b>${i.asset||''}</b><div class="small">${i.message}</div><div class="edgeGood">${i.action}</div></div>`).join(''):'<div class="notice"><b>No integrity conflicts detected.</b></div>'}</div>
+  <div class="card"><div class="sectionhead"><h2>Data Completeness</h2><span class="pill">0–100</span></div><table class="dataMatrix"><thead><tr><th>Layer</th><th>Complete</th><th></th></tr></thead><tbody>${matrix.map(r=>`<tr><td>${r.name}</td><td><b>${score100(r.score)}/100</b></td><td><div class="scoreTrack"><i style="width:${score100(r.score)}%"></i></div></td></tr>`).join('')}</tbody></table><div class="actions" style="margin-top:10px"><button onclick="openRosterCorrection()">ADD ROSTER CORRECTION</button><button class="secondary" onclick="openFACorrection()">ADD FA CORRECTION</button><button class="secondary" onclick="showView('transactions')">ADD TRANSACTION</button></div></div></div>`;
+}
+
+
+/* ---------- V6 SAFETY / AUDIT / BACKUP ---------- */
+function ensureAudit(){db.audit=db.audit||[];return db.audit}
+function audit(action,detail={},source='GM Locker'){
+  ensureAudit().unshift({id:uid('audit'),time:new Date().toISOString(),action,detail,source});
+  db.audit=db.audit.slice(0,1000);
+}
+function saveUndoPoint(label){
+  db.undoStack=db.undoStack||[];
+  const snap={label,time:new Date().toISOString(),assets:JSON.parse(JSON.stringify(db.assets||[])),mfl:JSON.parse(JSON.stringify(db.mfl||{})),capOverrides:JSON.parse(JSON.stringify(db.capOverrides||{})),manualTransactions:JSON.parse(JSON.stringify(db.manualTransactions||[])),watchlist:JSON.parse(JSON.stringify(db.watchlist||[]))};
+  db.undoStack.unshift(snap);db.undoStack=db.undoStack.slice(0,5);
+}
+function undoLastAction(){
+  const stack=db.undoStack||[];if(!stack.length)return alert('No undo point available.');
+  const x=stack.shift();
+  if(!confirm(`Undo: ${x.label}?`)){stack.unshift(x);return}
+  db.assets=x.assets;db.mfl=x.mfl;db.capOverrides=x.capOverrides;db.manualTransactions=x.manualTransactions;db.watchlist=x.watchlist;
+  audit('UNDO',{label:x.label},'Undo');
+  persist();renderAssetList();renderView(localStorage.getItem('ccgm_view')||'dashboard');
+}
+function exportMasterBackup(){
+  const payload={version:APP_VERSION,exportedAt:new Date().toISOString(),db};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`gms-locker-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  audit('BACKUP EXPORTED',{version:APP_VERSION},'Backup');
+}
+function importMasterBackup(file){
+  if(!file)return;const r=new FileReader();
+  r.onload=()=>{try{const p=JSON.parse(r.result);if(!p?.db)throw new Error('Not a GM Locker backup');saveUndoPoint('Before backup restore');db=p.db;audit('BACKUP RESTORED',{exportedAt:p.exportedAt||''},'Backup');persist();location.reload()}catch(e){alert(`Restore failed: ${e.message}`)}};
+  r.readAsText(file);
+}
+
+/* ---------- V6 DATA FEED MANAGER ---------- */
+function feedTimestamp(name){return db.feedTimes?.[name]||db.lastSync||''}
+function feedAgeHours(name){const t=feedTimestamp(name);return t?Math.max(0,(Date.now()-new Date(t).getTime())/36e5):9999}
+function feedStatusRows(){
+  const owned=(db.assets||[]).filter(a=>a.type==='PLAYER'&&a.roster&&String(a.roster).toUpperCase()!=='FREE AGENT');
+  const pct=f=>owned.length?Math.round(100*owned.filter(f).length/owned.length):0;
+  return [
+    {name:'MFL League State',score:db.lastSync?100:0,time:db.lastSync,source:'MFL'},
+    {name:'Player Projections',score:pct(a=>Number(a.proj)>0),time:feedTimestamp('projections'),source:'Imported / Manual'},
+    {name:'Market Values',score:pct(a=>Number(a.market)>0),time:feedTimestamp('market'),source:'Model / Imported'},
+    {name:'Role / Opportunity',score:pct(a=>a.role!==undefined&&a.role!==null),time:feedTimestamp('role'),source:'Model / Manual'},
+    {name:'Sentiment / Trend',score:pct(a=>a.trend!==undefined&&a.trend!==null),time:feedTimestamp('sentiment'),source:'Model / Manual'},
+    {name:'Schedule',score:(db.mfl?.schedule?.length||0)?100:0,time:db.lastSync,source:'MFL'},
+    {name:'FA Auction History',score:(db.mfl?.auctionHistory?.length||0)?100:0,time:db.lastSync,source:'MFL Transactions'},
+    {name:'Future Picks',score:(db.assets||[]).some(a=>a.type==='PICK')?100:0,time:db.lastSync,source:'MFL / Correction'}
+  ];
+}
+function importProjectionFile(file){
+  if(!file)return;const r=new FileReader();
+  r.onload=()=>{try{
+    saveUndoPoint('Before projection import');
+    const txt=String(r.result||'');let rows=[];
+    if(txt.trim().startsWith('[')||txt.trim().startsWith('{')){
+      const j=JSON.parse(txt);rows=Array.isArray(j)?j:(j.players||[]);
+    }else{
+      const lines=txt.split(/\r?\n/).filter(Boolean);const hdr=lines.shift().split(',').map(x=>x.trim().toLowerCase());
+      rows=lines.map(line=>{const vals=line.split(',');const o={};hdr.forEach((h,i)=>o[h]=vals[i]?.trim());return o});
+    }
+    let changed=0;
+    for(const row of rows){
+      const name=row.name||row.player||row.player_name;if(!name)continue;
+      const a=(db.assets||[]).find(x=>String(x.name||'').toLowerCase()===String(name).toLowerCase());if(!a)continue;
+      const map=[['projection','proj'],['proj','proj'],['role','role'],['sentiment','sentiment'],['trend','trend'],['breakout','breakout'],['risk','risk'],['market','market'],['bye','bye']];
+      for(const [src,dst] of map){if(row[src]!==undefined&&row[src]!==''){a[dst]=Number(row[src]);a.sources=a.sources||{};a.sources[dst]='Imported Data';changed++}}
+    }
+    db.feedTimes=db.feedTimes||{};db.feedTimes.projections=new Date().toISOString();db.feedTimes.market=new Date().toISOString();db.feedTimes.role=new Date().toISOString();db.feedTimes.sentiment=new Date().toISOString();
+    audit('DATA FEED IMPORT',{rows:rows.length,fieldsChanged:changed},'Projection Import');persist();renderIntegrity();alert(`${changed} fields updated.`);
+  }catch(e){alert(`Import failed: ${e.message}`)}};
+  r.readAsText(file);
+}
+
+/* ---------- V6 WEEKLY LINEUP / SEASON MODEL ---------- */
+function starterRequirements(){return {QB:2,RB:2,WR:3,TE:1,DL:2,LB:2,DB:2}}
+function optimizedLineup(team=db.config.teamName){
+  const req=starterRequirements(),roster=teamAssets(team).filter(a=>a.type!=='PICK'&&!/(IR|RESERVE|MINOR|TAXI)/.test(String(a.status||a.rosterStatus||'').toUpperCase()));
+  const out=[];
+  for(const [pos,n] of Object.entries(req)){
+    const pool=roster.filter(a=>normalizedPos(a.pos)===pos).sort((a,b)=>Number(b.proj||0)-Number(a.proj||0));
+    pool.slice(0,n).forEach((a,i)=>out.push({slot:`${pos}${n>1?i+1:''}`,a}));
+  }
+  return out;
+}
+function championshipOdds(){
+  const power=typeof leaguePower==='function'?leaguePower():[];
+  if(!power.length)return [];
+  const week=typeof nflWeekEstimate==='function'?nflWeekEstimate():0;
+  const temp=Math.max(6,18-week*.55);
+  const exps=power.map(x=>Math.exp((Number(x.powerPct||50)-70)/temp));
+  const total=exps.reduce((s,x)=>s+x,0)||1;
+  return power.map((x,i)=>({...x,titleOdds:Math.round(1000*exps[i]/total)/10,playoffOdds:score100(35+(x.powerPct-50)*1.25)}));
+}
+function myScheduleRows(){
+  const team=db.config.teamName;
+  return (db.mfl?.schedule||[]).filter(x=>!x.team1&&!x.team2||x.team1===team||x.team2===team).map(x=>({
+    ...x,
+    opponent:x.team1===team?x.team2:(x.team2===team?x.team1:(x.opponent||'')),
+    result:x.result||''
+  }));
+}
+function byeMatrix(){
+  const mine=teamAssets(db.config.teamName).filter(a=>a.type==='PLAYER');
+  const byWeek={};for(const a of mine){const w=Number(a.bye||0);if(w){byWeek[w]=byWeek[w]||[];byWeek[w].push(a)}}
+  return byWeek;
+}
+function renderSeason(){
+  const lu=optimizedLineup(),odds=championshipOdds(),me=odds.find(x=>x.team===db.config.teamName),byes=byeMatrix(),sched=myScheduleRows();
+  season.innerHTML=`<div class="card"><div class="sectionhead"><h2>Season Command</h2><span class="pill">WEEKLY WIN PROBABILITY</span></div>
+    <div class="osHero"><div class="metric"><b>${me?.playoffOdds??0}</b><span>Playoff odds /100</span></div><div class="metric"><b>${me?.titleOdds??0}%</b><span>Championship probability</span></div><div class="metric"><b>${Math.round(lu.reduce((s,x)=>s+Number(x.a.proj||0),0))}</b><span>Optimal lineup projection</span></div><div class="metric"><b>${Object.keys(byes).length}</b><span>Bye weeks with roster impact</span></div><div class="metric"><b>${sched.length}</b><span>Schedule records loaded</span></div></div>
+  </div>
+  <div class="osGrid" style="margin-top:12px">
+    <div class="card"><div class="sectionhead"><h2>Weekly Lineup Optimizer</h2><span class="pill">BEST LEGAL CORE</span></div>
+      <div class="lineupRow" style="font-weight:900;color:#aaa"><span>Slot</span><span>Player</span><span>Proj</span><span>Salary</span><span>Value</span></div>
+      ${lu.map(x=>`<div class="lineupRow"><span>${x.slot}</span><span><b>${x.a.name}</b></span><span>${Math.round(x.a.proj||0)}</span><span>$${Number(x.a.salary||0).toFixed(2)}</span><span>${fmt(modelValue(x.a))}</span></div>`).join('')}
+    </div>
+    <div class="card"><div class="sectionhead"><h2>Championship Board</h2><span class="pill">0–100</span></div>
+      ${odds.slice(0,14).map((x,i)=>`<div class="gate"><span><b>${i+1}. ${x.team}</b><br><span class="small">Power ${score100(x.powerPct)}/100</span></span><span><b>${x.playoffOdds}/100</b><br><span class="small">${x.titleOdds}% title</span></span></div>`).join('')}
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Bye Matrix</h2><span class="pill">ROSTER AVAILABILITY</span></div>
+    ${Object.keys(byes).length?Object.entries(byes).sort((a,b)=>a[0]-b[0]).map(([w,arr])=>`<div class="gate"><span><b>Week ${w}</b><br><span class="small">${arr.map(a=>a.name).join(', ')}</span></span><b>${arr.length} out</b></div>`).join(''):'<div class="notice">Bye-week data has not been imported yet.</div>'}
+  </div>
+  <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Fantasy Schedule</h2><span class="pill">MFL</span></div>
+    ${sched.length?sched.slice(0,40).map(x=>`<div class="gate"><span>Week ${x.week||'—'} · ${x.opponent||x.team2||'Opponent'}</span><span class="small">${x.result||''}</span></div>`).join(''):'<div class="notice">Schedule endpoint is optional. Sync again after v6 Worker deploy; if MFL does not expose it cleanly, screenshot/manual schedule correction remains available.</div>'}
+  </div>`;
+}
+
+/* ---------- V6 OWNER TENDENCIES / FA AUCTION INTELLIGENCE ---------- */
+function auctionAmount(raw){
+  const keys=['bbid','blindBid','blind_bid','bid','bidAmount','bid_amount','amount','price','salary'];
+  for(const k of keys){const n=Number(String(raw?.[k]??'').replace(/[$,]/g,''));if(Number.isFinite(n)&&n>0)return n}
+  return 0;
+}
+function rebuildAuctionHistory(){
+  const hist=[];
+  for(const t of (db.mfl?.transactions||[])){
+    const raw=t.raw||{};const amt=auctionAmount(raw);
+    const typ=String(t.type||raw.type||'').toLowerCase();
+    if(amt>0||/waiver|blind|bid|free agent|add/.test(typ)){
+      const a=(db.assets||[]).find(x=>String(x.name||'').toLowerCase()===String(t.player||'').toLowerCase());
+      hist.push({time:t.timestamp||'',team:t.franchise||'',player:t.player||'',pos:normalizedPos(a?.pos||''),amount:amt,type:t.type||'',raw});
+    }
+  }
+  db.mfl.auctionHistory=hist;
+  return hist;
+}
+function ownerTendencies(){
+  const hist=rebuildAuctionHistory(),teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(Boolean);
+  return teams.map(team=>{
+    const bids=hist.filter(x=>x.team===team&&x.amount>0),avg=bids.length?bids.reduce((s,x)=>s+x.amount,0)/bids.length:0,max=bids.length?Math.max(...bids.map(x=>x.amount)):0;
+    const tx=(db.mfl?.transactions||[]).filter(x=>x.franchise===team).length;
+    const cap=teamCapSnapshot(team).remaining;
+    const aggressiveness=score100(Math.min(100,bids.length*6+avg*1.4+max*.45));
+    return {team,bids:bids.length,avg,max,tx,cap,aggressiveness};
+  }).sort((a,b)=>b.aggressiveness-a.aggressiveness);
+}
+function leagueAuctionPressure(pos){
+  const hist=rebuildAuctionHistory().filter(x=>x.amount>0&&(!pos||x.pos===normalizedPos(pos)));
+  if(!hist.length)return {avg:0,p75:0,max:0,count:0};
+  const vals=hist.map(x=>x.amount).sort((a,b)=>a-b);const q=p=>vals[Math.min(vals.length-1,Math.floor((vals.length-1)*p))];
+  return {avg:vals.reduce((s,x)=>s+x,0)/vals.length,p75:q(.75),max:vals[vals.length-1],count:vals.length};
+}
+
+/* ---------- V6 WATCHLIST / ALERTS ---------- */
+function ensureWatchlist(){db.watchlist=db.watchlist||[];return db.watchlist}
+function addWatch(){
+  const id=document.getElementById('watchAsset')?.value;if(!id)return alert('Choose an asset.');
+  const a=(db.assets||[]).find(x=>String(x.id)===String(id));if(!a)return;
+  const type=document.getElementById('watchTrigger')?.value||'VALUE ABOVE';
+  const threshold=Number(document.getElementById('watchThreshold')?.value||0);
+  ensureWatchlist().push({id:uid('watch'),assetId:a.id,name:a.name,type,threshold,created:new Date().toISOString()});audit('WATCH ADDED',{name:a.name,type,threshold},'Watchlist');persist();renderWatchlist();
+}
+function watchHit(w){
+  const a=(db.assets||[]).find(x=>String(x.id)===String(w.assetId));if(!a)return false;
+  if(w.type==='VALUE ABOVE')return modelValue(a)>=w.threshold;
+  if(w.type==='VALUE BELOW')return modelValue(a)<=w.threshold;
+  if(w.type==='PROJECTION ABOVE')return Number(a.proj||0)>=w.threshold;
+  if(w.type==='ROLE ABOVE')return Number(a.role||0)>=w.threshold;
+  if(w.type==='PICK SLOT AT OR BEFORE')return a.type==='PICK'&&Number(parsePickAsset(a)?.slot||99)<=w.threshold;
+  return false;
+}
+function removeWatch(id){db.watchlist=ensureWatchlist().filter(x=>x.id!==id);persist();renderWatchlist()}
+function renderWatchlist(){
+  const list=ensureWatchlist(),assets=(db.assets||[]).filter(a=>a.type==='PLAYER'||a.type==='PICK').sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  watchlist.innerHTML=`<div class="card"><div class="sectionhead"><h2>Watchlist + Alerts</h2><span class="pill">${list.filter(watchHit).length} TRIGGERED</span></div>
+    <div class="grid3"><div class="field"><label>Asset</label><select id="watchAsset"><option value="">Choose</option>${assets.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}</select></div><div class="field"><label>Trigger</label><select id="watchTrigger"><option>VALUE ABOVE</option><option>VALUE BELOW</option><option>PROJECTION ABOVE</option><option>ROLE ABOVE</option><option>PICK SLOT AT OR BEFORE</option></select></div><div class="field"><label>Threshold</label><input id="watchThreshold" type="number" value="50"></div></div><div class="actions"><button onclick="addWatch()">ADD WATCH</button></div>
+  </div>
+  <div class="card" style="margin-top:12px">${list.length?list.map(w=>`<div class="alertItem ${watchHit(w)?'alertHit':''}"><div class="sectionhead"><b>${w.name}</b><span class="integrityState ${watchHit(w)?'ok':''}">${watchHit(w)?'TRIGGERED':'WATCHING'}</span></div><div class="small">${w.type} ${w.threshold}</div><button class="secondary" onclick="removeWatch('${w.id}')">REMOVE</button></div>`).join(''):'<div class="notice">No watches yet.</div>'}</div>`;
+}
+
+/* ---------- V6 HISTORICAL TRANSACTION IMPORT ---------- */
+window.selectedHistoricalTxFiles=[];
+window.pendingHistoricalTx=[];
+function handleHistoricalTxScreens(files){
+  window.selectedHistoricalTxFiles=Array.from(files||[]);
+  const o=document.getElementById('historicalTxReview');if(o)o.innerHTML=`<div class="notice">${window.selectedHistoricalTxFiles.length} historical screenshot(s) selected. Click PROCESS.</div>`;
+}
+async function processHistoricalTxScreens(){
+  const files=window.selectedHistoricalTxFiles||[],o=document.getElementById('historicalTxReview');if(!files.length)return;
+  if(o)o.innerHTML='<div class="notice">Reading historical transactions…</div>';
+  try{const r=await postImagesToWorker('/parse-historical-transactions',files);window.pendingHistoricalTx=r.transactions||[];renderHistoricalTxReview()}catch(e){if(o)o.innerHTML=`<div class="notice">${e.message}</div>`}
+}
+function renderHistoricalTxReview(){
+  const o=document.getElementById('historicalTxReview'),rows=window.pendingHistoricalTx||[];if(!o)return;
+  o.innerHTML=`${rows.map((t,i)=>`<div class="txDetected"><b>${i+1}. ${t.date||'Date unknown'} · ${t.type||'TRANSACTION'}</b><br><span class="small">${t.teamA||''} sends ${(t.teamASends||[]).join(', ')||'—'} · ${t.teamB||''} sends ${(t.teamBSends||[]).join(', ')||'—'}</span></div>`).join('')}<div class="actions"><button onclick="commitHistoricalTx(false)">ADD TO HISTORY ONLY</button><button onclick="commitHistoricalTx(true)">ADD + RECONCILE OWNERSHIP</button></div>`;
+}
+function commitHistoricalTx(reconcile){
+  saveUndoPoint('Before historical transaction import');const log=ensureTxLog();let moved=0;
+  for(const t of (window.pendingHistoricalTx||[])){
+    const base={date:t.date||new Date().toISOString(),type:t.type||'HISTORICAL',source:'Historical Screenshot'};
+    for(const n of (t.teamASends||[])){const a=resolveTxAsset(n,t.teamA);log.unshift({...base,id:uid('tx'),assetId:a?.id||'',assetName:n,from:t.teamA,to:t.teamB});if(reconcile&&a){applyOwnershipMove(a,t.teamB,{});moved++}}
+    for(const n of (t.teamBSends||[])){const a=resolveTxAsset(n,t.teamB);log.unshift({...base,id:uid('tx'),assetId:a?.id||'',assetName:n,from:t.teamB,to:t.teamA});if(reconcile&&a){applyOwnershipMove(a,t.teamA,{});moved++}}
+  }
+  audit('HISTORICAL TRANSACTIONS IMPORTED',{count:(window.pendingHistoricalTx||[]).length,reconcile,moved},'Screenshot');window.pendingHistoricalTx=[];persist();renderTransactions();alert('Historical transactions imported.');
+}
+
+/* ---------- V6 PRIVACY LOCK (LOCAL PROTOTYPE ONLY) ---------- */
+function hashSimple(x){let h=2166136261;for(let i=0;i<x.length;i++){h^=x.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(16)}
+function setLocalLock(){
+  const p=document.getElementById('privacyPin')?.value||'';if(p.length<4)return alert('Use at least 4 characters.');
+  localStorage.setItem('gmlocker_lock_hash',hashSimple(p));localStorage.removeItem('gmlocker_unlocked');alert('Local app lock enabled. This is prototype privacy, not server authentication.');
+}
+function clearLocalLock(){localStorage.removeItem('gmlocker_lock_hash');localStorage.removeItem('gmlocker_unlocked');alert('Local app lock removed.')}
+function showPrivacyLockIfNeeded(){
+  const h=localStorage.getItem('gmlocker_lock_hash');if(!h||localStorage.getItem('gmlocker_unlocked')==='1')return;
+  const d=document.createElement('div');d.className='privacyLock';d.id='privacyLock';d.innerHTML=`<div class="box"><h2>GM's Locker Locked</h2><div class="notice">Local prototype lock. Production privacy should use real server-side authentication.</div><div class="field"><label>Passcode</label><input id="unlockPin" type="password"></div><div class="actions"><button onclick="unlockLocalApp()">UNLOCK</button></div></div>`;document.body.appendChild(d);
+}
+function unlockLocalApp(){const p=document.getElementById('unlockPin')?.value||'';if(hashSimple(p)===localStorage.getItem('gmlocker_lock_hash')){localStorage.setItem('gmlocker_unlocked','1');document.getElementById('privacyLock')?.remove()}else alert('Wrong passcode.')}
+
+/* ---------- V6 AUDIT PAGE HELPERS ---------- */
+function auditRows(){return ensureAudit()}
+
+function dashboardCards(){
+  const mine=db.assets.filter(a=>a.roster===db.config.teamName&&a.type==='PLAYER');
+  const total=mine.reduce((sum,a)=>sum+modelValue(a),0);
+  const proj=mine.reduce((sum,a)=>sum+(Number(a.proj)||0),0);
+  const cap=teamCapSnapshot(db.config.teamName);
+  const buys=db.assets.filter(a=>signal(a)[0].includes('BUY')).length;
+  return {mine,total,proj,cap,buys};
+}
+function renderDashboard(){
+  const x=dashboardCards();
+  const faEdges=warRoomFASuggestions();
+  const tradeTargets=warRoomTradeTargets();
+  const pickEdges=warPickEdges();
+  const movers=db.history.slice(0,5);
+  const missingProj=x.mine.filter(a=>!(Number(a.proj)>0)).length;
+  dashboard.innerHTML=`
+  <div class="card">
+    <div class="sectionhead"><h2>War Room — Today's Action Board</h2><span class="pill">CAPITOL CARNAGE</span></div>
+    <div class="notice"><b>Priority order:</b> exploit FA anomalies, investigate trade targets that solve actual roster needs, protect cap flexibility, and buy/sell future picks when live slot probability diverges from market value.</div>
+  </div>
+  <div class="grid4" style="margin-top:12px">
+    <div class="metric"><b>${fmt(x.total)}</b><span>Roster Pride value</span></div>
+    <div class="metric"><b>${fmt(x.proj)}</b><span>Projected roster points</span></div>
+    <div class="metric"><b>$${Number(x.cap.remaining||0).toFixed(2)}</b><span>Remaining cap · ${x.cap.source}</span></div>
+    <div class="metric"><b>${missingProj}</b><span>Roster projections missing</span></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="sectionhead"><h2>Cap Control</h2><span class="capSource">${x.cap.source}</span></div>
+    ${x.cap.source==='MFL'?`<div class="notice"><b>Using MFL franchise cap room.</b> No estimate is being substituted.</div>`:
+      `<div class="notice"><b>${x.cap.source==='MISSING'?'MFL did not expose a usable cap-room field.':'Current number is derived/overridden.'}</b> If the number above is not the exact cap shown by your league, enter the correct remaining cap here. GM's Locker will use it for FA bidding and opportunity-cost calculations.</div>`}
+    <div class="capFix" style="margin-top:9px"><div class="field"><label>Actual remaining cap</label><input id="warCapOverride" type="number" step=".01" placeholder="Enter exact MFL cap room" value="${db.capOverrides?.[db.config.teamName]??''}"></div>
+      <div class="actions"><button onclick="setMyCapOverride()">Use Exact Cap</button><button class="secondary" onclick="clearMyCapOverride()">Use Sync</button></div></div>
+  </div>
+  ${correctionActionBar()}<div class="warActionGrid" style="margin-top:12px">
+    <div class="card"><div class="sectionhead"><h2>Suggested Free Agents</h2><span class="pill">${faEdges.length} EDGES</span></div>
+      ${faEdges.length?faEdges.map((e,i)=>`<div class="warItem"><div style="display:grid;grid-template-columns:1fr auto;gap:8px"><span><b>${i+1}. ${e.a.name}</b><br><span class="small">${normalizedPos(e.a.pos)} · Proj ${Math.round(e.a.proj||0)} · Need ${e.need}/100 · ${e.action}</span></span><span class="warScore">${e.grade}</span></div><button style="margin-top:6px" onclick="showView('fa');setTimeout(()=>selectFABidPlayer('${String(e.a.mflId||e.a.id).replace(/'/g,"\\'")}'),100)">OPEN BID LAB</button></div>`).join(''):
+      '<div class="notice">No complete-data FA recommendation clears the current threshold. Missing projections will not be guessed.</div>'}
+    </div>
+    <div class="card"><div class="sectionhead"><h2>Potential Trade Targets</h2><span class="pill">ROSTER FIT</span></div>
+      ${tradeTargets.length?tradeTargets.slice(0,5).map((t,i)=>`<div class="warItem"><div style="display:grid;grid-template-columns:1fr auto;gap:8px"><span><b>${i+1}. ${t.a.name}</b> · ${t.team}<br><span class="small">${t.pos} · Our need ${t.ourNeed}/100 · Their need ${t.ownerNeed}/100 · Proj ${Math.round(t.a.proj||0)}</span></span><span class="score100">${score100(t.score)}</span></div><button style="margin-top:6px" onclick="tradeState.opponent='${String(t.team).replace(/'/g,"\\'")}';showView('trade')">BUILD TRADE</button></div>`).join(''):
+      '<div class="notice">No high-confidence trade target currently clears the roster-fit threshold.</div>'}
+    </div>
+  </div>
+  <div class="warActionGrid" style="margin-top:12px">
+    <div class="card"><div class="sectionhead"><h2>Pick Market Edges</h2><span class="pill">LIVE SLOT MODEL</span></div>
+      ${pickEdges.length?pickEdges.map(e=>`<div class="warItem"><b>${e.title}</b><br><span class="small">${e.why}</span><div class="edgeGood">${e.action}</div></div>`).join(''):
+      '<div class="notice">No pick anomaly currently clears the threshold, or pick ownership/slot data is incomplete.</div>'}
+    </div>
+    <div class="card"><div class="sectionhead"><h2>Recent Value Movement</h2><span class="pill">HISTORY</span></div>
+      ${movers.length?movers.map(h=>`<div class="gate"><span><b>${h.name}</b><br><span class="small">${h.reason}</span></span><b class="${h.newValue>=h.oldValue?'good':'bad'}">${h.newValue>=h.oldValue?'+':''}${fmt(h.newValue-h.oldValue)}</b></div>`).join(''):
+      '<div class="notice">Value movement appears here after sync/model updates.</div>'}
+    </div>
+  </div>`;
+}
 function assetMini(a){let s=signal(a),mv=modelValue(a),edge=(mv-(Number(a.market)||0))/Math.max(1,Number(a.market)||1);return `<div class="gate"><span><b>${a.name}</b> <span class="tag">${a.pos}</span><br><span class="small">Market ${fmt(a.market)} · Pride ${fmt(mv)} · ${pct(edge)} mispricing</span></span><b class="${s[1]}">${s[0]}</b></div>`}
 
 let tradeState={receive:[],give:[],lens:'overall',opponent:'',ourPos:'ALL',oppPos:'ALL'};
@@ -344,7 +1188,7 @@ function playerProduction(a){const w=weeklyVector(a);return w.length?w.reduce((s
 function teamMetrics(team){const starters=teamStarterPool(team),roster=teamAssets(team).filter(a=>a.type!=='PICK'),projected=starters.reduce((s,a)=>s+Number(a.proj||0),0),actual=starters.reduce((s,a)=>s+playerProduction(a),0),pw=currentProductionWeight(),wk=nflWeekEstimate(),ann=(wk&&actual)?actual/wk*17:0,blend=projected*(1-pw)+(ann||projected)*pw,vol=starters.length?starters.reduce((s,a)=>s+playerVolatility(a),0)/starters.length:0,floor=blend*(1-clamp(vol*.38,.05,.32)),ceiling=blend*(1+clamp(vol*.52,.08,.45)),asset=roster.reduce((s,a)=>s+modelValue(a),0),label=vol<.28?'STABLE':vol<.48?'MIXED':'BOOM/BUST';return{team,projected,actual,blend,vol,floor,ceiling,asset,label,score:blend+asset*.002}}
 function leaguePower(){const a=(db.mfl?.franchises||[]).map(f=>teamMetrics(f.name)).sort((x,y)=>y.score-x.score),mx=a[0]?.score||1,mn=a[a.length-1]?.score||0;a.forEach((x,i)=>{x.rank=i+1;x.powerPct=mx===mn?100:55+45*(x.score-mn)/(mx-mn)});return a}
 function volatilityClass(x){return x==='STABLE'?'riskStable':x==='MIXED'?'riskMixed':'riskBoom'}
-function renderAnalyzer(){const arr=leaguePower(),pw=currentProductionWeight(),wk=nflWeekEstimate(),mine=arr.find(x=>x.team===db.config.teamName);analyzer.innerHTML=`<div class="card"><div class="sectionhead"><h2>League Power Analyzer</h2><span class="pill">${wk?'WEEK '+wk:'PRESEASON'}</span></div><div class="notice"><b>Adaptive rankings:</b> preseason is projection-driven; actual production gains weight as the season grows.</div><div class="teamProfileGrid" style="margin-top:10px"><div class="metric"><b>${Math.round((1-pw)*100)}%</b><span>Projection weight</span></div><div class="metric"><b>${Math.round(pw*100)}%</b><span>Production weight</span></div><div class="metric"><b>${mine?'#'+mine.rank:'—'}</b><span>Your rank</span></div><div class="metric"><b>${mine?mine.label:'—'}</b><span>Volatility</span></div><div class="metric"><b>${mine?Math.round(mine.blend):0}</b><span>Power points</span></div></div></div><div class="card" style="margin-top:12px;overflow:auto"><table class="powerTable"><thead><tr><th>#</th><th>Team</th><th>Power</th><th>Proj</th><th>Actual</th><th>Floor/Ceiling</th><th>Profile</th><th>Roster Value</th></tr></thead><tbody>${arr.map(x=>`<tr><td><b>${x.rank}</b></td><td><b>${x.team}</b></td><td><div class="powerBar"><i style="width:${x.powerPct}%"></i></div><span class="small">${x.score.toFixed(0)}</span></td><td>${x.projected.toFixed(0)}</td><td>${x.actual?x.actual.toFixed(1):'—'}</td><td>${x.floor.toFixed(0)} / ${x.ceiling.toFixed(0)}</td><td><span class="riskBadge ${volatilityClass(x.label)}">${x.label}</span></td><td>${fmt(x.asset)}</td></tr>`).join('')}</tbody></table></div>`}
+function renderAnalyzer(){const arr=leaguePower(),pw=currentProductionWeight(),wk=nflWeekEstimate(),mine=arr.find(x=>x.team===db.config.teamName);analyzer.innerHTML=`<div class="card"><div class="sectionhead"><h2>League Power Analyzer</h2><span class="pill">${wk?'WEEK '+wk:'PRESEASON'}</span></div><div class="notice"><b>Adaptive rankings:</b> preseason is projection-driven; actual production gains weight as the season grows.</div><div class="teamProfileGrid" style="margin-top:10px"><div class="metric"><b>${Math.round((1-pw)*100)}%</b><span>Projection weight</span></div><div class="metric"><b>${Math.round(pw*100)}%</b><span>Production weight</span></div><div class="metric"><b>${mine?'#'+mine.rank:'—'}</b><span>Your rank</span></div><div class="metric"><b>${mine?mine.label:'—'}</b><span>Volatility</span></div><div class="metric"><b>${mine?Math.round(mine.blend):0}</b><span>Power points</span></div></div></div><div class="card" style="margin-top:12px;overflow:auto"><table class="powerTable"><thead><tr><th>#</th><th>Team</th><th>Power</th><th>Proj</th><th>Actual</th><th>Floor/Ceiling</th><th>Profile</th><th>Roster Value</th></tr></thead><tbody>${arr.map(x=>`<tr><td><b>${x.rank}</b></td><td><b>${x.team}</b></td><td><div class="powerBar"><i style="width:${x.powerPct}%"></i></div><span class="small">${score100(x.powerPct)}/100</span></td><td>${x.projected.toFixed(0)}</td><td>${x.actual?x.actual.toFixed(1):'—'}</td><td>${x.floor.toFixed(0)} / ${x.ceiling.toFixed(0)}</td><td><span class="riskBadge ${volatilityClass(x.label)}">${x.label}</span></td><td>${fmt(x.asset)}</td></tr>`).join('')}</tbody></table></div>`}
 
 let pendingScreenshotTrade=null;
 async function handleTradeScreenshot(file){if(!file)return;const out=document.getElementById('tradeShotResult'),r=new FileReader();r.onload=()=>out.innerHTML=`<img class="tradePreview" src="${r.result}"><div class="notice">Analyzing screenshot…</div>`;r.readAsDataURL(file);try{let base=(db.mfl.proxyUrl||'').trim().replace(/\/$/,'');if(!base)throw new Error('Worker URL not configured');const fd=new FormData();fd.append('image',file);const res=await fetch(base+'/parse-trade-image',{method:'POST',body:fd});const p=await res.json();if(!res.ok||!p.ok)throw new Error(p.error||'Image parse failed');pendingScreenshotTrade=p.trade;out.innerHTML+=`<div class="aiResult"><b>Detected Trade</b><div class="grid"><div><b>${p.trade.sideA?.team||'Side A'}</b>${(p.trade.sideA?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div><div><b>${p.trade.sideB?.team||'Side B'}</b>${(p.trade.sideB?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div></div><button onclick="loadScreenshotTrade()">Confirm & Load</button></div>`}catch(e){out.innerHTML+=`<div class="notice"><b>Screenshot import:</b> ${e.message}</div>`}}
@@ -425,7 +1269,7 @@ function renderLeagueAnalyzer(){
     <table class="powerTable"><thead><tr><th>#</th><th>Franchise</th><th>Power</th><th>Proj</th><th>Actual</th><th>Floor/Ceiling</th><th>Profile</th><th>Cap Eff.</th><th>Draft Capital</th></tr></thead>
     <tbody>${arr.map(x=>`<tr onclick="window.teamAnalyzerTeam='${String(x.team).replace(/'/g,"\\'")}';showView('teamanalyzer')" style="cursor:pointer">
       <td><b>${x.rank}</b></td><td><b>${x.team}</b>${x.team===db.config.teamName?' <span class="teamBadge">YOU</span>':''}</td>
-      <td><div class="powerBar"><i style="width:${x.powerPct}%"></i></div><span class="small">${x.score.toFixed(0)}</span></td>
+      <td><div class="powerBar"><i style="width:${x.powerPct}%"></i></div><span class="small">${score100(x.powerPct)}/100</span></td>
       <td>${x.projected.toFixed(0)}</td><td>${x.actual?x.actual.toFixed(1):'—'}</td>
       <td>${x.floor.toFixed(0)} / ${x.ceiling.toFixed(0)}</td>
       <td><span class="riskBadge ${volatilityClass(x.label)}">${x.label}</span></td>
@@ -462,7 +1306,7 @@ function renderTeamAnalyzer(){
       <div class="gate"><span>Cheap core players</span><b>${p.cap.cheapCore}</b></div>
       <div class="gate"><span>Future picks</span><b>${p.draft.count} · ${fmt(p.draft.value)}</b></div>
       <div class="gate"><span>Average roster age</span><b>${p.avgAge?p.avgAge.toFixed(1):'—'}</b></div>
-      <div class="gate"><span>Average risk</span><b>${p.risk.toFixed(0)}/100</b></div>
+      <div class="gate"><span>Average risk</span><b>${score100(p.risk)}/100</b></div>
     </div>
     <div class="card"><h2>Top Assets</h2>${roster.slice(0,10).map(a=>`<div class="gate"><span><b>${a.name}</b><br><span class="small">${normalizedPos(a.pos)} · $${Number(a.salary||0).toFixed(2)} · ${a.years||0} yr</span></span><span><b>${fmt(modelValue(a))}</b><br>${sourceBadge(a,'roster')}</span></div>`).join('')}</div>
   </div>`;
@@ -477,19 +1321,33 @@ async function postImagesToWorker(path,files){
 }
 window.pendingRosterImports=[];
 async function handleRosterScreenshots(files){
-  if(files && files.length){const n=document.getElementById('rosterImportReview');if(n)n.innerHTML=`<div class="notice"><b>${files.length} screenshot${files.length===1?'':'s'} selected.</b> Sending to AI reader…</div>`;}
-  const out=document.getElementById('rosterImportReview');if(!files?.length)return;out.innerHTML='<div class="notice">Reading roster screenshots…</div>';
-  try{const p=await postImagesToWorker('/parse-roster-images',files);window.pendingRosterImports=p.teams||[];renderRosterImportReview()}
-  catch(e){out.innerHTML=`<div class="notice"><b>Roster import failed:</b> ${e.message}</div>`}
+  window.selectedRosterFiles=Array.from(files||[]);
+  const out=document.getElementById('rosterImportReview');
+  if(!out)return;
+  if(!window.selectedRosterFiles.length){out.innerHTML='';return}
+  out.innerHTML=`<div class="fileSummary"><b>${window.selectedRosterFiles.length} screenshot${window.selectedRosterFiles.length===1?'':'s'} selected.</b> Click <b>PROCESS SCREENSHOTS</b> to read them. Nothing has been changed yet.</div>`;
+}
+async function processRosterScreenshots(){
+  const files=window.selectedRosterFiles||[];
+  const out=document.getElementById('rosterImportReview');
+  if(!files.length){if(out)out.innerHTML='<div class="notice">Choose screenshots first.</div>';return}
+  if(out)out.innerHTML='<div class="notice">Processing screenshots through the AI correction reader…</div>';
+  try{
+    const p=await postImagesToWorker('/parse-roster-images',files);
+    window.pendingRosterImports=p.teams||[];
+    renderRosterImportReview();
+  }catch(e){
+    if(out)out.innerHTML=`<div class="notice"><b>Roster image processing failed:</b> ${e.message}</div>`;
+  }
 }
 function renderRosterImportReview(){
   const out=document.getElementById('rosterImportReview'),rows=window.pendingRosterImports||[];
   if(!rows.length){out.innerHTML='<div class="notice">No teams detected.</div>';return}
   out.innerHTML=`<div style="overflow:auto;margin-top:10px"><table class="reconTable"><thead><tr><th>Team</th><th>Detected player</th><th>Match</th><th>Salary</th><th>Years</th><th>Status</th></tr></thead><tbody>
     ${rows.flatMap(t=>(t.players||[]).map(p=>{const a=findAssetByLooseName(p.name,t.team);return `<tr class="${a?'':'conflict'}"><td>${t.team||'Unknown'}</td><td>${p.name||''}</td><td class="${a?'matchGood':'matchBad'}">${a?'MATCHED':'NEW/UNMATCHED'}</td><td>${p.salary??'—'}</td><td>${p.years??'—'}</td><td>${p.status||'—'}</td></tr>`})).join('')}
-    </tbody></table></div><div class="actions"><button onclick="commitRosterMerge()">Commit Reviewed Merge</button><button class="secondary" onclick="window.pendingRosterImports=[];document.getElementById('rosterImportReview').innerHTML=''">Discard</button></div>`;
+    </tbody></table></div><div class="actions"><button onclick="commitRosterMerge()">APPLY ROSTER CORRECTIONS TO SITE</button><button class="secondary" onclick="window.pendingRosterImports=[];document.getElementById('rosterImportReview').innerHTML=''">Discard</button></div>`;
 }
-function commitRosterMerge(){
+function commitRosterMerge(){saveUndoPoint('Before roster screenshot merge');
   const mode=document.getElementById('rosterMergeMode')?.value||'missing';
   for(const teamBlock of (window.pendingRosterImports||[])){
     const team=teamBlock.team||'';if(!team)continue;
@@ -508,29 +1366,226 @@ function commitRosterMerge(){
       }
     }
   }
-  window.pendingRosterImports=[];persist();renderAssetList();renderSync();alert('Roster screenshot merge committed.')
+  window.pendingRosterImports=[];persist();renderAssetList();renderSync();if(document.getElementById('myroster')?.classList.contains('active'))renderMyRoster();alert('Roster corrections applied to GM\'s Locker.')
 }
 window.pendingFAImports=[];
 async function handleFAScreenshots(files){
-  if(files && files.length){const n=document.getElementById('faImportReview');if(n)n.innerHTML=`<div class="notice"><b>${files.length} screenshot${files.length===1?'':'s'} selected.</b> Sending to AI reader…</div>`;}
-  const out=document.getElementById('faImportReview');if(!files?.length)return;out.innerHTML='<div class="notice">Reading free-agent screenshots…</div>';
-  try{const p=await postImagesToWorker('/parse-fa-images',files);window.pendingFAImports=p.players||[];renderFAImportReview()}
-  catch(e){out.innerHTML=`<div class="notice"><b>FA import failed:</b> ${e.message}</div>`}
+  window.selectedFAFiles=Array.from(files||[]);
+  const out=document.getElementById('faImportReview');
+  if(!out)return;
+  if(!window.selectedFAFiles.length){out.innerHTML='';return}
+  out.innerHTML=`<div class="fileSummary"><b>${window.selectedFAFiles.length} screenshot${window.selectedFAFiles.length===1?'':'s'} selected.</b> Click <b>PROCESS SCREENSHOTS</b> to read them. Nothing has been changed yet.</div>`;
+}
+async function processFAScreenshots(){
+  const files=window.selectedFAFiles||[];
+  const out=document.getElementById('faImportReview');
+  if(!files.length){if(out)out.innerHTML='<div class="notice">Choose screenshots first.</div>';return}
+  if(out)out.innerHTML='<div class="notice">Processing free-agent screenshots through the AI correction reader…</div>';
+  try{
+    const p=await postImagesToWorker('/parse-fa-images',files);
+    window.pendingFAImports=p.players||[];
+    renderFAImportReview();
+  }catch(e){
+    if(out)out.innerHTML=`<div class="notice"><b>FA image processing failed:</b> ${e.message}</div>`;
+  }
 }
 function renderFAImportReview(){
   const out=document.getElementById('faImportReview'),rows=window.pendingFAImports||[];
   if(!rows.length){out.innerHTML='<div class="notice">No free agents detected.</div>';return}
   out.innerHTML=`<div style="overflow:auto;margin-top:10px"><table class="reconTable"><thead><tr><th>Player</th><th>Pos</th><th>Existing match</th><th>Visible salary/bid</th></tr></thead><tbody>
   ${rows.map(p=>{const a=findAssetByLooseName(p.name);return `<tr><td>${p.name||''}</td><td>${p.position||''}</td><td>${a?'YES':'NEW'}</td><td>${p.salary??p.bid??'—'}</td></tr>`}).join('')}
-  </tbody></table></div><div class="actions"><button onclick="commitFAImport()">Merge Into Free Agency</button><button class="secondary" onclick="window.pendingFAImports=[];document.getElementById('faImportReview').innerHTML=''">Discard</button></div>`;
+  </tbody></table></div><div class="actions"><button onclick="commitFAImport()">APPLY FA CORRECTIONS TO SITE</button><button class="secondary" onclick="window.pendingFAImports=[];document.getElementById('faImportReview').innerHTML=''">Discard</button></div>`;
 }
-function commitFAImport(){
+function commitFAImport(){saveUndoPoint('Before FA screenshot merge');
   for(const p of (window.pendingFAImports||[])){
     let a=findAssetByLooseName(p.name);
     if(!a){a={id:uid('faShot'),mflId:'',name:p.name||'Unknown',type:'PLAYER',pos:(p.position||'').toUpperCase(),nfl:'',age:0,market:1000,adp:0,ecr:0,proj:0,ppg:0,role:50,trend:0,risk:45,liquidity:50,salary:Number(p.salary||p.bid||0),years:0,roster:'FREE AGENT',source:'Screenshot Import',sources:{roster:'Screenshot Import'}};db.assets.push(a)}
     else{a.roster='FREE AGENT';setFieldSource(a,'roster','Screenshot Import');if((!a.salary)&&p.salary!==undefined){a.salary=Number(p.salary);setFieldSource(a,'salary','Screenshot Import')}}
   }
-  window.pendingFAImports=[];persist();renderAssetList();renderFA();alert('Free-agent screenshot merge committed.')
+  window.pendingFAImports=[];persist();renderAssetList();renderFA();alert('Free-agent corrections applied to GM\'s Locker.')
+}
+
+
+function dataCompleteness(a){
+  const missing=[];
+  if(!(Number(a?.proj)>0))missing.push('projection');
+  if(a?.role===undefined||a?.role===null)missing.push('role');
+  if(a?.risk===undefined||a?.risk===null)missing.push('risk');
+  if(!(Number(a?.market)>0))missing.push('market value');
+  return {missing,score:Math.max(0,100-missing.length*25)};
+}
+function rosterNeedScore(team,pos){
+  const p=normalizedPos(pos),roster=teamAssets(team).filter(a=>a.type!=='PICK'&&normalizedPos(a.pos)===p);
+  const usable=roster.filter(a=>Number(a.proj||0)>0).sort((a,b)=>Number(b.proj||0)-Number(a.proj||0));
+  const desired={QB:3,RB:5,WR:6,TE:3,DL:4,LB:4,DB:4}[p]||3;
+  const depthNeed=Math.max(0,(desired-roster.length)/desired);
+  const topNeed=usable.length?Math.max(0,1-(usable[0].proj/({QB:270,RB:180,WR:190,TE:160,DL:140,LB:145,DB:130}[p]||160))):1;
+  return Math.round(Math.min(100,(depthNeed*.55+topNeed*.45)*100));
+}
+function teamRemainingCap(team){
+  return Number(teamCapSnapshot(team).remaining||0);
+}
+function leagueBidPressureFor(a){
+  const teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(n=>n&&n!==db.config.teamName);
+  const competitors=teams.map(team=>{
+    const need=rosterNeedScore(team,a.pos);
+    const cap=teamRemainingCap(team);
+    const capFactor=Math.min(100,cap/Math.max(1,Number(db.config?.salaryCap||db.config?.cap||1000))*300);
+    return {team,need,cap,pressure:need*.7+capFactor*.3};
+  }).sort((x,y)=>y.pressure-x.pressure);
+  const hot=competitors.filter(x=>x.need>=55&&x.cap>0);
+  const pressure=competitors.length?competitors.slice(0,5).reduce((s,x)=>s+x.pressure,0)/Math.min(5,competitors.length):0;
+  return {pressure:Math.round(pressure),competitors:hot.slice(0,5)};
+}
+function edgeGrade(score,complete=true){
+  if(!complete)return 'INC';
+  return score>=92?'A+':score>=86?'A':score>=80?'A-':score>=74?'B+':score>=68?'B':score>=62?'B-':'C';
+}
+function makeEdge(type,a,score,title,why,action,extra={}){
+  const comp=dataCompleteness(a);
+  const complete=comp.missing.length===0 || type==='SHOP' || type==='CAP';
+  return {type,a,score:Math.round(score),grade:edgeGrade(score,complete),title,why,action,complete,missing:comp.missing,...extra};
+}
+function scanFreeAgentEdges(){
+  const fa=deriveLeagueFreeAgents();
+  const out=[];
+  for(const a of fa.slice(0,700)){
+    const c=dataCompleteness(a);
+    const need=rosterNeedScore(db.config.teamName,a.pos);
+    const pressure=leagueBidPressureFor(a);
+    const proj=Number(a.proj||0),role=Number(a.role||50),risk=Number(a.risk||45),market=Number(a.market||0);
+    const breakout=Math.max(0,Math.min(100,35+(100-risk)*.2+(role-50)*.35+Number(a.trend||0)*3));
+    const projNorm=Math.min(100,proj/({QB:3,RB:2,WR:2.2,TE:1.8,DL:1.6,LB:1.7,DB:1.5}[normalizedPos(a.pos)]||2));
+    const score=projNorm*.30+role*.17+breakout*.18+need*.18+(100-risk)*.09+(100-pressure.pressure)*.08;
+    if(c.missing.includes('projection')){
+      if(role>=65||breakout>=65){
+        out.push(makeEdge('WATCH',a,Math.min(79,score),`${a.name}: upside signal, projection missing`,
+          `Role ${role}/100 and breakout proxy ${Math.round(breakout)}% are interesting, but the projection layer is incomplete.`,
+          'COMPLETE DATA', {need,pressure,breakout}));
+      }
+      continue;
+    }
+    if(score>=72){
+      const bid=blindBidModel(a);
+      out.push(makeEdge('FA BUY',a,score,`${a.name}: free-agent value anomaly`,
+        `Projection ${Math.round(proj)} · role ${role}/100 · breakout ${Math.round(breakout)}% · our ${normalizedPos(a.pos)} need ${need}/100 · league bid pressure ${pressure.pressure}/100.`,
+        `TARGET $${bid.target} · MAX $${bid.ceiling}`, {need,pressure,breakout,bid}));
+    }
+  }
+  return out;
+}
+function scanRosterSellEdges(){
+  const ours=teamAssets(db.config.teamName).filter(a=>a.type!=='PICK');
+  const out=[];
+  for(const a of ours){
+    const modeled=modelValue(a),market=Number(a.market||0),proj=Number(a.proj||0);
+    const need=rosterNeedScore(db.config.teamName,a.pos);
+    if(market>0 && modeled>0){
+      const premium=(market-modeled)/modeled;
+      if(premium>=.16 && need<65){
+        const score=Math.min(98,70+premium*70+(65-need)*.16);
+        out.push(makeEdge('SHOP',a,score,`${a.name}: market may be paying a premium`,
+          `External market is ${Math.round(premium*100)}% above GM's Locker modeled value while our ${normalizedPos(a.pos)} need is only ${need}/100.`,
+          'SHOP / SELL HIGH',{premium,need}));
+      }
+    }
+    if(proj>0 && Number(a.salary||0)>0){
+      const cpp=Number(a.salary)/proj;
+      if(cpp>.55 && need<60){
+        const score=Math.min(90,68+(cpp-.55)*35+(60-need)*.14);
+        out.push(makeEdge('CAP',a,score,`${a.name}: cap-efficiency warning`,
+          `$${Number(a.salary).toFixed(2)} salary against ${Math.round(proj)} projected points creates a weak dollars-per-point profile.`,
+          'SEEK CHEAPER REPLACEMENT',{cpp,need}));
+      }
+    }
+  }
+  return out;
+}
+function scanTradePartnerEdges(){
+  const teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(n=>n&&n!==db.config.teamName);
+  const ours=teamAssets(db.config.teamName).filter(a=>a.type!=='PICK');
+  const out=[];
+  for(const team of teams){
+    for(const pos of ['QB','RB','WR','TE','DL','LB','DB']){
+      const theirNeed=rosterNeedScore(team,pos);
+      const ourNeed=rosterNeedScore(db.config.teamName,pos);
+      if(theirNeed>=70 && ourNeed<=45){
+        const surplus=ours.filter(a=>normalizedPos(a.pos)===pos).sort((a,b)=>modelValue(b)-modelValue(a));
+        if(surplus.length){
+          const a=surplus[Math.min(surplus.length-1,2)];
+          const score=Math.min(92,72+(theirNeed-70)*.35+(45-ourNeed)*.25);
+          out.push(makeEdge('TRADE',a,score,`${team} has a ${pos} pressure point`,
+            `${team}'s ${pos} need scores ${theirNeed}/100 while ours is ${ourNeed}/100. That creates a natural market for ${a.name} or another ${pos} surplus asset.`,
+            `OPEN ${team} TRADE LAB`,{partner:team,theirNeed,ourNeed}));
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function scanPickEdges(){
+  const out=[];
+  for(const p of livePickForecasts()){
+    const current=Number(p.market||modelValue(p)||0);
+    const fair=Number(p.value||0);
+    if(!fair)continue;
+    const delta=current?((fair-current)/current):0;
+    if(delta>=.15){
+      out.push(makeEdge('PICK BUY',p,Math.min(96,76+delta*45),`${p.year} R${p.round} (${p.originalTeam}): pick upside`,
+        `Current owner ${p.currentOwner}. Original team projects to slot ${p.slot} with range ${p.low}–${p.high}. Live pick value is ${fmt(fair)} versus current modeled/market ${fmt(current)}.`,
+        `TARGET AS ${p.tier} PICK`,{pick:p,delta}));
+    }else if(delta<=-.18){
+      out.push(makeEdge('PICK SELL',p,Math.min(94,75+Math.abs(delta)*40),`${p.year} R${p.round} (${p.originalTeam}): downside risk`,
+        `Original team currently projects to slot ${p.slot} (${p.low}–${p.high}). Current market/model may be pricing this pick too optimistically.`,
+        `SHOP BEFORE SLOT FALLS`,{pick:p,delta}));
+    }
+  }
+  return out;
+}
+
+function allEdges(){
+  return [...scanFreeAgentEdges(),...scanRosterSellEdges(),...scanTradePartnerEdges(),...scanPickEdges()]
+    .sort((a,b)=>b.score-a.score);
+}
+function renderEdgeCard(e,rank){
+  const miss=e.missing?.length?`<div class="edgeMissing"><b>Assessment incomplete:</b> missing ${e.missing.join(', ')}. GM's Locker will not treat this as a full BUY recommendation until those inputs are present.</div>`:'';
+  return `<div class="edgeCard ${rank<=3?'hot':''}">
+    <div class="sectionhead"><span class="edgeType">${e.type}</span><span class="bidGrade">${e.grade}</span></div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;margin-top:8px">
+      <div><h3 style="margin:0 0 4px">${rank}. ${e.title}</h3><div class="edgeWhy">${e.why}</div></div>
+      <div>${scoreMarkup(e.score,"EDGE SCORE")}</div>
+    </div>
+    ${miss}
+    <div class="edgeAction"><span><b>${e.action}</b></span>
+      ${e.type==='FA BUY'?`<button onclick="showView('fa');setTimeout(()=>selectFABidPlayer('${String(e.a.mflId||e.a.id).replace(/'/g,"\\'")}'),100)">OPEN FA LAB</button>`:
+        e.type==='TRADE'?`<button onclick="tradeState.opponent='${String(e.partner||'').replace(/'/g,"\\'")}';showView('trade')">BUILD TRADE</button>`:
+        `<button onclick="window.teamAnalyzerTeam='${String(db.config.teamName).replace(/'/g,"\\'")}';showView('teamanalyzer')">REVIEW TEAM</button>`}
+    </div>
+  </div>`;
+}
+function renderEdgeFinder(){
+  const edges=allEdges();
+  const complete=edges.filter(e=>e.complete).length;
+  const fa=edges.filter(e=>e.type==='FA BUY').length,shop=edges.filter(e=>e.type==='SHOP'||e.type==='CAP').length,trades=edges.filter(e=>e.type==='TRADE').length;
+  edgefinder.innerHTML=`
+  <div class="card"><div class="sectionhead"><h2>Edge Finder — Anomaly Scanner</h2><span class="pill">GM'S LOCKER INTELLIGENCE</span></div>
+    <div class="notice"><b>Purpose:</b> scan your roster, all 13 opponents, league cap conditions and the active FA market for mismatches that can create championship value. Missing projections are treated as a data failure, not silently guessed.</div>
+    <div class="edgeHero" style="margin-top:10px">
+      <div class="metric"><b>${edges.length}</b><span>Total anomalies</span></div>
+      <div class="metric"><b>${fa}</b><span>FA buys</span></div>
+      <div class="metric"><b>${shop}</b><span>Shop/cap edges</span></div>
+      <div class="metric"><b>${trades}</b><span>Trade-partner edges</span></div>
+      <div class="metric"><b>${complete}</b><span>Complete-data calls</span></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px"><div class="edgeFilterRow">
+    <div class="field"><label>Minimum grade</label><select id="edgeMin" onchange="renderEdgeFinder()"><option value="0">All</option><option value="74">B+ or better</option><option value="80">A- or better</option><option value="86">A or better</option></select></div>
+    <div class="field"><label>View</label><select id="edgeTypeFilter" onchange="renderEdgeFinder()"><option value="ALL">All edges</option><option>FA BUY</option><option>TRADE</option><option>SHOP</option><option>CAP</option><option>WATCH</option></select></div>
+  </div></div>
+  <div class="edgeGrid" style="margin-top:12px">
+    ${(()=>{const min=Number(document.getElementById('edgeMin')?.value||0),type=document.getElementById('edgeTypeFilter')?.value||'ALL';let arr=edges.filter(e=>e.score>=min&&(type==='ALL'||e.type===type));return arr.length?arr.slice(0,30).map((e,i)=>renderEdgeCard(e,i+1)).join(''):'<div class="card"><div class="notice">No anomalies meet this filter.</div></div>'})()}
+  </div>`;
 }
 
 function renderTrade(){
@@ -689,31 +1744,42 @@ window.faSelectedPlayer=null;
 function blindBidModel(a,ov={}){
   const pos=normalizedPos(a?.pos||ov.pos||'WR');
   const proj=Math.max(0,Number(ov.proj??a?.proj??0));
-  const role=Math.max(0,Math.min(100,Number(ov.role??a?.role??50)));
-  const sentiment=Math.max(0,Math.min(100,Number(ov.sentiment??(50+Number(a?.trend||0)*3))));
-  const breakout=Math.max(0,Math.min(100,Number(ov.breakout??Math.max(15,Math.min(85,35+(100-Number(a?.risk||45))*.2+(role-50)*.35)))));
-  const security=Math.max(0,Math.min(100,Number(ov.security??(100-Number(a?.risk||45)))));
+  const role=score100(Number(ov.role??a?.role??50));
+  const sentiment=score100(Number(ov.sentiment??(a?.sentiment??(50+Number(a?.trend||0)*3))));
+  const breakout=score100(Number(ov.breakout??a?.breakout??Math.max(15,Math.min(85,35+(100-Number(a?.risk||45))*.2+(role-50)*.35))));
+  const security=score100(Number(ov.security??(100-Number(a?.risk||45))));
   const age=Number(ov.age??a?.age??25);
-  const budget=Math.max(1,Number(ov.budget??db.config?.faBudget??100));
+  const capSnap=teamCapSnapshot(db.config.teamName);
+  const budget=Math.max(1,Number(ov.budget??capSnap.remaining??db.config?.faBudget??100));
   const baseline={QB:260,RB:150,WR:165,TE:145,DL:120,LB:130,DB:115}[pos]||150;
   const scarcity={QB:1.18,RB:1.24,WR:1.00,TE:1.12,DL:1.10,LB:1.05,DB:.92}[pos]||1;
   const production=Math.max(.15,Math.min(1.6,proj/baseline));
-  const roleM=.55+role/100*.75, sentM=.82+sentiment/100*.36, breakM=.82+breakout/100*.50, secM=.78+security/100*.42;
-  let ageM=1;
-  if(pos==='RB') ageM=age<=24?1.08:age<=27?1:age<=29?.90:.75;
-  else if(['WR','TE'].includes(pos)) ageM=age<=25?1.06:age<=29?1:age<=31?.92:.82;
-  else if(pos==='QB') ageM=age<=30?1.03:age<=34?1:.92;
-  else ageM=age<=27?1.04:age<=30?1:.90;
-  let pct=.018+.105*production*roleM*sentM*breakM*secM*scarcity*ageM;
-  pct=Math.max(.005,Math.min(.42,pct));
-  const target=Math.max(1,Math.round(budget*pct));
-  const floor=Math.max(1,Math.round(target*.72));
-  const ceiling=Math.max(target,Math.round(target*1.28));
-  const score=Math.round(Math.min(100,production*30+role*.20+sentiment*.12+breakout*.18+security*.10+scarcity/1.24*10));
+  const roleM=.55+role/100*.75,sentM=.82+sentiment/100*.36,breakM=.82+breakout/100*.50,secM=.78+security/100*.42;
+  let ageM=1;if(pos==='RB')ageM=age<=24?1.08:age<=27?1:age<=29?.90:.75;else if(['WR','TE'].includes(pos))ageM=age<=25?1.06:age<=29?1:age<=31?.92:.82;else if(pos==='QB')ageM=age<=30?1.03:age<=34?1:.92;else ageM=age<=27?1.04:age<=30?1:.90;
+
+  const need=rosterNeedScore(db.config.teamName,pos);
+  const auction=leagueAuctionPressure(pos);
+  const owners=ownerTendencies().filter(o=>o.team!==db.config.teamName&&o.cap>0);
+  const likely=owners.filter(o=>rosterNeedScore(o.team,pos)>=50).sort((x,y)=>y.aggressiveness-x.aggressiveness||y.cap-x.cap);
+  const leaguePressure=likely.length?Math.round(likely.slice(0,5).reduce((z,o)=>z+o.aggressiveness,0)/Math.min(5,likely.length)):0;
+
+  let pct=.014+.085*production*roleM*sentM*breakM*secM*scarcity*ageM;
+  pct*=.78+need/100*.45;
+  pct*=.88+leaguePressure/100*.30;
+  pct=Math.max(.004,Math.min(.38,pct));
+  let intrinsic=Math.max(1,Math.round(budget*pct));
+
+  // Historical blind-bid market creates a floor/anchor only when MFL exposed actual amounts.
+  const marketAnchor=auction.count?Math.max(1,Math.round(auction.p75*(.55+production*.30)*(0.8+need/100*.3))):0;
+  let target=Math.max(intrinsic,marketAnchor);
+  target=Math.min(Math.max(1,Math.round(budget*.50)),target);
+  const floor=Math.max(1,Math.round(target*.70));
+  const ceiling=Math.min(Math.max(target,Math.round(target*1.30)),Math.max(1,Math.round(budget*.60)));
+  const opportunityCost=score100((target/budget)*100);
+  const score=Math.round(Math.min(100,production*27+role*.18+sentiment*.10+breakout*.16+security*.09+need*.10+(100-opportunityCost)*.04+scarcity/1.24*6));
   const grade=score>=88?'A+':score>=82?'A':score>=76?'A-':score>=70?'B+':score>=64?'B':score>=58?'B-':'C';
-  return {target,floor,ceiling,score,grade,proj,role,sentiment,breakout,security,pos,scarcity};
-}
-function selectFABidPlayer(id){
+  return {target,floor,ceiling,score,grade,proj,role,sentiment,breakout,security,pos,scarcity,need,auction,leaguePressure,likelyBidders:likely.slice(0,5),budget,opportunityCost,capSource:capSnap.source};
+}function selectFABidPlayer(id){
   const arr=deriveLeagueFreeAgents();
   window.faSelectedPlayer=arr.find(a=>String(a.mflId||a.id)===String(id))||null;
   renderFABidPanel();
@@ -722,9 +1788,20 @@ function renderFABidPanel(){
   const el=document.getElementById('faBidPanel'); if(!el)return;
   const a=window.faSelectedPlayer;
   if(!a){el.innerHTML='<div class="bidBox"><h2>Blind Bid Analysis</h2><div class="notice">Select any unowned active player or add one manually.</div></div>';return}
+  const completeness=dataCompleteness(a);
+  if(completeness.missing.includes('projection')){
+    el.innerHTML=`<div class="bidBox"><div class="sectionhead"><h2>${a.name}</h2><span class="bidGrade">INCOMPLETE</span></div><div class="edgeMissing"><b>Projection missing.</b> GM's Locker will not issue a blind-bid recommendation until a projection is present.</div><div class="actions"><button onclick="openManualCorrection()">ADD PROJECTION</button></div></div>`;return;
+  }
   const b=blindBidModel(a,{breakout:a._breakout});
   el.innerHTML=`<div class="bidBox"><div class="sectionhead"><h2>${a.name}</h2><span class="bidGrade">${b.grade}</span></div>
-    <div class="bidDollar">$${b.target}</div><div class="small">Recommended blind bid · range $${b.floor}–$${b.ceiling}</div>
+    <div class="bidDollar">$${b.target}</div><div class="small">Recommended blind bid · range $${b.floor}–$${b.ceiling}</div><div class="grid" style="margin-top:10px">
+      <div class="gate"><span>Our roster need</span><b>${b.need}/100</b></div>
+      <div class="gate"><span>League bid pressure</span><b>${b.leaguePressure}/100</b></div>
+      <div class="gate"><span>Available cap</span><b>$${b.budget} · ${b.capSource}</b></div>
+      <div class="gate"><span>Opportunity cost</span><b>${b.opportunityCost}/100</b></div>
+      <div class="gate"><span>MFL position bid p75</span><b>${b.auction.count?'$'+Math.round(b.auction.p75):'NO DATA'}</b></div>
+      <div class="gate"><span>Likely bidders</span><b>${b.likelyBidders.length}</b></div>
+    </div>
     ${[['Projection',Math.min(100,b.proj/3)],['Role',b.role],['Sentiment',b.sentiment],['Breakout',b.breakout],['Security',b.security],['Scarcity',Math.min(100,b.scarcity/1.24*100)]].map(([n,v])=>`<div class="bidFactor"><span>${n}</span><div class="bidFactorBar"><i style="width:${Math.max(0,Math.min(100,v))}%"></i></div><b>${Math.round(v)}</b></div>`).join('')}
     <div class="notice" style="margin-top:10px"><b>Model:</b> projection sets the base; role and security decide how bankable it is; sentiment prices room demand; breakout logic prices upside; scarcity adjusts replacement value.</div></div>`;
 }
@@ -753,7 +1830,7 @@ function renderFreeAgentMaster(){
 }
 
 function renderFA(){
-  fa.innerHTML=`
+  fa.innerHTML=`<div class="card"><div class="correctionBar"><button class="correctionLaunch" onclick="toggleCorrectionPanel('faCorrectionPanel')">ADD FA CORRECTION</button></div></div><div style="height:12px"></div>
   <div class="card">
     <div class="sectionhead"><h2>Free Agency — Active Unowned Players</h2><span class="pill">14-TEAM PRIDE LG</span></div>
     <div class="notice"><b>Automatic list:</b> every active NFL player from MFL minus everybody owned by any Pride LG franchise. Active roster, minors/taxi, IR and reserve ownership all count as owned.</div>
@@ -764,18 +1841,21 @@ function renderFA(){
       <div class="field"><label>Pool source</label><input value="MFL minus owned" disabled></div>
     </div>
   </div>
-  <div class="faMasterGrid" style="margin-top:12px">
+  <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>MFL Auction Intelligence</h2><span class="pill">BLIND-BID HISTORY</span></div>
+      ${(()=>{const h=rebuildAuctionHistory(),all=leagueAuctionPressure();return `<div class="grid4"><div class="metric"><b>${h.length}</b><span>Auction/waiver records</span></div><div class="metric"><b>$${all.avg.toFixed(1)}</b><span>Average winning amount</span></div><div class="metric"><b>$${all.p75.toFixed(0)}</b><span>75th percentile</span></div><div class="metric"><b>$${all.max.toFixed(0)}</b><span>Largest recorded bid</span></div></div>`})()}
+      <div class="small" style="margin-top:8px">Imported from MFL transaction data when bid/amount fields are exposed. These values feed league-pressure and owner-aggressiveness analysis.</div>
+    </div><div class="faMasterGrid" style="margin-top:12px">
     <div>
       <div class="card"><div id="faMasterList"></div></div>
-      <div class="card" style="margin-top:12px">
+      <div id="faCorrectionPanel" class="correctionPanel" hidden><div class="card" style="margin-top:12px">
         <div class="sectionhead"><h2>FA Screenshot Import</h2><span class="pill">CORRECTION LAYER</span></div>
         <div class="notice">If MFL misses a player, upload the FA screen and merge him here.</div>
-        <label class="nativeUpload"><strong>Upload free-agent screenshots</strong><div class="uploadHint">Choose one or multiple screenshots.</div><input id="faShots" type="file" accept="image/*" multiple onchange="handleFAScreenshots(this.files)"></label>
+        <label class="nativeUpload"><strong>Upload free-agent screenshots</strong><div class="uploadHint">Choose one or multiple screenshots.</div><input id="faShots" type="file" accept="image/*" multiple onchange="handleFAScreenshots(this.files)"></label><div class="actions"><button onclick="processFAScreenshots()">PROCESS SCREENSHOTS</button></div>
         <div id="faImportReview"></div>
       </div>
     </div>
     <div>
-      <div id="faBidPanel"></div>
+      </div><div id="faBidPanel"></div>
       <div class="card" style="margin-top:12px">
         <div class="sectionhead"><h2>Add Player + Price Bid</h2><span class="pill">MANUAL OVERRIDE</span></div>
         <div class="field"><label>Player</label><input id="faManualName" placeholder="Any player"></div>
@@ -798,7 +1878,146 @@ function replacementTree(a){let sims=db.assets.filter(x=>x.type==='PLAYER'&&x.po
 function faComparison(){return `<div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Proj</th><th>Above repl</th><th>Market</th><th>Pride</th><th>Signal</th></tr></thead><tbody>${db.assets.filter(a=>a.type==='PLAYER').sort((a,b)=>modelValue(b)-modelValue(a)).slice(0,30).map(a=>`<tr><td>${a.name}</td><td>${a.pos}</td><td>${a.proj||0}</td><td>${((a.proj||0)-replacement(a)).toFixed(0)}</td><td>${fmt(a.market)}</td><td>${fmt(modelValue(a))}</td><td class="${signal(a)[1]}">${signal(a)[0]}</td></tr>`).join('')}</tbody></table></div>`}
 function prospectValue(p){let posP={QB:1.15,RB:.95,WR:1.08,TE:.82,EDGE:.85,DL:.72,LB:.65,S:.58,CB:.5}[p.pos]||.65;let score=(p.nflDraftCapital*.28+p.production*.24+p.athletic*.12+p.earlyDeclare*.10+p.competition*.10+(100-p.risk)*.16);return Math.round(6200*posP*(score/90)*(1+(100-Math.min(100,p.rank*4))/450))}
 function classStrength(year){let ps=db.prospects.filter(p=>Number(p.classYear)===Number(year));if(!ps.length)return 75;let top=ps.slice().sort((a,b)=>a.rank-b.rank).slice(0,12);return clamp(top.reduce((s,p)=>s+prospectValue(p)/80,0)/Math.max(1,top.length))}
-function renderDraft(){draft.innerHTML=`<div class="grid"><div class="card"><div class="sectionhead"><h2>Draft Pick Engine</h2><button class="secondary" onclick="addPick()">+ Add pick</button></div>${db.assets.filter(a=>a.type==='PICK').sort((a,b)=>(a.year-b.year)||(a.round-b.round)).map(a=>`<div class="asset"><div class="sectionhead"><b>${a.name}</b><b>${fmt(modelValue(a))}</b></div><div class="grid4"><div class="metric"><b>${a.classStrength||75}</b><span>Class strength</span></div><div class="metric"><b>${a.slotProb?.early||0}%</b><span>Early probability</span></div><div class="metric"><b>${a.liquidity||0}</b><span>Liquidity</span></div><div class="metric"><b>${a.risk||0}</b><span>Risk</span></div></div><button class="ghost" onclick="editAsset('${a.id}')">Edit pick</button></div>`).join('')}</div><div class="card"><div class="sectionhead"><h2>NCAA Prospect Board</h2><button class="secondary" onclick="addProspect()">+ Prospect</button></div>${db.prospects.sort((a,b)=>a.rank-b.rank).map(p=>`<div class="gate"><span><b>#${p.rank} ${p.name}</b> <span class="tag">${p.classYear} ${p.pos}</span><br><span class="small">Draft capital ${p.nflDraftCapital} · Production ${p.production} · Risk ${p.risk}</span></span><b>${fmt(prospectValue(p))}</b></div>`).join('')}</div></div><div class="card" style="margin-top:12px"><h2>Class Outlook</h2><div class="grid3">${[2027,2028,2029].map(y=>`<div class="metric"><b>${classStrength(y).toFixed(0)}</b><span>${y} class strength model</span></div>`).join('')}</div><p class="small">Pick value is not fixed. It moves with projected slot, class quality, top-end positional depth, declaration/draft-capital expectations, liquidity and time-to-realization.</p></div>`}
+
+function teamStandingRow(team){
+  const arr=db.mfl?.standings||[];
+  const s=arr.find(x=>String(x.franchise||x.name||'').toLowerCase()===String(team||'').toLowerCase())||{};
+  return {
+    wins:Number(s.wins??s.h2hw??s.w??0),
+    losses:Number(s.losses??s.h2hl??s.l??0),
+    points:Number(s.points??s.pf??s.points_for??0)
+  };
+}
+function pickTeamStrength(team){
+  const tm=typeof fullTeamProfile==='function'?fullTeamProfile(team):null;
+  const st=teamStandingRow(team);
+  const games=st.wins+st.losses;
+  const winPct=games?st.wins/games:.5;
+  const power=tm?.score||tm?.blend||0;
+  const proj=tm?.projected||0;
+  return {team,st,games,winPct,power,proj};
+}
+function leagueFinishForecast(){
+  const teams=(db.mfl?.franchises||[]).map(f=>f.name).filter(Boolean);
+  const rows=teams.map(pickTeamStrength);
+  const maxPower=Math.max(...rows.map(x=>x.power||0),1);
+  const maxProj=Math.max(...rows.map(x=>x.proj||0),1);
+  const maxPts=Math.max(...rows.map(x=>x.st.points||0),1);
+  const week=Math.max(0,typeof nflWeekEstimate==='function'?nflWeekEstimate():0);
+  // Preseason: roster/projection dominate. Every played week increases production/record influence.
+  const resultWeight=Math.min(.72, week*.055);
+  const pointsWeight=Math.min(.20, week*.014);
+  const modelWeight=Math.max(.08,1-resultWeight-pointsWeight);
+  rows.forEach(r=>{
+    const recordScore=r.games?r.winPct:.5;
+    const ptsScore=r.st.points/maxPts;
+    const rosterScore=((r.power/maxPower)*.60+(r.proj/maxProj)*.40);
+    r.finishStrength=recordScore*resultWeight+ptsScore*pointsWeight+rosterScore*modelWeight;
+  });
+  // Strongest team forecast to finish highest; draft slot 14 in a 14-team league, weakest => 1.
+  rows.sort((a,b)=>a.finishStrength-b.finishStrength);
+  rows.forEach((r,i)=>{
+    r.projectedSlot=i+1;
+    const uncertainty=Math.max(.55,3.8-week*.18);
+    r.low=Math.max(1,Math.round(r.projectedSlot-uncertainty));
+    r.high=Math.min(teams.length,Math.round(r.projectedSlot+uncertainty));
+    // Probability of landing in useful slot bands from a simple distance weighting.
+    const weights=[];
+    let total=0;
+    for(let slot=1;slot<=teams.length;slot++){
+      const z=(slot-r.projectedSlot)/Math.max(.85,uncertainty*.75);
+      const w=Math.exp(-.5*z*z);weights.push({slot,w});total+=w;
+    }
+    weights.forEach(x=>x.p=x.w/total);
+    r.slotProbs=weights;
+    r.earlyProb=Math.round(100*weights.filter(x=>x.slot<=Math.ceil(teams.length/3)).reduce((s,x)=>s+x.p,0));
+    r.midProb=Math.round(100*weights.filter(x=>x.slot>Math.ceil(teams.length/3)&&x.slot<=Math.ceil(teams.length*2/3)).reduce((s,x)=>s+x.p,0));
+    r.lateProb=Math.max(0,100-r.earlyProb-r.midProb);
+  });
+  return rows;
+}
+function parsePickAsset(a){
+  if(a.type!=='PICK')return null;
+  const name=String(a.name||'');
+  const yr=Number(a.year||name.match(/20\d{2}/)?.[0]||2027);
+  let round=Number(a.round||0);
+  if(!round){
+    if(/1st|round\s*1|r1/i.test(name))round=1;
+    else if(/2nd|round\s*2|r2/i.test(name))round=2;
+    else if(/3rd|round\s*3|r3/i.test(name))round=3;
+    else if(/4th|round\s*4|r4/i.test(name))round=4;
+  }
+  const currentOwner=a.roster||a.owner||'Unknown';
+  const original=a.originalTeam||a.originalOwner||a.fromTeam||a.pickTeam||
+    (name.match(/\(([^)]+)\)/)?.[1])||currentOwner;
+  return {...a,year:yr,round:round||1,currentOwner,originalTeam:original};
+}
+function projectedPickValue(round,slot,year){
+  const baseByRound={1:6200,2:2850,3:1250,4:550};
+  const base=baseByRound[round]||300;
+  // 14-team scale: pick 1 materially more valuable than pick 14.
+  const slotMult=round===1
+    ? (1.38-(slot-1)*.045)
+    : round===2
+      ? (1.22-(slot-1)*.025)
+      : (1.12-(slot-1)*.014);
+  const yearsOut=Math.max(0,year-new Date().getFullYear());
+  const timeDiscount=Math.pow(.92,Math.max(0,yearsOut-1));
+  return Math.round(base*Math.max(.62,slotMult)*timeDiscount);
+}
+function livePickForecasts(){
+  const finish=leagueFinishForecast();
+  const map=new Map(finish.map(x=>[String(x.team).toLowerCase(),x]));
+  const picks=(db.assets||[]).map(parsePickAsset).filter(Boolean);
+  return picks.map(p=>{
+    const f=map.get(String(p.originalTeam||'').toLowerCase());
+    const slot=f?.projectedSlot||Math.ceil((db.mfl?.franchises?.length||14)/2);
+    const low=f?.low||Math.max(1,slot-3),high=f?.high||Math.min(14,slot+3);
+    const value=projectedPickValue(p.round,slot,p.year);
+    const lowValue=projectedPickValue(p.round,high,p.year);
+    const highValue=projectedPickValue(p.round,low,p.year);
+    const tier=slot<=4?'EARLY':slot<=9?'MID':'LATE';
+    return {...p,slot,low,high,value,lowValue,highValue,tier,forecast:f};
+  }).sort((a,b)=>a.year-b.year||a.round-b.round||a.slot-b.slot);
+}
+function renderPickForecastBoard(){
+  const el=document.getElementById('pickForecastBoard');if(!el)return;
+  const rows=livePickForecasts();
+  const finish=leagueFinishForecast();
+  const week=Math.max(0,typeof nflWeekEstimate==='function'?nflWeekEstimate():0);
+  el.innerHTML=`
+  <div class="card">
+    <div class="sectionhead"><h2>Live Pick Forecast</h2><span class="pill">${week?'AFTER WEEK '+week:'PRESEASON BASELINE'}</span></div>
+    <div class="notice"><b>Pick identity is split in two:</b> <b>current owner</b> determines who can trade the pick; <b>original franchise</b> determines where the pick lands. The slot forecast updates after every game as record and actual scoring gain weight.</div>
+    <div class="forecastGrid" style="margin-top:10px">
+      <div class="metric"><b>${rows.length}</b><span>Picks tracked</span></div>
+      <div class="metric"><b>${week}</b><span>Weeks incorporated</span></div>
+      <div class="metric"><b>${week?Math.round(Math.min(72,week*5.5))+'%':'0%'}</b><span>Record influence</span></div>
+      <div class="metric"><b>${week?Math.round(Math.min(20,week*1.4))+'%':'0%'}</b><span>Scoring influence</span></div>
+      <div class="metric"><b>${week?Math.max(8,100-Math.round(Math.min(72,week*5.5))-Math.round(Math.min(20,week*1.4)))+'%':'100%'}</b><span>Roster/projection influence</span></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px;overflow:auto">
+    <table class="pickBoard"><thead><tr><th>Pick</th><th>Current Owner</th><th>Original Team</th><th>Forecast</th><th>Range</th><th>Early/Mid/Late</th><th>Live Value</th></tr></thead>
+    <tbody>${rows.map(p=>`<tr>
+      <td><b>${p.year} R${p.round}</b></td>
+      <td class="pickOwner">${p.currentOwner}</td>
+      <td><b>${p.originalTeam}</b><div class="pickOrigin">finish determines slot</div></td>
+      <td><span class="pickTier">${p.tier}</span><br><span class="pickRange">${p.slot}</span></td>
+      <td>${p.low}–${p.high}</td>
+      <td>${p.forecast?`${p.forecast.earlyProb}% / ${p.forecast.midProb}% / ${p.forecast.lateProb}%`:'—'}</td>
+      <td><b>${fmt(p.value)}</b><br><span class="small">${fmt(p.lowValue)}–${fmt(p.highValue)}</span></td>
+    </tr>`).join('')||'<tr><td colspan="7">No draft picks are currently mapped. Sync future draft picks or correct ownership via screenshot/manual import.</td></tr>'}
+    </tbody></table>
+  </div>
+  <div class="card" style="margin-top:12px;overflow:auto">
+    <h2>Projected Finish → Draft Slot</h2>
+    <table class="pickBoard"><thead><tr><th>Projected Slot</th><th>Original Franchise</th><th>Record</th><th>Points</th><th>Slot Range</th><th>Early Probability</th></tr></thead>
+    <tbody>${finish.map(f=>`<tr><td><b>${f.projectedSlot}</b></td><td>${f.team}</td><td>${f.st.wins}-${f.st.losses}</td><td>${f.st.points.toFixed(1)}</td><td>${f.low}–${f.high}</td><td><div class="pickProb"><i style="width:${f.earlyProb}%"></i></div><span class="small">${f.earlyProb}%</span></td></tr>`).join('')}</tbody></table>
+  </div>`;
+}
+
+function renderDraft(){setTimeout(renderPickForecastBoard,0);draft.innerHTML=`<div id="pickForecastBoard"></div><div style="height:12px"></div><div class="grid"><div class="card"><div class="sectionhead"><h2>Draft Pick Engine</h2><button class="secondary" onclick="addPick()">+ Add pick</button></div>${db.assets.filter(a=>a.type==='PICK').sort((a,b)=>(a.year-b.year)||(a.round-b.round)).map(a=>`<div class="asset"><div class="sectionhead"><b>${a.name}</b><b>${fmt(modelValue(a))}</b></div><div class="grid4"><div class="metric"><b>${a.classStrength||75}</b><span>Class strength</span></div><div class="metric"><b>${a.slotProb?.early||0}%</b><span>Early probability</span></div><div class="metric"><b>${a.liquidity||0}</b><span>Liquidity</span></div><div class="metric"><b>${a.risk||0}</b><span>Risk</span></div></div><button class="ghost" onclick="editAsset('${a.id}')">Edit pick</button></div>`).join('')}</div><div class="card"><div class="sectionhead"><h2>NCAA Prospect Board</h2><button class="secondary" onclick="addProspect()">+ Prospect</button></div>${db.prospects.sort((a,b)=>a.rank-b.rank).map(p=>`<div class="gate"><span><b>#${p.rank} ${p.name}</b> <span class="tag">${p.classYear} ${p.pos}</span><br><span class="small">Draft capital ${p.nflDraftCapital} · Production ${p.production} · Risk ${p.risk}</span></span><b>${fmt(prospectValue(p))}</b></div>`).join('')}</div></div><div class="card" style="margin-top:12px"><h2>Class Outlook</h2><div class="grid3">${[2027,2028,2029].map(y=>`<div class="metric"><b>${classStrength(y).toFixed(0)}</b><span>${y} class strength model</span></div>`).join('')}</div><p class="small">Pick value is not fixed. It moves with projected slot, class quality, top-end positional depth, declaration/draft-capital expectations, liquidity and time-to-realization.</p></div>`}
 function addPick(){let year=Number(prompt('Draft year?',2027));if(!year)return;let round=Number(prompt('Round?',1));let band=prompt('Slot band: early, mid, late','mid')||'mid';let name=`${year} ${band[0].toUpperCase()+band.slice(1)} ${round===1?'1st':round===2?'2nd':round===3?'3rd':round+'th'}`;db.assets.push({id:uid('pick'),name,type:'PICK',pos:'PICK',year,round,slotBand:band,market:round===1?5000:round===2?2200:900,classStrength:classStrength(year),slotProb:band==='early'?{early:65,mid:25,late:10}:band==='late'?{early:5,mid:25,late:70}:{early:20,mid:55,late:25},liquidity:round===1?92:70,risk:45,trend:0,source:'Manual'});persist();renderDraft()}
 function addProspect(){let name=prompt('Prospect name');if(!name)return;let pos=(prompt('Position','WR')||'WR').toUpperCase();let classYear=Number(prompt('Draft class year',2027));let rank=Number(prompt('Current class rank',10));db.prospects.push({id:uid('pros'),name,pos,classYear,age:20,rank,nflDraftCapital:75,production:75,athletic:75,earlyDeclare:75,competition:75,risk:40,notes:''});persist();renderDraft()}
 let marketFilter='';
@@ -810,7 +2029,7 @@ function importCSV(file){if(!file)return;let r=new FileReader();r.onload=()=>{le
 function renderSync(){
   ensureMFLDefaults();
   const m=db.mfl;
-  sync.innerHTML=`<div class="grid">
+  sync.innerHTML=`<div class="card"><div class="correctionBar"><button class="correctionLaunch" onclick="toggleCorrectionPanel('rosterCorrectionPanel')">ADD ROSTER CORRECTION</button></div></div><div style="height:12px"></div><div class="grid">
     <div class="card">
       <div class="sectionhead"><h2>MFL Sync — Pride LG</h2><span class="pill">2026 · LEAGUE 29218</span></div>
       <div class="notice"><b>Secure server-side sync.</b> GM Lab talks to your Cloudflare Worker; the Worker talks to MFL. No MFL password is stored and this connection is read-only.</div>
@@ -839,16 +2058,17 @@ function renderSync(){
     </div>
   </div>
   
-  <div class="card" style="margin-top:12px">
+  <div id="rosterCorrectionPanel" class="correctionPanel" hidden><div class="card" style="margin-top:12px">
     <div class="sectionhead"><h2>Roster Screenshot Merge</h2><span class="pill">CORRECTION LAYER</span></div>
-    <div class="notice"><b>MFL stays primary.</b> Upload screenshots only to fill missing players/fields or reconcile a team. Nothing is committed until you review it.</div>
+    <div class="notice"><b>MFL stays primary.</b> Screenshot corrections now use a deliberate 3-step flow.</div>
+    <div class="importSteps"><div class="importStep"><b>1. CHOOSE</b><br><span class="small">Select screenshots.</span></div><div class="importStep"><b>2. PROCESS</b><br><span class="small">AI reads the image.</span></div><div class="importStep"><b>3. APPLY</b><br><span class="small">Review and commit corrections.</span></div></div>
     <div class="importGrid" style="margin-top:10px">
-      <label class="nativeUpload"><strong>Upload roster screenshots</strong><div class="uploadHint">Choose one or multiple team screenshots. Up to all 14 teams.</div><input id="rosterShots" type="file" accept="image/*" multiple onchange="handleRosterScreenshots(this.files)"></label>
+      <label class="nativeUpload"><strong>Upload roster screenshots</strong><div class="uploadHint">Choose one or multiple team screenshots. Up to all 14 teams.</div><input id="rosterShots" type="file" accept="image/*" multiple onchange="handleRosterScreenshots(this.files)"></label><div class="actions"><button onclick="processRosterScreenshots()">PROCESS SCREENSHOTS</button></div>
       <div class="field"><label>Merge mode</label><select id="rosterMergeMode"><option value="missing">Missing players only</option><option value="fields">Fill missing salary/years/status</option><option value="reconcile">Full reconciliation review</option></select><div class="small" style="margin-top:8px">Safest default: Missing players only.</div></div>
     </div>
     <div id="rosterImportReview"></div>
   </div>
-<div class="grid" style="margin-top:12px">
+</div><div class="grid" style="margin-top:12px">
     <div class="card"><h2>Synced Franchises</h2>${(m.franchises||[]).length?(m.franchises||[]).map(f=>`<div class="gate"><span>${f.name}</span><span class="small">${f.id}</span></div>`).join(''):'<div class="muted">Connect the Worker, then run the first sync.</div>'}</div>
     <div class="card"><h2>Recent MFL Activity</h2>${(m.transactions||[]).length?(m.transactions||[]).slice(0,12).map(t=>`<div class="gate"><span><b>${t.franchise||'League'}</b><br><span class="small">${t.type||'transaction'}${t.player?' · '+t.player:''}</span></span></div>`).join(''):'<div class="muted">Transactions will appear here after sync.</div>'}</div>
   </div>`;
@@ -931,7 +2151,16 @@ function mergeMFLAsset(p,rp,franchiseName){
   hit.name=name||hit.name;
   hit.pos=String(p?.position||p?.pos||hit.pos||'').toUpperCase();
   hit.nfl=p?.team||hit.nfl||'';
-  hit.roster=franchiseName||'FREE AGENT';
+  const mflProj=safeNum(p?.projectedPoints??p?.projected_points??p?.projection??p?.projectedScore??p?.projected_score);
+  if(mflProj!==undefined&&mflProj>0){hit.proj=mflProj;hit.sources=hit.sources||{};hit.sources.proj='MFL';}
+  const mflBye=safeNum(p?.bye??p?.byeWeek??p?.bye_week);
+  if(mflBye!==undefined&&mflBye>0)hit.bye=mflBye;
+  const existingRosterSource=hit.sources?.roster||hit.source||'';
+  if(authorityRank(existingRosterSource)<=2){
+    hit.roster=franchiseName||'FREE AGENT';
+    hit.sources=hit.sources||{};
+    hit.sources.roster='MFL';
+  }
   const sal=safeNum(rp?.salary ?? rp?.sal);
   const yrs=safeNum(rp?.contractYear ?? rp?.contractYears ?? rp?.contract ?? rp?.years);
   if(sal!==undefined)hit.salary=sal;
@@ -982,17 +2211,21 @@ async function testMFLConnection(){
 }
 async function syncMFL(){
   ensureMFLDefaults();
+  saveUndoPoint('Before MFL sync');
   const el=document.getElementById('syncStatus');
   el.innerHTML='Securely syncing <b>Pride LG 29218</b> through the Worker…';
   try{
     const bundle=await proxyFetch('/sync');
     const league=bundle.data?.league||{};
+    db.mfl.rawPlayers=bundle.data?.players||{};
+    db.mfl.rawRosters=bundle.data?.rosters||{};
     const players=bundle.data?.players||{};
     const rosters=bundle.data?.rosters||{};
     const standings=bundle.data?.standings||{};
     const transactions=bundle.data?.transactions||{};
     const draftResults=bundle.data?.draftResults||{};
     const futureDraftPicks=bundle.data?.futureDraftPicks||{};
+    const schedule=bundle.data?.schedule||{};
 
     const franchises=mflDeepArray(league,['league.franchises.franchise','franchises.franchise']);
     const franchiseMap={};
@@ -1024,7 +2257,7 @@ async function syncMFL(){
       const pos=String(p.position||p.pos||'').toUpperCase();
       if(!['QB','RB','WR','TE','PK','K','DL','DE','DT','EDGE','LB','CB','S','DB'].includes(pos))continue;
       const hit=db.assets.find(a=>String(a.mflId||'')===pid);
-      if(hit)hit.roster='FREE AGENT';
+      if(hit){const src=hit.sources?.roster||hit.source||'';if(authorityRank(src)<=2){hit.roster='FREE AGENT';hit.sources=hit.sources||{};hit.sources.roster='MFL';}}
       else mergeMFLAsset(p,{id:pid},'FREE AGENT');
       freeAgents++;
     }
@@ -1035,6 +2268,23 @@ async function syncMFL(){
         losses:s.h2hl||s.losses||s.l||0,points:s.pf||s.points_for||s.points||0,raw:s};
     });
     db.mfl.transactions=parseMFLTransactions(transactions,franchiseMap,playerMap);
+    rebuildAuctionHistory();
+    const scheduleWeeks=mflDeepArray(schedule,['schedule.week','weeklySchedule.week','week']);
+    db.mfl.schedule=[];
+    for(const wk of scheduleWeeks){
+      const weekNum=Number(wk.week||wk.number||wk.id||0);
+      const games=normalizeArr(wk.matchup||wk.game||wk.fantasyMatchup||wk.matches);
+      if(games.length){
+        for(const g of games){
+          const f1=String(g.franchise1||g.team1||g.home||g.home_franchise||g.franchise?.[0]?.id||'');
+          const f2=String(g.franchise2||g.team2||g.away||g.away_franchise||g.franchise?.[1]?.id||'');
+          db.mfl.schedule.push({week:weekNum,team1:franchiseMap[f1]||f1,team2:franchiseMap[f2]||f2,raw:g});
+        }
+      }else if(wk&&typeof wk==='object'){
+        db.mfl.schedule.push({week:weekNum,raw:wk});
+      }
+    }
+    db.feedTimes=db.feedTimes||{};db.feedTimes.mfl=new Date().toISOString();db.feedTimes.auction=new Date().toISOString();
     
     db.mfl.draftResults=mflDeepArray(draftResults,['draftResults.draftUnit.draftPick','draftResults.draftPick','draftPick']);
 
@@ -1075,7 +2325,13 @@ async function syncMFL(){
       });
     }
 
-    db.mfl.franchises=franchises.map(f=>({id:String(f.id||f.franchise_id||''),name:f.name||f.owner_name||String(f.id||'')}));
+    db.mfl.franchises=franchises.map(f=>({
+      id:String(f.id||f.franchise_id||''),
+      name:f.name||f.owner_name||String(f.id||''),
+      remainingCap:safeNum(f.remainingCap??f.remaining_cap??f.capRoom??f.cap_room??f.availableCap??f.available_cap??f.salaryCapAvailable??f.salary_cap_available),
+      salaryCapAmount:safeNum(f.salaryCapAmount??f.salary_cap_amount??f.salaryCap??f.salary_cap??f.capLimit??f.cap_limit),
+      raw:f
+    }));
 
     if(league?.league?.name)db.config.leagueName=league.league.name;
     const carnage=db.mfl.franchises.find(f=>/capitol carnage/i.test(f.name));
@@ -1084,6 +2340,7 @@ async function syncMFL(){
     db.mfl.lastCounts={franchises:db.mfl.franchises.length,rostered:owned.size,freeAgents,
       transactions:db.mfl.transactions.length,indexedPlayers:plist.length};
     db.lastSync=bundle.syncedAt||new Date().toISOString();
+    audit('MFL SYNC',{franchises:db.mfl.lastCounts?.franchises||0,rostered:db.mfl.lastCounts?.rostered||0,indexedPlayers:db.mfl.lastCounts?.indexedPlayers||0,auctionRecords:db.mfl.auctionHistory?.length||0},'MFL');
     persist();renderAssetList();renderSync();
 
     const out=document.getElementById('syncStatus');
@@ -1093,7 +2350,33 @@ async function syncMFL(){
   }
 }
 
-function renderSettings(){let c=db.config;settings.innerHTML=`<div class="grid"><div class="card"><h2>League Rules</h2><div class="grid3"><div class="field"><label>League name</label><input value="${c.leagueName}" onchange="cset('leagueName',this.value)"></div><div class="field"><label>Your franchise</label><input value="${c.teamName}" onchange="cset('teamName',this.value)"></div><div class="field"><label>Teams</label><input type="number" value="${c.teams}" onchange="cset('teams',Number(this.value))"></div><div class="field"><label>Salary cap</label><input type="number" value="${c.salaryCap}" onchange="cset('salaryCap',Number(this.value))"></div><div class="field"><label>B- threshold</label><input type="number" value="${c.threshold}" onchange="cset('threshold',Number(this.value))"></div><div class="field"><label>Prongs required</label><input type="number" value="${c.requiredProngs}" onchange="cset('requiredProngs',Number(this.value))"></div></div>${['superflex','tep','idp','sackPremium'].map(k=>`<label class="gate"><span>${k==='tep'?'TE Premium':k==='idp'?'IDP':k==='sackPremium'?'Sack Premium':'Superflex'}</span><input style="width:auto" type="checkbox" ${c[k]?'checked':''} onchange="cset('${k}',this.checked)"></label>`).join('')}</div><div class="card"><h2>Replacement-Level Points</h2><div class="grid4">${Object.keys(c.replacement).map(k=>`<div class="field"><label>${k}</label><input type="number" value="${c.replacement[k]}" onchange="db.config.replacement['${k}']=Number(this.value);persist()"></div>`).join('')}</div><p class="small">Replacement level is critical. It converts raw projections into points above replacement so scarce positions are valued correctly for your league.</p></div></div><div class="grid" style="margin-top:12px"><div class="card"><h2>Value Engine Weights</h2>${Object.keys(c.weights).map(k=>`<div class="field"><label>${k} (${Math.round(c.weights[k]*100)}%)</label><input type="range" min="0" max="30" value="${c.weights[k]*100}" oninput="db.config.weights['${k}']=Number(this.value)/100;this.previousElementSibling.textContent='${k} ('+this.value+'%)';persist()"></div>`).join('')}</div><div class="card"><h2>Data Controls</h2><button class="secondary" onclick="exportData()">Export Full Backup</button> <button class="secondary" onclick="downloadCSV()">Export Market CSV</button><hr style="border-color:#263753"><button class="danger" onclick="resetAll()">Reset App Database</button><p class="small">Reset returns to the bundled seed database and erases local edits/history from this device.</p><p class="small">App version ${APP_VERSION}</p></div></div>`}
+
+function applyManualCorrection(){saveUndoPoint('Before manual correction');
+  const name=String(document.getElementById('manualCorrName')?.value||'').trim();
+  const field=document.getElementById('manualCorrField')?.value||'';
+  const val=document.getElementById('manualCorrValue')?.value;
+  if(!name||!field)return alert('Enter an asset and field.');
+  const a=(db.assets||[]).find(x=>String(x.name||'').toLowerCase()===name.toLowerCase());
+  if(!a)return alert('Asset not found.');
+  const numeric=['salary','years','proj','market','role','risk'].includes(field);
+  a[field]=numeric?Number(val):val;
+  a.source='Manual Override';
+  if(typeof setFieldSource==='function')setFieldSource(a,field,'Manual Override');
+  a.lastReason=`Manual correction: ${field}`;
+  persist();renderAssetList();alert(`${a.name}: ${field} corrected.`);
+}
+
+function renderSettings(){let c=db.config;settings.innerHTML=`<div class="osGrid">
+      <div class="backupBox"><div class="sectionhead"><h2>Backup / Rollback</h2><span class="pill">SAFETY</span></div><div class="actions"><button onclick="exportMasterBackup()">EXPORT MASTER BACKUP</button><label class="secondary" style="padding:9px;border-radius:8px;cursor:pointer">RESTORE BACKUP<input type="file" accept=".json,application/json" style="display:none" onchange="importMasterBackup(this.files[0])"></label><button class="secondary" onclick="undoLastAction()">UNDO LAST ACTION</button></div><div class="small">${(db.undoStack||[]).length} undo point(s) available.</div></div>
+      <div class="backupBox"><div class="sectionhead"><h2>Privacy</h2><span class="pill">PROTOTYPE</span></div><div class="notice">Search indexing is disabled. The passcode below is a local browser lock only; it is not a substitute for production server-side authentication.</div><div class="field"><label>Local passcode</label><input id="privacyPin" type="password"></div><div class="actions"><button onclick="setLocalLock()">ENABLE LOCAL LOCK</button><button class="secondary" onclick="clearLocalLock()">REMOVE LOCK</button></div></div>
+    </div>
+    <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Audit Trail</h2><span class="pill">${auditRows().length}</span></div>${auditRows().slice(0,100).map(a=>`<div class="txLog"><b>${a.action}</b><br><span class="small">${a.source} · ${new Date(a.time).toLocaleString()} · ${JSON.stringify(a.detail).slice(0,160)}</span></div>`).join('')||'<div class="notice">Audit entries appear as corrections, transactions, imports and backups are used.</div>'}</div><div style="height:12px"></div><div id="manualCorrectionPanel" class="correctionPanel" hidden><div class="sectionhead"><h2>Manual Override</h2><span class="pill">FINAL AUTHORITY</span></div>
+    <div class="notice">Use this only when synced or screenshot data is wrong. Manual values should override lower-confidence sources.</div>
+    <div class="grid3" style="margin-top:8px">
+      <div class="field"><label>Player / asset name</label><input id="manualCorrName" placeholder="Exact name"></div>
+      <div class="field"><label>Field</label><select id="manualCorrField"><option value="roster">Roster</option><option value="salary">Salary</option><option value="years">Contract years</option><option value="proj">Projection</option><option value="market">Market value</option><option value="role">Role score</option><option value="risk">Risk score</option></select></div>
+      <div class="field"><label>Correct value</label><input id="manualCorrValue" placeholder="New value"></div>
+    </div><div class="actions"><button onclick="applyManualCorrection()">APPLY CORRECTION</button></div></div><div style="height:12px"></div><div class="grid"><div class="card"><h2>League Rules</h2><div class="grid3"><div class="field"><label>League name</label><input value="${c.leagueName}" onchange="cset('leagueName',this.value)"></div><div class="field"><label>Your franchise</label><input value="${c.teamName}" onchange="cset('teamName',this.value)"></div><div class="field"><label>Teams</label><input type="number" value="${c.teams}" onchange="cset('teams',Number(this.value))"></div><div class="field"><label>Salary cap</label><input type="number" value="${c.salaryCap}" onchange="cset('salaryCap',Number(this.value))"></div><div class="field"><label>B- threshold</label><input type="number" value="${c.threshold}" onchange="cset('threshold',Number(this.value))"></div><div class="field"><label>Prongs required</label><input type="number" value="${c.requiredProngs}" onchange="cset('requiredProngs',Number(this.value))"></div></div>${['superflex','tep','idp','sackPremium'].map(k=>`<label class="gate"><span>${k==='tep'?'TE Premium':k==='idp'?'IDP':k==='sackPremium'?'Sack Premium':'Superflex'}</span><input style="width:auto" type="checkbox" ${c[k]?'checked':''} onchange="cset('${k}',this.checked)"></label>`).join('')}</div><div class="card"><h2>Replacement-Level Points</h2><div class="grid4">${Object.keys(c.replacement).map(k=>`<div class="field"><label>${k}</label><input type="number" value="${c.replacement[k]}" onchange="db.config.replacement['${k}']=Number(this.value);persist()"></div>`).join('')}</div><p class="small">Replacement level is critical. It converts raw projections into points above replacement so scarce positions are valued correctly for your league.</p></div></div><div class="grid" style="margin-top:12px"><div class="card"><h2>Value Engine Weights</h2>${Object.keys(c.weights).map(k=>`<div class="field"><label>${k} (${Math.round(c.weights[k]*100)}%)</label><input type="range" min="0" max="30" value="${c.weights[k]*100}" oninput="db.config.weights['${k}']=Number(this.value)/100;this.previousElementSibling.textContent='${k} ('+this.value+'%)';persist()"></div>`).join('')}</div><div class="card"><h2>Data Controls</h2><button class="secondary" onclick="exportData()">Export Full Backup</button> <button class="secondary" onclick="downloadCSV()">Export Market CSV</button><hr style="border-color:#263753"><button class="danger" onclick="resetAll()">Reset App Database</button><p class="small">Reset returns to the bundled seed database and erases local edits/history from this device.</p><p class="small">App version ${APP_VERSION}</p></div></div>`}
 function cset(k,v){db.config[k]=v;persist();document.getElementById('subline').textContent=`${db.config.leagueName} engine • ${db.config.superflex?'SF • ':''}${db.config.tep?'TEP • ':''}${db.config.sackPremium?'sack-premium IDP • ':''}cap/contracts • dynamic asset pricing`}
 function exportData(){let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`capitol-carnage-gm-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
 function importData(file){if(!file)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.assets||!x.config)throw Error('Invalid backup');db=x;persist();renderAssetList();showView('dashboard');alert('Backup restored.')}catch(e){alert('Could not restore: '+e.message)}};r.readAsText(file)}
@@ -1120,3 +2403,5 @@ ensureMFLDefaults();persist();nav();renderAssetList();cset('leagueName',db.confi
 </script>
 </body>
 </html>
+
+window.addEventListener('load',()=>setTimeout(showPrivacyLockIfNeeded,50));

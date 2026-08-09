@@ -1,0 +1,17 @@
+GM'S LOCKER v3.7 — 0–100 SCORING + CORRECTION ACTIONS
+
+NEW:
+- Decision-facing metrics normalized to 0–100 where applicable.
+- Edge score explicitly shown /100.
+- League power rendered as normalized /100.
+- Team risk and cap-efficiency shown on comparable scales.
+- War Room trade-target scores normalized.
+
+CORRECTION UX:
+- War Room has persistent correction action bar.
+- ADD ROSTER CORRECTION button.
+- ADD FA CORRECTION button.
+- MANUAL OVERRIDE button.
+- Roster and FA correction panels can be opened explicitly.
+- Manual override can correct roster, salary, years, projection, market, role, risk.
+- Manual source is preserved as highest-authority correction layer.

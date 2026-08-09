@@ -53,11 +53,12 @@ async function buildSyncPayload() {
     getMFL("league"),getMFL("players"),getMFL("rosters")
   ]);
 
-  const [standings,transactions,draftResults,futureDraftPicks]=await Promise.all([
+  const [standings,transactions,draftResults,futureDraftPicks,schedule]=await Promise.all([
     optionalMFL("leagueStandings"),
-    optionalMFL("transactions",{COUNT:100}),
+    optionalMFL("transactions",{COUNT:1000}),
     optionalMFL("draftResults"),
-    optionalMFL("futureDraftPicks")
+    optionalMFL("futureDraftPicks"),
+    optionalMFL("schedule")
   ]);
 
   const errors={};
@@ -65,6 +66,7 @@ async function buildSyncPayload() {
   if(transactions.error)errors.transactions=transactions.error;
   if(draftResults.error)errors.draftResults=draftResults.error;
   if(futureDraftPicks.error)errors.futureDraftPicks=futureDraftPicks.error;
+  if(schedule.error)errors.schedule=schedule.error;
 
   return {
     ok:true,
@@ -79,7 +81,8 @@ async function buildSyncPayload() {
       standings:standings.value,
       transactions:transactions.value,
       draftResults:draftResults.value,
-      futureDraftPicks:futureDraftPicks.value
+      futureDraftPicks:futureDraftPicks.value,
+      schedule:schedule.value
     },
     errors
   };
@@ -156,6 +159,34 @@ Do not invent values not visible.`);
       }catch(e){return json({ok:false,error:String(e?.message||e)},500,origin)}
     }
 
-    return json({ok:false,error:"Not found"},404,origin);
+    
+    if(url.pathname==="/parse-transaction-images"&&request.method==="POST"){
+      try{
+        const form=await request.formData(),files=form.getAll("images"),transactions=[];
+        for(const file of files){
+          const parsed=await parseOneImage(env,file,`Read this fantasy football league transaction screenshot. Return ONLY valid JSON:
+{"transactions":[{"type":"TRADE|WAIVER CLAIM|FREE AGENT SIGNING|CUT|PICK TRANSFER|ROSTER CORRECTION","teamA":"team name","teamASends":["player or pick"],"teamB":"team name","teamBSends":["player or pick"]}],"confidence":0.0}
+Use exact visible team names, player names, and draft-pick descriptions. Do not invent anything not shown.`);
+          if(Array.isArray(parsed.transactions))transactions.push(...parsed.transactions);
+        }
+        return json({ok:true,transactions},200,origin);
+      }catch(e){return json({ok:false,error:String(e?.message||e)},500,origin)}
+    }
+
+
+    if(url.pathname==="/parse-historical-transactions"&&request.method==="POST"){
+      try{
+        const form=await request.formData(),files=form.getAll("images"),transactions=[];
+        for(const file of files){
+          const parsed=await parseOneImage(env,file,`Read this historical fantasy football transaction screenshot. Return ONLY valid JSON:
+{"transactions":[{"date":"date/time exactly as visible if present","type":"TRADE|WAIVER CLAIM|FREE AGENT SIGNING|CUT|PICK TRANSFER|ROSTER CORRECTION","teamA":"team name","teamASends":["player or pick"],"teamB":"team name","teamBSends":["player or pick"],"amount":"","notes":""}],"confidence":0.0}
+Preserve exact visible team names, player names, draft picks, transaction dates, and bid/price amounts. Do not invent missing values.`);
+          if(Array.isArray(parsed.transactions))transactions.push(...parsed.transactions);
+        }
+        return json({ok:true,transactions},200,origin);
+      }catch(e){return json({ok:false,error:String(e?.message||e)},500,origin)}
+    }
+
+return json({ok:false,error:"Not found"},404,origin);
   }
 };

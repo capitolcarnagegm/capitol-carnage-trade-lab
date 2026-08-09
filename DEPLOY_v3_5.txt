@@ -1,0 +1,14 @@
+GM'S LOCKER v3.5 — LIVE DRAFT PICK FORECAST
+
+NEW:
+- Correct separation of CURRENT PICK OWNER vs ORIGINAL FRANCHISE.
+- Original franchise finish determines draft slot.
+- Current owner determines who controls/trades the pick.
+- Preseason forecast = roster power + projections.
+- After each game: record and actual points receive progressively more weight.
+- Every pick gets projected slot, plausible slot range, early/mid/late probability, and live value.
+- Edge Finder can surface PICK BUY and PICK SELL anomalies.
+
+IMPORTANT:
+Future-pick ownership must be sourced from MFL futureDraftPicks when available.
+Screenshot/manual correction remains the fallback when MFL omits or mislabels a pick.
