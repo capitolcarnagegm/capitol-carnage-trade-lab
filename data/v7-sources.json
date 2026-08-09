@@ -1,0 +1,42 @@
+{
+  "version": "7.0",
+  "updated": "2026-08-09",
+  "league": {
+    "name": "Pride Dynasty",
+    "format": ["Superflex", "TE Premium", "IDP", "Sack Premium"],
+    "salaryCap": 1000
+  },
+  "authority": ["manual", "fantrax_roster_export", "transaction_or_screenshot", "mfl", "model"],
+  "sources": {
+    "capitolCarnage": {
+      "type": "google_sheet",
+      "spreadsheetId": "1BsSsagBUYsYmlhAZRFVQecupj3F4sC_h7GekyXsxY4I",
+      "sheet": "Sheet 1 - Fantrax-Team-Roster-P",
+      "fantraxExport": "Fantrax-Team-Roster-Pride Dynasty-18",
+      "authoritativeFor": ["roster", "salary", "contract", "fantrax_projection", "status"]
+    },
+    "fantraxPlayers": {
+      "type": "google_sheet",
+      "spreadsheetId": "1Ay3zX-XSYrWhB7DV-ZLgmZUL8BccmRFDrlIUT1RIaWg",
+      "sheet": "Sheet 1 - Fantrax-Players-Pride",
+      "rows": 8078,
+      "authoritativeFor": ["free_agents", "fantrax_projection", "rostered_percent", "age", "bye"]
+    },
+    "adp": {
+      "type": "google_sheet",
+      "spreadsheetId": "13VgYycSVgH0DBFYSv_YFNuMft4BPNPZcSam4vXyrd0M",
+      "authoritativeFor": ["adp_reference"]
+    },
+    "mfl": {
+      "type": "cloudflare_worker",
+      "authoritativeFor": ["transactions", "standings", "draft_results", "future_picks", "schedule", "league_activity"]
+    }
+  },
+  "integrityRules": {
+    "dedupePlayerKey": ["fantrax_id", "normalized_name"],
+    "doNotOverwriteFantraxSalaryWithMfl": true,
+    "doNotInventMissingFields": true,
+    "freeAgentMeansFantraxStatusFA": true,
+    "projectionConfidenceBlockedWhenMissing": true
+  }
+}
