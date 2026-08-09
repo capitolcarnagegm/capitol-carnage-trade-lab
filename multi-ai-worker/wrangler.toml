@@ -1,8 +1,34 @@
 name = "gms-locker-ai"
 main = "src/worker.js"
 compatibility_date = "2026-08-01"
+workers_dev = true
+
+# Production route can be enabled after the Worker is verified:
+# routes = [
+#   { pattern = "api.gmslocker.com/*", zone_name = "gmslocker.com" }
+# ]
+
+# GM's Locker persistent franchise brain.
+# Create the database first with:
+#   npx wrangler d1 create gms-locker-db
+# Then replace REPLACE_WITH_D1_DATABASE_ID with the returned database_id.
+[[d1_databases]]
+binding = "DB"
+database_name = "gms-locker-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[vars]
+APP_ENV = "production"
+GM_VALUE_HORIZON_YEARS = "5"
+GM_MIN_ACCEPTABLE_SCORE = "87"
+GM_MAX_CONTRACT_YEARS = "5"
 
 # Add provider API keys as encrypted Worker secrets, never plaintext vars:
 # npx wrangler secret put OPENAI_API_KEY
 # npx wrangler secret put ANTHROPIC_API_KEY
 # npx wrangler secret put XAI_API_KEY
+#
+# Optional later secrets/integrations:
+# npx wrangler secret put MFL_API_KEY
+# npx wrangler secret put ADMIN_TOKEN
