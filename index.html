@@ -229,11 +229,28 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 .privacyLock .box{width:min(420px,100%);background:#0d0d0d;border:1px solid #6b5720;border-radius:16px;padding:20px}
 @media(max-width:900px){.osGrid{grid-template-columns:1fr}.osHero{grid-template-columns:1fr 1fr}.feedRow,.ownerRow{grid-template-columns:1fr 1fr}.lineupRow{grid-template-columns:.6fr 1.4fr .6fr}.lineupRow>*:nth-child(4),.lineupRow>*:nth-child(5){display:none}}
 
+/* v6.2 AI GM */
+.aiGmHero{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.aiGmLayout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(260px,.45fr);gap:12px;margin-top:12px}
+.aiChat{min-height:420px;max-height:62vh;overflow:auto;padding:4px 3px 4px 0;scroll-behavior:smooth}
+.aiBubble{max-width:92%;border:1px solid #3a321e;border-radius:14px;padding:11px 12px;margin:8px 0;white-space:normal;overflow-wrap:anywhere}
+.aiBubble.user{margin-left:auto;background:#171307;border-color:#6b5720}
+.aiBubble.assistant{background:#0a0a0a}
+.aiBubble .aiMeta{display:block;color:#f1cf62!important;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px}
+.aiComposer{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:10px}
+.aiComposer textarea{min-height:90px;max-height:220px}
+.aiQuick{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.aiQuick button{font-size:11px;padding:7px 9px}
+.aiStatus{display:flex;align-items:center;gap:6px;font-size:11px}
+.aiDot{width:8px;height:8px;border-radius:50%;background:#777;box-shadow:0 0 0 2px rgba(255,255,255,.05)}
+.aiDot.on{background:#d4af37;box-shadow:0 0 10px rgba(212,175,55,.55)}
+@media(max-width:900px){.aiGmHero{grid-template-columns:1fr 1fr}.aiGmLayout{grid-template-columns:1fr}.aiChat{max-height:none}.aiComposer{grid-template-columns:1fr}.aiComposer button{width:100%}}
+
 </style>
 </head>
 <body>
 <div class="app">
-<header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Pride LG engine • SF • TEP • sack-premium IDP • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button type="button" class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button type="button" id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav><div id="buildHealth" class="small" style="padding:6px 12px;border-bottom:1px solid #302815">Build v6.1 · Interaction layer loading…</div></header>
+<header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Pride LG engine • SF • TEP • sack-premium IDP • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button type="button" class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button type="button" id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav><div id="buildHealth" class="small" style="padding:6px 12px;border-bottom:1px solid #302815">Build v6.2 · AI GM loading…</div></header>
 
 <section id="dashboard" class="view"></section>
 <section id="myroster" class="view"></section>
@@ -248,13 +265,17 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 <section id="market" class="view"></section>
 <section id="leagueanalyzer" class="view"></section>
 <section id="teamanalyzer" class="view"></section>
+<section id="aigm" class="view"></section>
 <section id="sync" class="view"></section>
 <section id="settings" class="view"></section>
-<div class="footer">Local-first PWA. Public hosting contains app code only; your league edits, values and saved transactions remain on this device unless you export them.</div>
+<div class="footer">Local-first PWA. Your league edits remain on this device; only the curated context needed for an AI GM question is sent through the encrypted Cloudflare gateway.</div>
 </div>
 <datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='6.1.0-interaction-fix';
+const APP_VERSION='6.2.0-ai-gm';
+const AI_GATEWAY_URL='https://gms-locker-ai.robinharvey001.workers.dev';
+const AI_MESSAGES_KEY='gmslocker_ai_messages_v1';
+const AI_PROVIDER_KEY='gmslocker_ai_provider_v1';
 const DEFAULT_CONFIG={leagueName:'Pride LG',teamName:'Capitol Carnage',teams:12,salaryCap:1000,superflex:true,tep:true,idp:true,sackPremium:true,threshold:80,requiredProngs:4,hardReq:3,consolidationPremium:4,elitePremium:7,replacement:{QB:265,RB:155,WR:170,TE:145,EDGE:145,DL:130,LB:150,S:135,CB:120,PICK:0},weights:{market:.18,projection:.18,replacement:.12,contract:.15,age:.08,role:.08,trend:.08,scarcity:.06,liquidity:.04,risk:.03}};
 const seedAssets=[
 {id:'love',name:'Jordan Love',type:'PLAYER',pos:'QB',nfl:'GB',age:27,market:8200,adp:26,ecr:20,proj:352,ppg:20.7,role:93,trend:3,risk:18,liquidity:90,salary:87.81,years:3,roster:'Capitol Carnage',source:'Manual seed'},
@@ -308,9 +329,9 @@ function titleImpact(a){if(a.type==='PICK')return clamp(55+(a.year===2027?10:0))
 function prongs(a){return {Production:projectionScore(a),'Roster Fit':clamp((titleImpact(a)+posScarcity(a.pos))/2),'Market Timing':trendScore(a),'Contract Value':contractScore(a),'Championship Impact':titleImpact(a),'Cap Leverage':clamp(contractScore(a)*.72+liquidityScore(a)*.28),'Outside Market':liquidityScore(a)}}
 function signal(a){let ar=arbitrage(a);let mv=modelValue(a),m=Number(a.market)||1;let edge=(mv-m)/m;if(edge>.18&&Number(a.trend)>=0)return ['STRONG BUY','good'];if(edge>.07)return ['BUY','good'];if(edge<-.18)return ['SELL HIGH','bad'];if(edge<-.07)return ['SHOP','warn'];if(Number(a.trend)<-6)return ['FALLING','bad'];return ['HOLD','blue']}
 function recordHistory(asset,oldValue){let nv=modelValue(asset);if(oldValue&&Math.abs(nv-oldValue)/oldValue<.01)return;db.history.unshift({id:uid('hist'),assetId:asset.id,name:asset.name,date:new Date().toISOString(),oldValue:oldValue||nv,newValue:nv,reason:asset.lastReason||'Data/model update'});db.history=db.history.slice(0,300)}
-function nav(){const tabs=[['dashboard','War Room'],['myroster','My Roster'],['transactions','Transactions'],['integrity','Integrity'],['season','Season'],['watchlist','Watchlist'],['edgefinder','Edge Finder'],['trade','Trade Lab'],['fa','Free Agency'],['draft','Draft & Picks'],['market','Market Board'],['leagueanalyzer','League Analyzer'],['teamanalyzer','Team Analyzer'],['sync','MFL Sync'],['settings','Settings']];document.getElementById('nav').innerHTML=tabs.map(([id,l])=>`<button type="button" data-view="${id}" onclick="showView('${id}')">${l}</button>`).join('')}
+function nav(){const tabs=[['dashboard','War Room'],['myroster','My Roster'],['transactions','Transactions'],['integrity','Integrity'],['season','Season'],['watchlist','Watchlist'],['edgefinder','Edge Finder'],['trade','Trade Lab'],['fa','Free Agency'],['draft','Draft & Picks'],['market','Market Board'],['leagueanalyzer','League Analyzer'],['teamanalyzer','Team Analyzer'],['aigm','AI GM'],['sync','MFL Sync'],['settings','Settings']];document.getElementById('nav').innerHTML=tabs.map(([id,l])=>`<button type="button" data-view="${id}" onclick="showView('${id}')">${l}</button>`).join('')}
 function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===id));renderView(id);localStorage.setItem('ccgm_view',id)}
-function renderView(id){({dashboard:renderDashboard,myroster:renderMyRoster,transactions:renderTransactions,integrity:renderIntegrity,season:renderSeason,watchlist:renderWatchlist,edgefinder:renderEdgeFinder,trade:renderTrade,fa:renderFA,draft:renderDraft,market:renderMarket,leagueanalyzer:renderLeagueAnalyzer,teamanalyzer:renderTeamAnalyzer,sync:renderSync,settings:renderSettings}[id]||renderDashboard)()}
+function renderView(id){({dashboard:renderDashboard,myroster:renderMyRoster,transactions:renderTransactions,integrity:renderIntegrity,season:renderSeason,watchlist:renderWatchlist,edgefinder:renderEdgeFinder,trade:renderTrade,fa:renderFA,draft:renderDraft,market:renderMarket,leagueanalyzer:renderLeagueAnalyzer,teamanalyzer:renderTeamAnalyzer,aigm:renderAIGM,sync:renderSync,settings:renderSettings}[id]||renderDashboard)()}
 
 function franchiseRecord(team){
   const f=(db.mfl?.franchises||[]).find(x=>String(x.name||'').toLowerCase()===String(team||'').toLowerCase());
@@ -2365,6 +2386,165 @@ function applyManualCorrection(){saveUndoPoint('Before manual correction');
   persist();renderAssetList();alert(`${a.name}: ${field} corrected.`);
 }
 
+function loadAIMessages(){
+  try{
+    const rows=JSON.parse(localStorage.getItem(AI_MESSAGES_KEY)||'[]');
+    if(Array.isArray(rows))return rows.filter(x=>x&&['user','assistant'].includes(x.role)&&typeof x.content==='string').slice(-24);
+  }catch(e){}
+  return [];
+}
+let aiMessages=loadAIMessages();
+let aiBusy=false;
+let aiLastError='';
+
+function aiEscape(value){
+  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function aiAssetView(asset){
+  let value=0;
+  try{value=modelValue(asset)}catch(e){value=Number(asset.market)||0}
+  return {
+    name:asset.name||'',type:asset.type||'PLAYER',position:asset.pos||'',nflTeam:asset.nfl||'',
+    age:asset.age??null,roster:asset.roster||'',marketValue:Number(asset.market)||0,gmValue:Number(value)||0,
+    projection:Number(asset.proj)||0,ppg:Number(asset.ppg)||0,salary:Number(asset.salary)||0,
+    contractYears:Number(asset.years)||0,roleScore:Number(asset.role)||0,trend:Number(asset.trend)||0,
+    risk:Number(asset.risk)||0,liquidity:Number(asset.liquidity)||0,source:asset.source||''
+  };
+}
+function buildAIGMContext(){
+  const all=Array.isArray(db.assets)?db.assets:[];
+  const teamName=db.config?.teamName||'Capitol Carnage';
+  const owned=all.filter(a=>String(a.roster||'').toLowerCase()===String(teamName).toLowerCase());
+  const freeAgents=all.filter(a=>a.type!=='PICK'&&(!a.roster||/free agent|waiver|available|^fa$/i.test(String(a.roster))));
+  const picks=all.filter(a=>a.type==='PICK'&&(!a.roster||String(a.roster).toLowerCase()===String(teamName).toLowerCase()));
+  const recentTransactions=[...(db.manualTransactions||[]),...(db.mfl?.transactions||[])].slice(0,25).map(t=>({
+    date:t.date||t.time||'',type:t.type||'transaction',asset:t.assetName||t.player||t.asset||'',
+    from:t.from||'',to:t.to||'',franchise:t.franchise||''
+  }));
+  let rankings=[];
+  try{rankings=leaguePower().slice(0,20).map(x=>({rank:x.rank,team:x.team,power:Math.round(x.blend||x.powerPct||0),profile:x.label||'',rosterValue:Math.round(x.asset||0)}))}catch(e){}
+  return {
+    asOf:new Date().toISOString(),
+    league:{
+      name:db.config?.leagueName||'',teams:Number(db.config?.teams)||0,salaryCap:Number(db.config?.salaryCap)||0,
+      superflex:Boolean(db.config?.superflex),tePremium:Boolean(db.config?.tep),idp:Boolean(db.config?.idp),
+      sackPremium:Boolean(db.config?.sackPremium),minimumGrade:'B+',replacementLevels:db.config?.replacement||{}
+    },
+    myTeam:{name:teamName,cap:teamCapSnapshot(teamName),roster:owned.map(aiAssetView)},
+    draftPicks:picks.slice(0,60).map(aiAssetView),
+    topAvailablePlayers:freeAgents.map(aiAssetView).sort((a,b)=>b.gmValue-a.gmValue).slice(0,40),
+    leagueRankings:rankings,
+    recentTransactions,
+    dataFreshness:{lastLeagueSync:db.lastSync||db.mfl?.lastSync||null,assetCount:all.length}
+  };
+}
+function buildAIGMMemory(){
+  const prior=(db.savedTrades||[]).slice(0,8).map(t=>({
+    date:t.date||'',opponent:t.opponent||'',verdict:t.analysis?.verdict||'',score:t.analysis?.score||t.analysis?.grade||'',
+    receiveValue:t.analysis?.receiveValue??null,giveValue:t.analysis?.giveValue??null
+  }));
+  return {
+    verifiedFacts:[`Primary franchise: ${db.config?.teamName||'Capitol Carnage'}`,`League: ${db.config?.leagueName||'Pride LG'}`,`Last league sync: ${db.lastSync||db.mfl?.lastSync||'not recorded'}`],
+    userTheses:[],
+    pastDecisions:prior
+  };
+}
+function aiProviderLabel(provider){
+  return provider==='consensus'?'OpenAI + Grok Council':provider==='grok'?'Grok':'OpenAI';
+}
+function renderAIGM(){
+  const root=document.getElementById('aigm');
+  if(!root)return;
+  const selected=['consensus','openai','grok'].includes(localStorage.getItem(AI_PROVIDER_KEY))?localStorage.getItem(AI_PROVIDER_KEY):'consensus';
+  const transcript=aiMessages.length?aiMessages.map(m=>`<div class="aiBubble ${m.role}"><span class="aiMeta">${m.role==='user'?'You':aiEscape(m.meta||'GM\'s Locker')}</span>${aiEscape(m.content).replace(/\n/g,'<br>')}</div>`).join(''):`<div class="notice"><b>The front office is online.</b> Ask about a trade, roster construction, free agency, draft picks, contracts, or your five-year championship path. The AI receives the current league data stored in this browser.</div>`;
+  root.innerHTML=`
+    <div class="card">
+      <div class="sectionhead"><h2>AI GM Council</h2><span class="pill">LIVE</span></div>
+      <div class="notice"><b>OpenAI and Grok are connected.</b> Claude is intentionally off. The council challenges weak assumptions and applies the B+ minimum plus the four-question value test.</div>
+      <div class="aiGmHero" style="margin-top:10px">
+        <div class="metric"><b>2</b><span>Active AI providers</span></div>
+        <div class="metric"><b>5 YR</b><span>Decision horizon</span></div>
+        <div class="metric"><b>B+</b><span>Minimum move grade</span></div>
+        <div class="metric"><b>${(db.assets||[]).filter(a=>String(a.roster||'').toLowerCase()===String(db.config?.teamName||'').toLowerCase()).length}</b><span>Your tracked assets</span></div>
+      </div>
+    </div>
+    <div class="aiGmLayout">
+      <div class="card">
+        <div class="sectionhead"><h2>Front Office Conversation</h2><button type="button" class="secondary" onclick="clearAIConversation()" ${aiBusy?'disabled':''}>Clear</button></div>
+        <div id="aiTranscript" class="aiChat" aria-live="polite">${transcript}${aiBusy?'<div class="aiBubble assistant"><span class="aiMeta">GM\'s Locker</span>Analyzing the roster, value, cap, and five-year opportunity cost…</div>':''}</div>
+        ${aiLastError?`<div class="notice" style="border-left-color:#ef4444"><b>AI request failed:</b> ${aiEscape(aiLastError)}</div>`:''}
+        <div class="aiComposer">
+          <textarea id="aiQuestion" maxlength="12000" placeholder="Example: Should I trade my 2027 first for a veteran WR? Include the exact offer and opponent." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIQuestion()}"></textarea>
+          <button id="aiSend" type="button" onclick="sendAIQuestion()" ${aiBusy?'disabled':''}>${aiBusy?'ANALYZING…':'ASK AI GM'}</button>
+        </div>
+        <div class="aiQuick">
+          <button type="button" class="secondary" onclick="fillAIQuestion('Audit my current roster and identify the three highest-leverage moves for the next five years.')">Roster audit</button>
+          <button type="button" class="secondary" onclick="fillAIQuestion('Find the best buy-low and sell-high opportunities using my roster, league format, contracts, and current market values.')">Find edges</button>
+          <button type="button" class="secondary" onclick="fillAIQuestion('Evaluate my championship window and tell me whether I should contend, retool, or rebuild.')">Window check</button>
+        </div>
+      </div>
+      <aside class="card">
+        <h2>Decision mode</h2>
+        <div class="field"><label>AI</label><select id="aiProvider" onchange="localStorage.setItem(AI_PROVIDER_KEY,this.value)">
+          <option value="consensus" ${selected==='consensus'?'selected':''}>OpenAI + Grok Council</option>
+          <option value="openai" ${selected==='openai'?'selected':''}>OpenAI only</option>
+          <option value="grok" ${selected==='grok'?'selected':''}>Grok only</option>
+        </select></div>
+        <div class="gate"><span class="aiStatus"><i class="aiDot on"></i>OpenAI</span><b class="good">READY</b></div>
+        <div class="gate"><span class="aiStatus"><i class="aiDot on"></i>Grok</span><b class="good">READY</b></div>
+        <div class="gate"><span class="aiStatus"><i class="aiDot"></i>Claude</span><b class="muted">OFF</b></div>
+        <div class="notice" style="margin-top:10px"><b>Your keys stay protected.</b> The browser sends league context to the Cloudflare gateway; it never receives either provider key.</div>
+        <p class="small">Conversation history is stored only on this device. Use Clear to remove it.</p>
+      </aside>
+    </div>`;
+  setTimeout(()=>{const transcriptEl=document.getElementById('aiTranscript');if(transcriptEl)transcriptEl.scrollTop=transcriptEl.scrollHeight},0);
+}
+function fillAIQuestion(text){
+  const input=document.getElementById('aiQuestion');
+  if(!input)return;
+  input.value=text;
+  input.focus();
+}
+function clearAIConversation(){
+  if(aiBusy)return;
+  if(aiMessages.length&&!confirm('Clear the AI GM conversation on this device?'))return;
+  aiMessages=[];aiLastError='';localStorage.removeItem(AI_MESSAGES_KEY);renderAIGM();
+}
+async function sendAIQuestion(){
+  if(aiBusy)return;
+  const input=document.getElementById('aiQuestion');
+  const question=String(input?.value||'').trim();
+  if(!question)return;
+  const provider=document.getElementById('aiProvider')?.value||'consensus';
+  aiMessages.push({role:'user',content:question});
+  aiMessages=aiMessages.slice(-24);
+  localStorage.setItem(AI_MESSAGES_KEY,JSON.stringify(aiMessages));
+  aiBusy=true;aiLastError='';renderAIGM();
+  try{
+    const response=await fetch(`${AI_GATEWAY_URL}/gm-chat`,{
+      method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        provider,conversationId:`${db.config?.leagueName||'league'}:${db.config?.teamName||'team'}`,
+        messages:aiMessages.slice(-16).map(({role,content})=>({role,content})),
+        context:buildAIGMContext(),memory:buildAIGMMemory()
+      })
+    });
+    let payload;
+    try{payload=await response.json()}catch(e){throw new Error(`AI gateway returned HTTP ${response.status} without JSON.`)}
+    if(!response.ok||!payload.ok)throw new Error(payload.error||`AI gateway returned HTTP ${response.status}.`);
+    const text=String(payload.answer?.text||'').trim();
+    if(!text)throw new Error('The AI returned an empty answer. Please try again.');
+    const model=payload.answer?.model||'';
+    aiMessages.push({role:'assistant',content:text,meta:`${aiProviderLabel(provider)}${model?' · '+model:''}`});
+    aiMessages=aiMessages.slice(-24);
+    localStorage.setItem(AI_MESSAGES_KEY,JSON.stringify(aiMessages));
+  }catch(e){
+    aiLastError=String(e?.message||e||'Unknown error');
+  }finally{
+    aiBusy=false;renderAIGM();
+  }
+}
+
 function renderSettings(){let c=db.config;settings.innerHTML=`<div class="osGrid">
       <div class="backupBox"><div class="sectionhead"><h2>Backup / Rollback</h2><span class="pill">SAFETY</span></div><div class="actions"><button type="button" onclick="exportMasterBackup()">EXPORT MASTER BACKUP</button><label class="secondary" style="padding:9px;border-radius:8px;cursor:pointer">RESTORE BACKUP<input type="file" accept=".json,application/json" style="display:none" onchange="importMasterBackup(this.files[0])"></label><button type="button" class="secondary" onclick="undoLastAction()">UNDO LAST ACTION</button></div><div class="small">${(db.undoStack||[]).length} undo point(s) available.</div></div>
       <div class="backupBox"><div class="sectionhead"><h2>Privacy</h2><span class="pill">PROTOTYPE</span></div><div class="notice">Search indexing is disabled. The passcode below is a local browser lock only; it is not a substitute for production server-side authentication.</div><div class="field"><label>Local passcode</label><input id="privacyPin" type="password"></div><div class="actions"><button type="button" onclick="setLocalLock()">ENABLE LOCAL LOCK</button><button type="button" class="secondary" onclick="clearLocalLock()">REMOVE LOCK</button></div></div>
@@ -2402,26 +2582,25 @@ ensureMFLDefaults();persist();nav();renderAssetList();cset('leagueName',db.confi
 
 function interactionHealth(msg='READY'){
   const el=document.getElementById('buildHealth');
-  if(el)el.innerHTML=`<b>GM's Locker v6.1</b> · Interaction layer: <span class="good">${msg}</span>`;
+  if(el)el.innerHTML=`<b>GM's Locker v6.2</b> · AI GM: <span class="good">${msg}</span>`;
 }
 window.addEventListener('error',e=>{
   const el=document.getElementById('buildHealth');
-  if(el)el.innerHTML=`<b>GM's Locker v6.1</b> · <span class="bad">JS ERROR:</span> ${String(e.message||'unknown error')}`;
+  if(el)el.innerHTML=`<b>GM's Locker v6.2</b> · <span class="bad">JS ERROR:</span> ${String(e.message||'unknown error')}`;
 });
 window.addEventListener('unhandledrejection',e=>{
   const el=document.getElementById('buildHealth');
-  if(el)el.innerHTML=`<b>GM's Locker v6.1</b> · <span class="bad">PROMISE ERROR:</span> ${String(e.reason?.message||e.reason||'unknown error')}`;
+  if(el)el.innerHTML=`<b>GM's Locker v6.2</b> · <span class="bad">PROMISE ERROR:</span> ${String(e.reason?.message||e.reason||'unknown error')}`;
 });
 window.addEventListener('load',()=>interactionHealth('READY'));
+window.addEventListener('load',()=>setTimeout(showPrivacyLockIfNeeded,50));
 
 
 if('serviceWorker' in navigator){
   navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(r=>r.update())).catch(()=>{});
-  if('caches' in window)caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('gmslocker-')&&k!=='gmslocker-v6-1-assets').map(k=>caches.delete(k)))).catch(()=>{});
+  if('caches' in window)caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('gmslocker-')&&k!=='gmslocker-v6-2-assets').map(k=>caches.delete(k)))).catch(()=>{});
 }
 
 </script>
 </body>
 </html>
-
-window.addEventListener('load',()=>setTimeout(showPrivacyLockIfNeeded,50));

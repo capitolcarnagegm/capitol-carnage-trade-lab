@@ -44,5 +44,7 @@ A recommended move must grade B+ or better. Anything below that is a hold/reject
 ## AI GM architecture
 The browser must never contain an OpenAI API key. The UI sends the current structured franchise context to a server-side endpoint. The server injects league rules, current roster/cap/picks, opponent rosters, free agents, projections, transaction history, persistent GM notes and the four-question value test before calling OpenAI. Persistent memory belongs in server-side storage, not only localStorage.
 
+The live AI GM tab connects to the `gms-locker-ai` Cloudflare Worker. OpenAI and Grok can be used separately or together in council mode. Provider keys remain encrypted Worker secrets and are never shipped to the browser. The browser sends a curated league snapshot that deliberately excludes MFL credentials and raw provider keys.
+
 ## Rebuild rule
 v7 is being built on branch `gm-locker-v7`. Do not overwrite `main` until the authoritative team roster set, free-agent pool, duplicate reconciliation and integrity checks pass.

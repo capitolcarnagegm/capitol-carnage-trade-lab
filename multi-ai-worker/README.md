@@ -2,6 +2,12 @@
 
 Cloudflare Worker gateway for OpenAI, Anthropic Claude, and xAI Grok.
 
+Default production models:
+
+- OpenAI: `gpt-5.6-terra`
+- Anthropic: `claude-sonnet-5`
+- xAI: `grok-4.5`
+
 ## Modes
 
 POST `/gm-chat` with `provider`:
@@ -17,6 +23,10 @@ POST `/gm-chat` with `provider`:
 From the `multi-ai-worker` directory:
 
 ```bash
+npm install
+npx wrangler d1 create gms-locker-db
+# Put the returned database_id in wrangler.toml, then:
+npx wrangler d1 migrations apply gms-locker-db --remote
 npx wrangler secret put OPENAI_API_KEY
 npx wrangler secret put ANTHROPIC_API_KEY
 npx wrangler secret put XAI_API_KEY
@@ -58,4 +68,4 @@ Consensus mode additionally returns `panel`, preserving the individual model opi
 
 ## Memory
 
-This gateway accepts memory but does not yet persist it. The v7 database layer should own persistent memory so all three providers share the exact same franchise brain. Store verified facts separately from user theses and model inference.
+The D1 schema for shared franchise memory, council reports, decisions, evidence, and audit history lives in `migrations/0001_init.sql`. The current gateway accepts memory in requests but does not yet write that memory to D1. The next application step is to connect the council workflow to these tables so all three providers share the same franchise brain. Store verified facts separately from user theses and model inference.

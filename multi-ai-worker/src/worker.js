@@ -4,9 +4,15 @@ const ALLOWED_ORIGINS = new Set([
   "https://capitolcarnagegm.github.io"
 ]);
 
+const ALLOWED_PROVIDERS = new Set(["auto", "openai", "claude", "grok", "consensus"]);
+const MAX_REQUEST_BYTES = 512 * 1024;
+const MAX_MESSAGES = 16;
+const MAX_MESSAGE_CHARS = 12000;
+const MAX_OUTPUT_TOKENS = 6000;
+
 const DEFAULT_MODELS = {
   openai: "gpt-5.6-terra",
-  claude: "claude-sonnet-4-20250514",
+  claude: "claude-sonnet-5",
   grok: "grok-4.5"
 };
 
@@ -49,15 +55,52 @@ function cors(origin) {
 function json(data, status = 200, origin = "") {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json; charset=utf-8", ...cors(origin) }
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "X-Content-Type-Options": "nosniff",
+      ...cors(origin)
+    }
   });
+}
+
+function httpError(message, status) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+async function readJsonBody(request) {
+  if (!request.body) throw httpError("A JSON request body is required", 400);
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_REQUEST_BYTES) {
+      await reader.cancel();
+      throw httpError(`Request body must be ${MAX_REQUEST_BYTES} bytes or smaller`, 413);
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  text += decoder.decode();
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw httpError("Request body must be valid JSON", 400);
+  }
 }
 
 function cleanMessages(messages = []) {
   return messages
     .filter(m => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string")
-    .slice(-24)
-    .map(m => ({ role: m.role, content: m.content.slice(0, 24000) }));
+    .slice(-MAX_MESSAGES)
+    .map(m => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_CHARS) }));
 }
 
 function buildSystem(context, memory) {
@@ -82,7 +125,12 @@ async function callOpenAI(env, messages, system, model) {
   const r = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { "Authorization": `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: model || DEFAULT_MODELS.openai, input, reasoning: { effort: "high" } })
+    body: JSON.stringify({
+      model: model || DEFAULT_MODELS.openai,
+      input,
+      reasoning: { effort: "high" },
+      max_output_tokens: MAX_OUTPUT_TOKENS
+    })
   });
   const data = await r.json();
   if (!r.ok) throw new Error(`OpenAI ${r.status}: ${data?.error?.message || "request failed"}`);
@@ -92,7 +140,12 @@ async function callOpenAI(env, messages, system, model) {
 async function callGrok(env, messages, system, model, conversationKey) {
   if (!env.XAI_API_KEY) throw new Error("XAI_API_KEY is not configured");
   const input = [{ role: "system", content: system }, ...messages];
-  const body = { model: model || DEFAULT_MODELS.grok, input, reasoning: { effort: "high" } };
+  const body = {
+    model: model || DEFAULT_MODELS.grok,
+    input,
+    reasoning: { effort: "high" },
+    max_output_tokens: MAX_OUTPUT_TOKENS
+  };
   if (conversationKey) body.prompt_cache_key = String(conversationKey).slice(0, 128);
   const r = await fetch("https://api.x.ai/v1/responses", {
     method: "POST",
@@ -116,7 +169,7 @@ async function callClaude(env, messages, system, model) {
     body: JSON.stringify({
       model: model || DEFAULT_MODELS.claude,
       system,
-      max_tokens: 6000,
+      max_tokens: MAX_OUTPUT_TOKENS,
       messages
     })
   });
@@ -181,32 +234,41 @@ export default {
           claude: Boolean(env.ANTHROPIC_API_KEY),
           grok: Boolean(env.XAI_API_KEY)
         },
+        persistentMemory: Boolean(env.DB),
         defaultModels: DEFAULT_MODELS
       }, 200, origin);
     }
 
     if (!ALLOWED_ORIGINS.has(origin)) return json({ ok: false, error: "Origin not allowed" }, 403, origin);
     if (request.method !== "POST" || url.pathname !== "/gm-chat") return json({ ok: false, error: "Not found" }, 404, origin);
+    if (!request.headers.get("Content-Type")?.toLowerCase().includes("application/json")) {
+      return json({ ok: false, error: "Content-Type must be application/json" }, 415, origin);
+    }
 
     try {
-      const body = await request.json();
+      const body = await readJsonBody(request);
       const messages = cleanMessages(body.messages);
       if (!messages.length || messages[messages.length - 1].role !== "user") return json({ ok: false, error: "A user message is required" }, 400, origin);
 
       const system = buildSystem(body.context || null, body.memory || null);
       const requested = String(body.provider || "auto").toLowerCase();
+      if (!ALLOWED_PROVIDERS.has(requested)) {
+        return json({ ok: false, error: `Unknown provider mode: ${requested}` }, 400, origin);
+      }
       const conversationKey = body.conversationId || body.franchiseId || "gms-locker";
 
       if (requested === "consensus") {
-        const result = await consensus(env, messages, system, body.models || {}, conversationKey);
+        const result = await consensus(env, messages, system, DEFAULT_MODELS, conversationKey);
         return json({ ok: true, ...result }, 200, origin);
       }
 
       const provider = requested === "auto" ? chooseAutoProvider(messages[messages.length - 1].content) : requested;
-      const answer = await askProvider(provider, env, messages, system, body.models || {}, conversationKey);
+      const answer = await askProvider(provider, env, messages, system, DEFAULT_MODELS, conversationKey);
       return json({ ok: true, mode: requested, routedTo: provider, answer }, 200, origin);
     } catch (e) {
-      return json({ ok: false, error: String(e?.message || e) }, 500, origin);
+      const status = Number.isInteger(e?.status) ? e.status : 500;
+      console.error(JSON.stringify({ event: "gm_chat_error", status, error: String(e?.message || e) }));
+      return json({ ok: false, error: String(e?.message || e) }, status, origin);
     }
   }
 };
