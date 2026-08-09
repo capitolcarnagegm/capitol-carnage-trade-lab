@@ -1,0 +1,8 @@
+name = "gms-locker-ai"
+main = "src/worker.js"
+compatibility_date = "2026-08-01"
+
+# Add provider API keys as encrypted Worker secrets, never plaintext vars:
+# npx wrangler secret put OPENAI_API_KEY
+# npx wrangler secret put ANTHROPIC_API_KEY
+# npx wrangler secret put XAI_API_KEY
