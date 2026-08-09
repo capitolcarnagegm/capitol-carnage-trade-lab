@@ -1,4 +1,4 @@
-const CACHE='gmslocker-v6-1-assets';
+const CACHE='gmslocker-v6-2-assets';
 const STATIC=['./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{
