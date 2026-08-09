@@ -233,7 +233,7 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 </head>
 <body>
 <div class="app">
-<header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Pride LG engine • SF • TEP • sack-premium IDP • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav></header>
+<header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Pride LG engine • SF • TEP • sack-premium IDP • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button type="button" class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button type="button" id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav><div id="buildHealth" class="small" style="padding:6px 12px;border-bottom:1px solid #302815">Build v6.1 · Interaction layer loading…</div></header>
 
 <section id="dashboard" class="view"></section>
 <section id="myroster" class="view"></section>
@@ -254,7 +254,7 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 </div>
 <datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='6.0.0-franchise-os';
+const APP_VERSION='6.1.0-interaction-fix';
 const DEFAULT_CONFIG={leagueName:'Pride LG',teamName:'Capitol Carnage',teams:12,salaryCap:1000,superflex:true,tep:true,idp:true,sackPremium:true,threshold:80,requiredProngs:4,hardReq:3,consolidationPremium:4,elitePremium:7,replacement:{QB:265,RB:155,WR:170,TE:145,EDGE:145,DL:130,LB:150,S:135,CB:120,PICK:0},weights:{market:.18,projection:.18,replacement:.12,contract:.15,age:.08,role:.08,trend:.08,scarcity:.06,liquidity:.04,risk:.03}};
 const seedAssets=[
 {id:'love',name:'Jordan Love',type:'PLAYER',pos:'QB',nfl:'GB',age:27,market:8200,adp:26,ecr:20,proj:352,ppg:20.7,role:93,trend:3,risk:18,liquidity:90,salary:87.81,years:3,roster:'Capitol Carnage',source:'Manual seed'},
@@ -308,7 +308,7 @@ function titleImpact(a){if(a.type==='PICK')return clamp(55+(a.year===2027?10:0))
 function prongs(a){return {Production:projectionScore(a),'Roster Fit':clamp((titleImpact(a)+posScarcity(a.pos))/2),'Market Timing':trendScore(a),'Contract Value':contractScore(a),'Championship Impact':titleImpact(a),'Cap Leverage':clamp(contractScore(a)*.72+liquidityScore(a)*.28),'Outside Market':liquidityScore(a)}}
 function signal(a){let ar=arbitrage(a);let mv=modelValue(a),m=Number(a.market)||1;let edge=(mv-m)/m;if(edge>.18&&Number(a.trend)>=0)return ['STRONG BUY','good'];if(edge>.07)return ['BUY','good'];if(edge<-.18)return ['SELL HIGH','bad'];if(edge<-.07)return ['SHOP','warn'];if(Number(a.trend)<-6)return ['FALLING','bad'];return ['HOLD','blue']}
 function recordHistory(asset,oldValue){let nv=modelValue(asset);if(oldValue&&Math.abs(nv-oldValue)/oldValue<.01)return;db.history.unshift({id:uid('hist'),assetId:asset.id,name:asset.name,date:new Date().toISOString(),oldValue:oldValue||nv,newValue:nv,reason:asset.lastReason||'Data/model update'});db.history=db.history.slice(0,300)}
-function nav(){const tabs=[['dashboard','War Room'],['myroster','My Roster'],['transactions','Transactions'],['integrity','Integrity'],['season','Season'],['watchlist','Watchlist'],['edgefinder','Edge Finder'],['trade','Trade Lab'],['fa','Free Agency'],['draft','Draft & Picks'],['market','Market Board'],['leagueanalyzer','League Analyzer'],['teamanalyzer','Team Analyzer'],['sync','MFL Sync'],['settings','Settings']];document.getElementById('nav').innerHTML=tabs.map(([id,l])=>`<button data-view="${id}" onclick="showView('${id}')">${l}</button>`).join('')}
+function nav(){const tabs=[['dashboard','War Room'],['myroster','My Roster'],['transactions','Transactions'],['integrity','Integrity'],['season','Season'],['watchlist','Watchlist'],['edgefinder','Edge Finder'],['trade','Trade Lab'],['fa','Free Agency'],['draft','Draft & Picks'],['market','Market Board'],['leagueanalyzer','League Analyzer'],['teamanalyzer','Team Analyzer'],['sync','MFL Sync'],['settings','Settings']];document.getElementById('nav').innerHTML=tabs.map(([id,l])=>`<button type="button" data-view="${id}" onclick="showView('${id}')">${l}</button>`).join('')}
 function showView(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===id));renderView(id);localStorage.setItem('ccgm_view',id)}
 function renderView(id){({dashboard:renderDashboard,myroster:renderMyRoster,transactions:renderTransactions,integrity:renderIntegrity,season:renderSeason,watchlist:renderWatchlist,edgefinder:renderEdgeFinder,trade:renderTrade,fa:renderFA,draft:renderDraft,market:renderMarket,leagueanalyzer:renderLeagueAnalyzer,teamanalyzer:renderTeamAnalyzer,sync:renderSync,settings:renderSettings}[id]||renderDashboard)()}
 
@@ -409,29 +409,28 @@ function scoreMarkup(v,label='Score'){
   return `<div><div class="score100">${n}</div><div class="scoreLabel">${label}</div></div>`;
 }
 function toggleCorrectionPanel(id){
-  const el=document.getElementById(id);if(!el)return;
-  el.hidden=!el.hidden;
-  if(!el.hidden)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+  const el=document.getElementById(id);
+  if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function openRosterCorrection(){
   showView('sync');
-  setTimeout(()=>{const el=document.getElementById('rosterCorrectionPanel');if(el){el.hidden=false;el.scrollIntoView({behavior:'smooth',block:'start'})}},80);
+  requestAnimationFrame(()=>document.getElementById('rosterCorrectionPanel')?.scrollIntoView({behavior:'smooth',block:'start'}));
 }
 function openFACorrection(){
   showView('fa');
-  setTimeout(()=>{const el=document.getElementById('faCorrectionPanel');if(el){el.hidden=false;el.scrollIntoView({behavior:'smooth',block:'start'})}},80);
+  requestAnimationFrame(()=>document.getElementById('faCorrectionPanel')?.scrollIntoView({behavior:'smooth',block:'start'}));
 }
 function openManualCorrection(){
   showView('settings');
-  setTimeout(()=>{const el=document.getElementById('manualCorrectionPanel');if(el){el.hidden=false;el.scrollIntoView({behavior:'smooth',block:'start'})}},80);
+  requestAnimationFrame(()=>document.getElementById('manualCorrectionPanel')?.scrollIntoView({behavior:'smooth',block:'start'}));
 }
 function correctionActionBar(){
   return `<div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Correction Layer</h2><span class="pill">MANUAL AUTHORITY</span></div>
     <div class="notice">MFL remains primary. Corrections only fill or override bad/missing data after review.</div>
     <div class="correctionBar" style="margin-top:8px">
-      <button class="correctionLaunch" onclick="openRosterCorrection()">ADD ROSTER CORRECTION</button><button class="correctionLaunch" onclick="showView('transactions')">ADD TRANSACTION / TRADE</button>
-      <button class="correctionLaunch" onclick="openFACorrection()">ADD FA CORRECTION</button>
-      <button class="correctionLaunch" onclick="openManualCorrection()">MANUAL OVERRIDE</button>
+      <button type="button" class="correctionLaunch" onclick="openRosterCorrection()">ADD ROSTER CORRECTION</button><button type="button" class="correctionLaunch" onclick="showView('transactions')">ADD TRANSACTION / TRADE</button>
+      <button type="button" class="correctionLaunch" onclick="openFACorrection()">ADD FA CORRECTION</button>
+      <button type="button" class="correctionLaunch" onclick="openManualCorrection()">MANUAL OVERRIDE</button>
     </div></div>`;
 }
 
@@ -462,9 +461,9 @@ function renderMyRoster(){
       <div class="metric"><b>${projMissing}</b><span>Missing projections</span></div>
     </div>
     <div class="correctionBar" style="margin-top:10px">
-      <button onclick="openRosterCorrection()">ADD / CORRECT ROSTER</button><button class="secondary" onclick="showView('transactions')">ADD TRANSACTION</button>
-      <button class="secondary" onclick="showView('teamanalyzer');window.teamAnalyzerTeam='${String(team).replace(/'/g,"\\'")}';setTimeout(renderTeamAnalyzer,0)">FULL TEAM ANALYSIS</button>
-      <button class="secondary" onclick="showView('edgefinder')">SCAN FOR EDGES</button>
+      <button type="button" onclick="openRosterCorrection()">ADD / CORRECT ROSTER</button><button type="button" class="secondary" onclick="showView('transactions')">ADD TRANSACTION</button>
+      <button type="button" class="secondary" onclick="showView('teamanalyzer');window.teamAnalyzerTeam='${String(team).replace(/'/g,"\\'")}';setTimeout(renderTeamAnalyzer,0)">FULL TEAM ANALYSIS</button>
+      <button type="button" class="secondary" onclick="showView('edgefinder')">SCAN FOR EDGES</button>
     </div>
   </div>
   ${statuses.map(st=>`<div class="card rosterGroup"><h3>${st}</h3>
@@ -602,8 +601,8 @@ function renderTransactionScreenshotReview(){
         </div>`).join('')}
     </div>
     <div class="actions">
-      <button onclick="applyTransactionScreenshotImports()">APPLY TRANSACTIONS TO SITE</button>
-      <button class="secondary" onclick="window.pendingTransactionImports=[];document.getElementById('txScreenshotReview').innerHTML=''">DISCARD</button>
+      <button type="button" onclick="applyTransactionScreenshotImports()">APPLY TRANSACTIONS TO SITE</button>
+      <button type="button" class="secondary" onclick="window.pendingTransactionImports=[];document.getElementById('txScreenshotReview').innerHTML=''">DISCARD</button>
     </div>`;
 }
 
@@ -656,13 +655,13 @@ function renderTransactions(){
     <div class="sectionhead"><h2>Import Transaction Screenshot</h2><span class="pill">AI REVIEW</span></div>
     <div class="notice"><b>Choose → Process → Review → Apply.</b> Ownership does not change until you approve.</div>
     <label class="nativeUpload" style="margin-top:10px"><strong>Choose transaction screenshot(s)</strong><div class="uploadHint">Trades, waiver claims, signings, cuts, pick transfers.</div><input id="txShots" type="file" accept="image/*" multiple onchange="handleTransactionScreenshots(this.files)"></label>
-    <div class="actions"><button onclick="processTransactionScreenshots()">PROCESS TRANSACTION SCREENSHOTS</button></div>
+    <div class="actions"><button type="button" onclick="processTransactionScreenshots()">PROCESS TRANSACTION SCREENSHOTS</button></div>
     <div id="txScreenshotReview"></div>
   </div>
   <div class="txShotPanel" style="margin-top:12px"><div class="sectionhead"><h2>Upload Previous Transactions</h2><span class="pill">HISTORY / RECONCILIATION</span></div>
       <div class="notice">Upload old transaction-history screenshots. You can add them to the audit history only, or use them to reconcile current ownership.</div>
       <label class="nativeUpload"><strong>Choose previous transaction screenshot(s)</strong><input type="file" accept="image/*" multiple onchange="handleHistoricalTxScreens(this.files)"></label>
-      <div class="actions"><button onclick="processHistoricalTxScreens()">PROCESS PREVIOUS TRANSACTIONS</button></div><div id="historicalTxReview"></div>
+      <div class="actions"><button type="button" onclick="processHistoricalTxScreens()">PROCESS PREVIOUS TRANSACTIONS</button></div><div id="historicalTxReview"></div>
     </div><div class="txGrid" style="margin-top:12px">
     <div class="card"><h2>Add Transaction</h2>
       <div class="txRow">
@@ -673,7 +672,7 @@ function renderTransactions(){
         <div class="field"><label>Salary</label><input id="txSalary" type="number" step=".01" placeholder="optional"></div>
         <div class="field"><label>Years</label><input id="txYears" type="number" placeholder="optional"></div>
       </div>
-      <div class="actions"><button onclick="addManualTransaction()">APPLY TRANSACTION</button></div>
+      <div class="actions"><button type="button" onclick="addManualTransaction()">APPLY TRANSACTION</button></div>
     </div>
     <div class="card"><h2>Manual Trade</h2>
       <div class="grid">
@@ -682,7 +681,7 @@ function renderTransactions(){
         <div class="field"><label>Team B</label><select id="txTeamB">${optTeams}</select></div>
         <div class="field"><label>Team B sends</label><select id="txRecvAsset"><option value="">No asset</option>${optAssets}</select></div>
       </div>
-      <div class="actions"><button onclick="addTradePair()">APPLY TRADE</button></div>
+      <div class="actions"><button type="button" onclick="addTradePair()">APPLY TRADE</button></div>
     </div>
   </div>
   <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Manual Transaction Log</h2><span class="pill">${logs.length}</span></div>
@@ -754,7 +753,7 @@ function renderIntegrity(){
       ${ownerTendencies().map(o=>`<div class="ownerRow"><b>${o.team}</b><span>${o.aggressiveness}/100</span><span>${o.bids} bids</span><span>$${o.avg.toFixed(1)} avg</span><span>$${Number(o.cap||0).toFixed(0)} cap</span></div>`).join('')}
     </div>
   </div><div class="integrityGrid" style="margin-top:12px"><div class="card"><div class="sectionhead"><h2>Open Integrity Issues</h2><span class="pill">${issues.length}</span></div>${issues.length?issues.slice(0,80).map(i=>`<div class="integrityIssue ${i.severity}"><div class="sectionhead"><span class="integrityState ${i.severity==='critical'?'bad':''}">${i.severity.toUpperCase()}</span><b>${i.type}</b></div><b>${i.asset||''}</b><div class="small">${i.message}</div><div class="edgeGood">${i.action}</div></div>`).join(''):'<div class="notice"><b>No integrity conflicts detected.</b></div>'}</div>
-  <div class="card"><div class="sectionhead"><h2>Data Completeness</h2><span class="pill">0–100</span></div><table class="dataMatrix"><thead><tr><th>Layer</th><th>Complete</th><th></th></tr></thead><tbody>${matrix.map(r=>`<tr><td>${r.name}</td><td><b>${score100(r.score)}/100</b></td><td><div class="scoreTrack"><i style="width:${score100(r.score)}%"></i></div></td></tr>`).join('')}</tbody></table><div class="actions" style="margin-top:10px"><button onclick="openRosterCorrection()">ADD ROSTER CORRECTION</button><button class="secondary" onclick="openFACorrection()">ADD FA CORRECTION</button><button class="secondary" onclick="showView('transactions')">ADD TRANSACTION</button></div></div></div>`;
+  <div class="card"><div class="sectionhead"><h2>Data Completeness</h2><span class="pill">0–100</span></div><table class="dataMatrix"><thead><tr><th>Layer</th><th>Complete</th><th></th></tr></thead><tbody>${matrix.map(r=>`<tr><td>${r.name}</td><td><b>${score100(r.score)}/100</b></td><td><div class="scoreTrack"><i style="width:${score100(r.score)}%"></i></div></td></tr>`).join('')}</tbody></table><div class="actions" style="margin-top:10px"><button type="button" onclick="openRosterCorrection()">ADD ROSTER CORRECTION</button><button type="button" class="secondary" onclick="openFACorrection()">ADD FA CORRECTION</button><button type="button" class="secondary" onclick="showView('transactions')">ADD TRANSACTION</button></div></div></div>`;
 }
 
 
@@ -943,9 +942,9 @@ function removeWatch(id){db.watchlist=ensureWatchlist().filter(x=>x.id!==id);per
 function renderWatchlist(){
   const list=ensureWatchlist(),assets=(db.assets||[]).filter(a=>a.type==='PLAYER'||a.type==='PICK').sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   watchlist.innerHTML=`<div class="card"><div class="sectionhead"><h2>Watchlist + Alerts</h2><span class="pill">${list.filter(watchHit).length} TRIGGERED</span></div>
-    <div class="grid3"><div class="field"><label>Asset</label><select id="watchAsset"><option value="">Choose</option>${assets.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}</select></div><div class="field"><label>Trigger</label><select id="watchTrigger"><option>VALUE ABOVE</option><option>VALUE BELOW</option><option>PROJECTION ABOVE</option><option>ROLE ABOVE</option><option>PICK SLOT AT OR BEFORE</option></select></div><div class="field"><label>Threshold</label><input id="watchThreshold" type="number" value="50"></div></div><div class="actions"><button onclick="addWatch()">ADD WATCH</button></div>
+    <div class="grid3"><div class="field"><label>Asset</label><select id="watchAsset"><option value="">Choose</option>${assets.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}</select></div><div class="field"><label>Trigger</label><select id="watchTrigger"><option>VALUE ABOVE</option><option>VALUE BELOW</option><option>PROJECTION ABOVE</option><option>ROLE ABOVE</option><option>PICK SLOT AT OR BEFORE</option></select></div><div class="field"><label>Threshold</label><input id="watchThreshold" type="number" value="50"></div></div><div class="actions"><button type="button" onclick="addWatch()">ADD WATCH</button></div>
   </div>
-  <div class="card" style="margin-top:12px">${list.length?list.map(w=>`<div class="alertItem ${watchHit(w)?'alertHit':''}"><div class="sectionhead"><b>${w.name}</b><span class="integrityState ${watchHit(w)?'ok':''}">${watchHit(w)?'TRIGGERED':'WATCHING'}</span></div><div class="small">${w.type} ${w.threshold}</div><button class="secondary" onclick="removeWatch('${w.id}')">REMOVE</button></div>`).join(''):'<div class="notice">No watches yet.</div>'}</div>`;
+  <div class="card" style="margin-top:12px">${list.length?list.map(w=>`<div class="alertItem ${watchHit(w)?'alertHit':''}"><div class="sectionhead"><b>${w.name}</b><span class="integrityState ${watchHit(w)?'ok':''}">${watchHit(w)?'TRIGGERED':'WATCHING'}</span></div><div class="small">${w.type} ${w.threshold}</div><button type="button" class="secondary" onclick="removeWatch('${w.id}')">REMOVE</button></div>`).join(''):'<div class="notice">No watches yet.</div>'}</div>`;
 }
 
 /* ---------- V6 HISTORICAL TRANSACTION IMPORT ---------- */
@@ -962,7 +961,7 @@ async function processHistoricalTxScreens(){
 }
 function renderHistoricalTxReview(){
   const o=document.getElementById('historicalTxReview'),rows=window.pendingHistoricalTx||[];if(!o)return;
-  o.innerHTML=`${rows.map((t,i)=>`<div class="txDetected"><b>${i+1}. ${t.date||'Date unknown'} · ${t.type||'TRANSACTION'}</b><br><span class="small">${t.teamA||''} sends ${(t.teamASends||[]).join(', ')||'—'} · ${t.teamB||''} sends ${(t.teamBSends||[]).join(', ')||'—'}</span></div>`).join('')}<div class="actions"><button onclick="commitHistoricalTx(false)">ADD TO HISTORY ONLY</button><button onclick="commitHistoricalTx(true)">ADD + RECONCILE OWNERSHIP</button></div>`;
+  o.innerHTML=`${rows.map((t,i)=>`<div class="txDetected"><b>${i+1}. ${t.date||'Date unknown'} · ${t.type||'TRANSACTION'}</b><br><span class="small">${t.teamA||''} sends ${(t.teamASends||[]).join(', ')||'—'} · ${t.teamB||''} sends ${(t.teamBSends||[]).join(', ')||'—'}</span></div>`).join('')}<div class="actions"><button type="button" onclick="commitHistoricalTx(false)">ADD TO HISTORY ONLY</button><button type="button" onclick="commitHistoricalTx(true)">ADD + RECONCILE OWNERSHIP</button></div>`;
 }
 function commitHistoricalTx(reconcile){
   saveUndoPoint('Before historical transaction import');const log=ensureTxLog();let moved=0;
@@ -983,7 +982,7 @@ function setLocalLock(){
 function clearLocalLock(){localStorage.removeItem('gmlocker_lock_hash');localStorage.removeItem('gmlocker_unlocked');alert('Local app lock removed.')}
 function showPrivacyLockIfNeeded(){
   const h=localStorage.getItem('gmlocker_lock_hash');if(!h||localStorage.getItem('gmlocker_unlocked')==='1')return;
-  const d=document.createElement('div');d.className='privacyLock';d.id='privacyLock';d.innerHTML=`<div class="box"><h2>GM's Locker Locked</h2><div class="notice">Local prototype lock. Production privacy should use real server-side authentication.</div><div class="field"><label>Passcode</label><input id="unlockPin" type="password"></div><div class="actions"><button onclick="unlockLocalApp()">UNLOCK</button></div></div>`;document.body.appendChild(d);
+  const d=document.createElement('div');d.className='privacyLock';d.id='privacyLock';d.innerHTML=`<div class="box"><h2>GM's Locker Locked</h2><div class="notice">Local prototype lock. Production privacy should use real server-side authentication.</div><div class="field"><label>Passcode</label><input id="unlockPin" type="password"></div><div class="actions"><button type="button" onclick="unlockLocalApp()">UNLOCK</button></div></div>`;document.body.appendChild(d);
 }
 function unlockLocalApp(){const p=document.getElementById('unlockPin')?.value||'';if(hashSimple(p)===localStorage.getItem('gmlocker_lock_hash')){localStorage.setItem('gmlocker_unlocked','1');document.getElementById('privacyLock')?.remove()}else alert('Wrong passcode.')}
 
@@ -1021,15 +1020,15 @@ function renderDashboard(){
     ${x.cap.source==='MFL'?`<div class="notice"><b>Using MFL franchise cap room.</b> No estimate is being substituted.</div>`:
       `<div class="notice"><b>${x.cap.source==='MISSING'?'MFL did not expose a usable cap-room field.':'Current number is derived/overridden.'}</b> If the number above is not the exact cap shown by your league, enter the correct remaining cap here. GM's Locker will use it for FA bidding and opportunity-cost calculations.</div>`}
     <div class="capFix" style="margin-top:9px"><div class="field"><label>Actual remaining cap</label><input id="warCapOverride" type="number" step=".01" placeholder="Enter exact MFL cap room" value="${db.capOverrides?.[db.config.teamName]??''}"></div>
-      <div class="actions"><button onclick="setMyCapOverride()">Use Exact Cap</button><button class="secondary" onclick="clearMyCapOverride()">Use Sync</button></div></div>
+      <div class="actions"><button type="button" onclick="setMyCapOverride()">Use Exact Cap</button><button type="button" class="secondary" onclick="clearMyCapOverride()">Use Sync</button></div></div>
   </div>
   ${correctionActionBar()}<div class="warActionGrid" style="margin-top:12px">
     <div class="card"><div class="sectionhead"><h2>Suggested Free Agents</h2><span class="pill">${faEdges.length} EDGES</span></div>
-      ${faEdges.length?faEdges.map((e,i)=>`<div class="warItem"><div style="display:grid;grid-template-columns:1fr auto;gap:8px"><span><b>${i+1}. ${e.a.name}</b><br><span class="small">${normalizedPos(e.a.pos)} · Proj ${Math.round(e.a.proj||0)} · Need ${e.need}/100 · ${e.action}</span></span><span class="warScore">${e.grade}</span></div><button style="margin-top:6px" onclick="showView('fa');setTimeout(()=>selectFABidPlayer('${String(e.a.mflId||e.a.id).replace(/'/g,"\\'")}'),100)">OPEN BID LAB</button></div>`).join(''):
+      ${faEdges.length?faEdges.map((e,i)=>`<div class="warItem"><div style="display:grid;grid-template-columns:1fr auto;gap:8px"><span><b>${i+1}. ${e.a.name}</b><br><span class="small">${normalizedPos(e.a.pos)} · Proj ${Math.round(e.a.proj||0)} · Need ${e.need}/100 · ${e.action}</span></span><span class="warScore">${e.grade}</span></div><button type="button" style="margin-top:6px" onclick="showView('fa');setTimeout(()=>selectFABidPlayer('${String(e.a.mflId||e.a.id).replace(/'/g,"\\'")}'),100)">OPEN BID LAB</button></div>`).join(''):
       '<div class="notice">No complete-data FA recommendation clears the current threshold. Missing projections will not be guessed.</div>'}
     </div>
     <div class="card"><div class="sectionhead"><h2>Potential Trade Targets</h2><span class="pill">ROSTER FIT</span></div>
-      ${tradeTargets.length?tradeTargets.slice(0,5).map((t,i)=>`<div class="warItem"><div style="display:grid;grid-template-columns:1fr auto;gap:8px"><span><b>${i+1}. ${t.a.name}</b> · ${t.team}<br><span class="small">${t.pos} · Our need ${t.ourNeed}/100 · Their need ${t.ownerNeed}/100 · Proj ${Math.round(t.a.proj||0)}</span></span><span class="score100">${score100(t.score)}</span></div><button style="margin-top:6px" onclick="tradeState.opponent='${String(t.team).replace(/'/g,"\\'")}';showView('trade')">BUILD TRADE</button></div>`).join(''):
+      ${tradeTargets.length?tradeTargets.slice(0,5).map((t,i)=>`<div class="warItem"><div style="display:grid;grid-template-columns:1fr auto;gap:8px"><span><b>${i+1}. ${t.a.name}</b> · ${t.team}<br><span class="small">${t.pos} · Our need ${t.ourNeed}/100 · Their need ${t.ownerNeed}/100 · Proj ${Math.round(t.a.proj||0)}</span></span><span class="score100">${score100(t.score)}</span></div><button type="button" style="margin-top:6px" onclick="tradeState.opponent='${String(t.team).replace(/'/g,"\\'")}';showView('trade')">BUILD TRADE</button></div>`).join(''):
       '<div class="notice">No high-confidence trade target currently clears the roster-fit threshold.</div>'}
     </div>
   </div>
@@ -1101,12 +1100,12 @@ function tradeCartRows(side){
     <div><div class="name">${a.name} ${a.type==='PICK'?'<span class="pickBadge">PICK</span>':''}</div>
       <div class="smallrow">${assetPos(a)} · ${a.type==='PICK'?'Draft capital':('$'+Number(a.salary||0).toFixed(2)+' / '+(a.years||0)+' yr')} · ${fmt(modelValue(a))} Pride</div>
     </div>
-    <button class="danger" onclick="removeTrade('${side}',${i})">×</button>
+    <button type="button" class="danger" onclick="removeTrade('${side}',${i})">×</button>
   </div>`).join('')
 }
 function rosterPositionTabs(side,selected){
   const tabs=['ALL','QB','RB','WR','TE','DL','LB','DB','PICKS'];
-  return `<div class="posTabs">${tabs.map(p=>`<button class="${selected===p?'active secondary':'secondary'}" onclick="tradeState.${side}Pos='${p}';renderTrade()">${p}</button>`).join('')}</div>`;
+  return `<div class="posTabs">${tabs.map(p=>`<button type="button" class="${selected===p?'active secondary':'secondary'}" onclick="tradeState.${side}Pos='${p}';renderTrade()">${p}</button>`).join('')}</div>`;
 }
 function rosterPanel(team,side,posFilter,isOpponent=false){
   const assets=teamAssets(team).sort((a,b)=>{
@@ -1133,7 +1132,7 @@ function rosterPanel(team,side,posFilter,isOpponent=false){
             : `${a.nfl||''} · $${Number(a.salary||0).toFixed(2)} · ${a.years||0} yr · Proj ${Number(a.proj||0).toFixed(0)}`}</div>
         </div>
         <div class="quick"><span class="val">${fmt(modelValue(a))}</span>
-          <button ${inTrade?'disabled':''} onclick="addAssetToTrade('${side}','${a.id}')">${inTrade?'Added':'+ Trade'}</button>
+          <button type="button" ${inTrade?'disabled':''} onclick="addAssetToTrade('${side}','${a.id}')">${inTrade?'Added':'+ Trade'}</button>
         </div>
       </div>`
     }).join('')}
@@ -1191,7 +1190,7 @@ function volatilityClass(x){return x==='STABLE'?'riskStable':x==='MIXED'?'riskMi
 function renderAnalyzer(){const arr=leaguePower(),pw=currentProductionWeight(),wk=nflWeekEstimate(),mine=arr.find(x=>x.team===db.config.teamName);analyzer.innerHTML=`<div class="card"><div class="sectionhead"><h2>League Power Analyzer</h2><span class="pill">${wk?'WEEK '+wk:'PRESEASON'}</span></div><div class="notice"><b>Adaptive rankings:</b> preseason is projection-driven; actual production gains weight as the season grows.</div><div class="teamProfileGrid" style="margin-top:10px"><div class="metric"><b>${Math.round((1-pw)*100)}%</b><span>Projection weight</span></div><div class="metric"><b>${Math.round(pw*100)}%</b><span>Production weight</span></div><div class="metric"><b>${mine?'#'+mine.rank:'—'}</b><span>Your rank</span></div><div class="metric"><b>${mine?mine.label:'—'}</b><span>Volatility</span></div><div class="metric"><b>${mine?Math.round(mine.blend):0}</b><span>Power points</span></div></div></div><div class="card" style="margin-top:12px;overflow:auto"><table class="powerTable"><thead><tr><th>#</th><th>Team</th><th>Power</th><th>Proj</th><th>Actual</th><th>Floor/Ceiling</th><th>Profile</th><th>Roster Value</th></tr></thead><tbody>${arr.map(x=>`<tr><td><b>${x.rank}</b></td><td><b>${x.team}</b></td><td><div class="powerBar"><i style="width:${x.powerPct}%"></i></div><span class="small">${score100(x.powerPct)}/100</span></td><td>${x.projected.toFixed(0)}</td><td>${x.actual?x.actual.toFixed(1):'—'}</td><td>${x.floor.toFixed(0)} / ${x.ceiling.toFixed(0)}</td><td><span class="riskBadge ${volatilityClass(x.label)}">${x.label}</span></td><td>${fmt(x.asset)}</td></tr>`).join('')}</tbody></table></div>`}
 
 let pendingScreenshotTrade=null;
-async function handleTradeScreenshot(file){if(!file)return;const out=document.getElementById('tradeShotResult'),r=new FileReader();r.onload=()=>out.innerHTML=`<img class="tradePreview" src="${r.result}"><div class="notice">Analyzing screenshot…</div>`;r.readAsDataURL(file);try{let base=(db.mfl.proxyUrl||'').trim().replace(/\/$/,'');if(!base)throw new Error('Worker URL not configured');const fd=new FormData();fd.append('image',file);const res=await fetch(base+'/parse-trade-image',{method:'POST',body:fd});const p=await res.json();if(!res.ok||!p.ok)throw new Error(p.error||'Image parse failed');pendingScreenshotTrade=p.trade;out.innerHTML+=`<div class="aiResult"><b>Detected Trade</b><div class="grid"><div><b>${p.trade.sideA?.team||'Side A'}</b>${(p.trade.sideA?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div><div><b>${p.trade.sideB?.team||'Side B'}</b>${(p.trade.sideB?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div></div><button onclick="loadScreenshotTrade()">Confirm & Load</button></div>`}catch(e){out.innerHTML+=`<div class="notice"><b>Screenshot import:</b> ${e.message}</div>`}}
+async function handleTradeScreenshot(file){if(!file)return;const out=document.getElementById('tradeShotResult'),r=new FileReader();r.onload=()=>out.innerHTML=`<img class="tradePreview" src="${r.result}"><div class="notice">Analyzing screenshot…</div>`;r.readAsDataURL(file);try{let base=(db.mfl.proxyUrl||'').trim().replace(/\/$/,'');if(!base)throw new Error('Worker URL not configured');const fd=new FormData();fd.append('image',file);const res=await fetch(base+'/parse-trade-image',{method:'POST',body:fd});const p=await res.json();if(!res.ok||!p.ok)throw new Error(p.error||'Image parse failed');pendingScreenshotTrade=p.trade;out.innerHTML+=`<div class="aiResult"><b>Detected Trade</b><div class="grid"><div><b>${p.trade.sideA?.team||'Side A'}</b>${(p.trade.sideA?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div><div><b>${p.trade.sideB?.team||'Side B'}</b>${(p.trade.sideB?.assets||[]).map(x=>`<div class="gate">${x}</div>`).join('')}</div></div><button type="button" onclick="loadScreenshotTrade()">Confirm & Load</button></div>`}catch(e){out.innerHTML+=`<div class="notice"><b>Screenshot import:</b> ${e.message}</div>`}}
 function findAssetByLooseName(n,t=''){n=String(n||'').toLowerCase();return (t?teamAssets(t):db.assets).find(a=>String(a.name||'').toLowerCase()===n)||(t?teamAssets(t):db.assets).find(a=>String(a.name||'').toLowerCase().includes(n))}
 function loadScreenshotTrade(){const t=pendingScreenshotTrade;if(!t)return;const sides=[t.sideA,t.sideB],ours=sides.find(s=>String(s.team||'').toLowerCase().includes(String(db.config.teamName||'').toLowerCase())),theirs=sides.find(s=>s!==ours);if(theirs?.team)tradeState.opponent=theirs.team;tradeState.give=[];tradeState.receive=[];(ours?.assets||[]).forEach(n=>{const a=findAssetByLooseName(n,db.config.teamName);if(a)tradeState.give.push({assetId:a.id,salaryOverride:'',yearsOverride:''})});(theirs?.assets||[]).forEach(n=>{const a=findAssetByLooseName(n,theirs.team);if(a)tradeState.receive.push({assetId:a.id,salaryOverride:'',yearsOverride:''})});renderTrade()}
 
@@ -1285,7 +1284,7 @@ function renderTeamAnalyzer(){
   teamanalyzer.innerHTML=`
   <div class="card"><div class="teamSelectRow">
     <div class="field"><label>Analyze franchise</label><select onchange="window.teamAnalyzerTeam=this.value;renderTeamAnalyzer()">${teams.map(n=>`<option ${n===t?'selected':''}>${n}</option>`).join('')}</select></div>
-    <button class="secondary" onclick="showView('leagueanalyzer')">Compare to League</button>
+    <button type="button" class="secondary" onclick="showView('leagueanalyzer')">Compare to League</button>
   </div></div>
   <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>${t} — Team Analyzer</h2><span class="pill">${p.label}</span></div>
     <div class="analysisHero">
@@ -1345,7 +1344,7 @@ function renderRosterImportReview(){
   if(!rows.length){out.innerHTML='<div class="notice">No teams detected.</div>';return}
   out.innerHTML=`<div style="overflow:auto;margin-top:10px"><table class="reconTable"><thead><tr><th>Team</th><th>Detected player</th><th>Match</th><th>Salary</th><th>Years</th><th>Status</th></tr></thead><tbody>
     ${rows.flatMap(t=>(t.players||[]).map(p=>{const a=findAssetByLooseName(p.name,t.team);return `<tr class="${a?'':'conflict'}"><td>${t.team||'Unknown'}</td><td>${p.name||''}</td><td class="${a?'matchGood':'matchBad'}">${a?'MATCHED':'NEW/UNMATCHED'}</td><td>${p.salary??'—'}</td><td>${p.years??'—'}</td><td>${p.status||'—'}</td></tr>`})).join('')}
-    </tbody></table></div><div class="actions"><button onclick="commitRosterMerge()">APPLY ROSTER CORRECTIONS TO SITE</button><button class="secondary" onclick="window.pendingRosterImports=[];document.getElementById('rosterImportReview').innerHTML=''">Discard</button></div>`;
+    </tbody></table></div><div class="actions"><button type="button" onclick="commitRosterMerge()">APPLY ROSTER CORRECTIONS TO SITE</button><button type="button" class="secondary" onclick="window.pendingRosterImports=[];document.getElementById('rosterImportReview').innerHTML=''">Discard</button></div>`;
 }
 function commitRosterMerge(){saveUndoPoint('Before roster screenshot merge');
   const mode=document.getElementById('rosterMergeMode')?.value||'missing';
@@ -1394,7 +1393,7 @@ function renderFAImportReview(){
   if(!rows.length){out.innerHTML='<div class="notice">No free agents detected.</div>';return}
   out.innerHTML=`<div style="overflow:auto;margin-top:10px"><table class="reconTable"><thead><tr><th>Player</th><th>Pos</th><th>Existing match</th><th>Visible salary/bid</th></tr></thead><tbody>
   ${rows.map(p=>{const a=findAssetByLooseName(p.name);return `<tr><td>${p.name||''}</td><td>${p.position||''}</td><td>${a?'YES':'NEW'}</td><td>${p.salary??p.bid??'—'}</td></tr>`}).join('')}
-  </tbody></table></div><div class="actions"><button onclick="commitFAImport()">APPLY FA CORRECTIONS TO SITE</button><button class="secondary" onclick="window.pendingFAImports=[];document.getElementById('faImportReview').innerHTML=''">Discard</button></div>`;
+  </tbody></table></div><div class="actions"><button type="button" onclick="commitFAImport()">APPLY FA CORRECTIONS TO SITE</button><button type="button" class="secondary" onclick="window.pendingFAImports=[];document.getElementById('faImportReview').innerHTML=''">Discard</button></div>`;
 }
 function commitFAImport(){saveUndoPoint('Before FA screenshot merge');
   for(const p of (window.pendingFAImports||[])){
@@ -1558,9 +1557,9 @@ function renderEdgeCard(e,rank){
     </div>
     ${miss}
     <div class="edgeAction"><span><b>${e.action}</b></span>
-      ${e.type==='FA BUY'?`<button onclick="showView('fa');setTimeout(()=>selectFABidPlayer('${String(e.a.mflId||e.a.id).replace(/'/g,"\\'")}'),100)">OPEN FA LAB</button>`:
-        e.type==='TRADE'?`<button onclick="tradeState.opponent='${String(e.partner||'').replace(/'/g,"\\'")}';showView('trade')">BUILD TRADE</button>`:
-        `<button onclick="window.teamAnalyzerTeam='${String(db.config.teamName).replace(/'/g,"\\'")}';showView('teamanalyzer')">REVIEW TEAM</button>`}
+      ${e.type==='FA BUY'?`<button type="button" onclick="showView('fa');setTimeout(()=>selectFABidPlayer('${String(e.a.mflId||e.a.id).replace(/'/g,"\\'")}'),100)">OPEN FA LAB</button>`:
+        e.type==='TRADE'?`<button type="button" onclick="tradeState.opponent='${String(e.partner||'').replace(/'/g,"\\'")}';showView('trade')">BUILD TRADE</button>`:
+        `<button type="button" onclick="window.teamAnalyzerTeam='${String(db.config.teamName).replace(/'/g,"\\'")}';showView('teamanalyzer')">REVIEW TEAM</button>`}
     </div>
   </div>`;
 }
@@ -1660,7 +1659,7 @@ function renderTrade(){
   <div class="grid" style="margin-top:12px">
     <div class="card"><h2>7-Prong Majority Test</h2>${a.prongRows}<div class="gate"><span><b>Majority</b></span><b class="${a.majority?'good':'bad'}">${a.majority?'PASS':'FAIL'}</b></div></div>
     <div class="card"><h2>4 Hard Value Gates</h2>${['Receive ≥95% adjusted value','Roster construction improves/holds','Contract/cap remains defensible','Outside-market liquidity holds'].map((x,i)=>`<div class="gate"><span>${x}</span><b class="${a.gates[i]?'good':'bad'}">${a.gates[i]?'PASS':'FAIL'}</b></div>`).join('')}
-      <div class="gate"><span><b>Hard Gate</b></span><b class="${a.hard?'good':'bad'}">${a.gc}/4 ${a.hard?'PASS':'FAIL'}</b></div><button onclick="saveTrade()">Save Analysis</button>
+      <div class="gate"><span><b>Hard Gate</b></span><b class="${a.hard?'good':'bad'}">${a.gc}/4 ${a.hard?'PASS':'FAIL'}</b></div><button type="button" onclick="saveTrade()">Save Analysis</button>
     </div>
   </div>`;
 }
@@ -1790,7 +1789,7 @@ function renderFABidPanel(){
   if(!a){el.innerHTML='<div class="bidBox"><h2>Blind Bid Analysis</h2><div class="notice">Select any unowned active player or add one manually.</div></div>';return}
   const completeness=dataCompleteness(a);
   if(completeness.missing.includes('projection')){
-    el.innerHTML=`<div class="bidBox"><div class="sectionhead"><h2>${a.name}</h2><span class="bidGrade">INCOMPLETE</span></div><div class="edgeMissing"><b>Projection missing.</b> GM's Locker will not issue a blind-bid recommendation until a projection is present.</div><div class="actions"><button onclick="openManualCorrection()">ADD PROJECTION</button></div></div>`;return;
+    el.innerHTML=`<div class="bidBox"><div class="sectionhead"><h2>${a.name}</h2><span class="bidGrade">INCOMPLETE</span></div><div class="edgeMissing"><b>Projection missing.</b> GM's Locker will not issue a blind-bid recommendation until a projection is present.</div><div class="actions"><button type="button" onclick="openManualCorrection()">ADD PROJECTION</button></div></div>`;return;
   }
   const b=blindBidModel(a,{breakout:a._breakout});
   el.innerHTML=`<div class="bidBox"><div class="sectionhead"><h2>${a.name}</h2><span class="bidGrade">${b.grade}</span></div>
@@ -1825,12 +1824,12 @@ function renderFreeAgentMaster(){
   if(q) arr=arr.filter(a=>String(a.name||'').toLowerCase().includes(q)||String(a.nfl||'').toLowerCase().includes(q));
   if(pos!=='ALL') arr=arr.filter(a=>normalizedPos(a.pos)===pos);
   root.innerHTML=`<div style="overflow:auto"><table class="faTable"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Proj</th><th>Age</th><th>Blind Bid</th><th>Grade</th><th></th></tr></thead><tbody>
-    ${arr.slice(0,500).map(a=>{const b=blindBidModel(a);return `<tr><td><b>${a.name}</b></td><td>${normalizedPos(a.pos)}</td><td>${a.nfl||'—'}</td><td>${a.proj?Math.round(a.proj):'—'}</td><td>${a.age||'—'}</td><td><b>$${b.target}</b><br><span class="small">$${b.floor}–$${b.ceiling}</span></td><td><span class="bidGrade">${b.grade}</span></td><td><button onclick="selectFABidPlayer('${String(a.mflId||a.id).replace(/'/g,"\\'")}')">Analyze Bid</button></td></tr>`}).join('')}
+    ${arr.slice(0,500).map(a=>{const b=blindBidModel(a);return `<tr><td><b>${a.name}</b></td><td>${normalizedPos(a.pos)}</td><td>${a.nfl||'—'}</td><td>${a.proj?Math.round(a.proj):'—'}</td><td>${a.age||'—'}</td><td><b>$${b.target}</b><br><span class="small">$${b.floor}–$${b.ceiling}</span></td><td><span class="bidGrade">${b.grade}</span></td><td><button type="button" onclick="selectFABidPlayer('${String(a.mflId||a.id).replace(/'/g,"\\'")}')">Analyze Bid</button></td></tr>`}).join('')}
   </tbody></table></div><div class="small" style="margin-top:8px">${arr.length} active unowned players. Pool = MFL active player universe minus all Pride LG owned players.</div>`;
 }
 
 function renderFA(){
-  fa.innerHTML=`<div class="card"><div class="correctionBar"><button class="correctionLaunch" onclick="toggleCorrectionPanel('faCorrectionPanel')">ADD FA CORRECTION</button></div></div><div style="height:12px"></div>
+  fa.innerHTML=`<div class="card"><div class="correctionBar"><button type="button" class="correctionLaunch" onclick="toggleCorrectionPanel('faCorrectionPanel')">ADD FA CORRECTION</button></div></div><div style="height:12px"></div>
   <div class="card">
     <div class="sectionhead"><h2>Free Agency — Active Unowned Players</h2><span class="pill">14-TEAM PRIDE LG</span></div>
     <div class="notice"><b>Automatic list:</b> every active NFL player from MFL minus everybody owned by any Pride LG franchise. Active roster, minors/taxi, IR and reserve ownership all count as owned.</div>
@@ -1847,10 +1846,10 @@ function renderFA(){
     </div><div class="faMasterGrid" style="margin-top:12px">
     <div>
       <div class="card"><div id="faMasterList"></div></div>
-      <div id="faCorrectionPanel" class="correctionPanel" hidden><div class="card" style="margin-top:12px">
+      <div id="faCorrectionPanel" class="correctionPanel"><div class="card" style="margin-top:12px">
         <div class="sectionhead"><h2>FA Screenshot Import</h2><span class="pill">CORRECTION LAYER</span></div>
         <div class="notice">If MFL misses a player, upload the FA screen and merge him here.</div>
-        <label class="nativeUpload"><strong>Upload free-agent screenshots</strong><div class="uploadHint">Choose one or multiple screenshots.</div><input id="faShots" type="file" accept="image/*" multiple onchange="handleFAScreenshots(this.files)"></label><div class="actions"><button onclick="processFAScreenshots()">PROCESS SCREENSHOTS</button></div>
+        <label class="nativeUpload"><strong>Upload free-agent screenshots</strong><div class="uploadHint">Choose one or multiple screenshots.</div><input id="faShots" type="file" accept="image/*" multiple onchange="handleFAScreenshots(this.files)"></label><div class="actions"><button type="button" onclick="processFAScreenshots()">PROCESS SCREENSHOTS</button></div>
         <div id="faImportReview"></div>
       </div>
     </div>
@@ -1868,7 +1867,7 @@ function renderFA(){
           <div class="field"><label>Breakout %</label><input id="faManualBreakout" type="number" min="0" max="100" value="35"></div>
           <div class="field"><label>Role security</label><input id="faManualSecurity" type="number" min="0" max="100" value="50"></div>
         </div>
-        <div class="actions"><button onclick="manualFABid()">PRICE BLIND BID</button></div>
+        <div class="actions"><button type="button" onclick="manualFABid()">PRICE BLIND BID</button></div>
       </div>
     </div>
   </div>`;
@@ -2017,11 +2016,11 @@ function renderPickForecastBoard(){
   </div>`;
 }
 
-function renderDraft(){setTimeout(renderPickForecastBoard,0);draft.innerHTML=`<div id="pickForecastBoard"></div><div style="height:12px"></div><div class="grid"><div class="card"><div class="sectionhead"><h2>Draft Pick Engine</h2><button class="secondary" onclick="addPick()">+ Add pick</button></div>${db.assets.filter(a=>a.type==='PICK').sort((a,b)=>(a.year-b.year)||(a.round-b.round)).map(a=>`<div class="asset"><div class="sectionhead"><b>${a.name}</b><b>${fmt(modelValue(a))}</b></div><div class="grid4"><div class="metric"><b>${a.classStrength||75}</b><span>Class strength</span></div><div class="metric"><b>${a.slotProb?.early||0}%</b><span>Early probability</span></div><div class="metric"><b>${a.liquidity||0}</b><span>Liquidity</span></div><div class="metric"><b>${a.risk||0}</b><span>Risk</span></div></div><button class="ghost" onclick="editAsset('${a.id}')">Edit pick</button></div>`).join('')}</div><div class="card"><div class="sectionhead"><h2>NCAA Prospect Board</h2><button class="secondary" onclick="addProspect()">+ Prospect</button></div>${db.prospects.sort((a,b)=>a.rank-b.rank).map(p=>`<div class="gate"><span><b>#${p.rank} ${p.name}</b> <span class="tag">${p.classYear} ${p.pos}</span><br><span class="small">Draft capital ${p.nflDraftCapital} · Production ${p.production} · Risk ${p.risk}</span></span><b>${fmt(prospectValue(p))}</b></div>`).join('')}</div></div><div class="card" style="margin-top:12px"><h2>Class Outlook</h2><div class="grid3">${[2027,2028,2029].map(y=>`<div class="metric"><b>${classStrength(y).toFixed(0)}</b><span>${y} class strength model</span></div>`).join('')}</div><p class="small">Pick value is not fixed. It moves with projected slot, class quality, top-end positional depth, declaration/draft-capital expectations, liquidity and time-to-realization.</p></div>`}
+function renderDraft(){setTimeout(renderPickForecastBoard,0);draft.innerHTML=`<div id="pickForecastBoard"></div><div style="height:12px"></div><div class="grid"><div class="card"><div class="sectionhead"><h2>Draft Pick Engine</h2><button type="button" class="secondary" onclick="addPick()">+ Add pick</button></div>${db.assets.filter(a=>a.type==='PICK').sort((a,b)=>(a.year-b.year)||(a.round-b.round)).map(a=>`<div class="asset"><div class="sectionhead"><b>${a.name}</b><b>${fmt(modelValue(a))}</b></div><div class="grid4"><div class="metric"><b>${a.classStrength||75}</b><span>Class strength</span></div><div class="metric"><b>${a.slotProb?.early||0}%</b><span>Early probability</span></div><div class="metric"><b>${a.liquidity||0}</b><span>Liquidity</span></div><div class="metric"><b>${a.risk||0}</b><span>Risk</span></div></div><button type="button" class="ghost" onclick="editAsset('${a.id}')">Edit pick</button></div>`).join('')}</div><div class="card"><div class="sectionhead"><h2>NCAA Prospect Board</h2><button type="button" class="secondary" onclick="addProspect()">+ Prospect</button></div>${db.prospects.sort((a,b)=>a.rank-b.rank).map(p=>`<div class="gate"><span><b>#${p.rank} ${p.name}</b> <span class="tag">${p.classYear} ${p.pos}</span><br><span class="small">Draft capital ${p.nflDraftCapital} · Production ${p.production} · Risk ${p.risk}</span></span><b>${fmt(prospectValue(p))}</b></div>`).join('')}</div></div><div class="card" style="margin-top:12px"><h2>Class Outlook</h2><div class="grid3">${[2027,2028,2029].map(y=>`<div class="metric"><b>${classStrength(y).toFixed(0)}</b><span>${y} class strength model</span></div>`).join('')}</div><p class="small">Pick value is not fixed. It moves with projected slot, class quality, top-end positional depth, declaration/draft-capital expectations, liquidity and time-to-realization.</p></div>`}
 function addPick(){let year=Number(prompt('Draft year?',2027));if(!year)return;let round=Number(prompt('Round?',1));let band=prompt('Slot band: early, mid, late','mid')||'mid';let name=`${year} ${band[0].toUpperCase()+band.slice(1)} ${round===1?'1st':round===2?'2nd':round===3?'3rd':round+'th'}`;db.assets.push({id:uid('pick'),name,type:'PICK',pos:'PICK',year,round,slotBand:band,market:round===1?5000:round===2?2200:900,classStrength:classStrength(year),slotProb:band==='early'?{early:65,mid:25,late:10}:band==='late'?{early:5,mid:25,late:70}:{early:20,mid:55,late:25},liquidity:round===1?92:70,risk:45,trend:0,source:'Manual'});persist();renderDraft()}
 function addProspect(){let name=prompt('Prospect name');if(!name)return;let pos=(prompt('Position','WR')||'WR').toUpperCase();let classYear=Number(prompt('Draft class year',2027));let rank=Number(prompt('Current class rank',10));db.prospects.push({id:uid('pros'),name,pos,classYear,age:20,rank,nflDraftCapital:75,production:75,athletic:75,earlyDeclare:75,competition:75,risk:40,notes:''});persist();renderDraft()}
 let marketFilter='';
-function renderMarket(){let rows=db.assets.filter(a=>a.name.toLowerCase().includes(marketFilter.toLowerCase())).sort((a,b)=>modelValue(b)-modelValue(a));market.innerHTML=`<div class="card"><div class="sectionhead"><h2>Dynamic Market Board</h2><button onclick="newAsset()">+ Add Asset</button></div><div class="searchline"><input placeholder="Search players, picks, prospects…" value="${marketFilter}" oninput="marketFilter=this.value;renderMarket()"><select onchange="sortMarket(this.value)"><option>Sort: Pride value</option><option value="trend">Trend</option><option value="arb">Mispricing</option></select><button class="secondary" onclick="document.getElementById('csvImport').click()">Import CSV</button><input id="csvImport" hidden type="file" accept=".csv,text/csv" onchange="importCSV(this.files[0])"></div><div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Asset</th><th>Pos</th><th>Roster</th><th>ADP</th><th>ECR</th><th>Proj</th><th>Salary</th><th>Market</th><th>Pride</th><th>Trend</th><th>Signal</th><th></th></tr></thead><tbody>${rows.map(a=>`<tr><td><b>${a.name}</b><br><span class="small">${a.source||''}</span></td><td>${a.pos}</td><td>${a.roster||'FA / Pick'}</td><td>${a.adp||'—'}</td><td>${a.ecr||'—'}</td><td>${a.proj||'—'}</td><td>${a.salary!==undefined?'$'+a.salary:'—'}</td><td>${fmt(a.market)}</td><td><b>${fmt(modelValue(a))}</b></td><td class="${(a.trend||0)>=0?'good':'bad'}">${(a.trend||0)>0?'+':''}${a.trend||0}</td><td class="${signal(a)[1]}">${signal(a)[0]}</td><td><button class="ghost" onclick="editAsset('${a.id}')">Edit</button></td></tr>`).join('')}</tbody></table></div></div>`}
+function renderMarket(){let rows=db.assets.filter(a=>a.name.toLowerCase().includes(marketFilter.toLowerCase())).sort((a,b)=>modelValue(b)-modelValue(a));market.innerHTML=`<div class="card"><div class="sectionhead"><h2>Dynamic Market Board</h2><button type="button" onclick="newAsset()">+ Add Asset</button></div><div class="searchline"><input placeholder="Search players, picks, prospects…" value="${marketFilter}" oninput="marketFilter=this.value;renderMarket()"><select onchange="sortMarket(this.value)"><option>Sort: Pride value</option><option value="trend">Trend</option><option value="arb">Mispricing</option></select><button type="button" class="secondary" onclick="document.getElementById('csvImport').click()">Import CSV</button><input id="csvImport" hidden type="file" accept=".csv,text/csv" onchange="importCSV(this.files[0])"></div><div class="tableWrap" style="margin-top:10px"><table><thead><tr><th>Asset</th><th>Pos</th><th>Roster</th><th>ADP</th><th>ECR</th><th>Proj</th><th>Salary</th><th>Market</th><th>Pride</th><th>Trend</th><th>Signal</th><th></th></tr></thead><tbody>${rows.map(a=>`<tr><td><b>${a.name}</b><br><span class="small">${a.source||''}</span></td><td>${a.pos}</td><td>${a.roster||'FA / Pick'}</td><td>${a.adp||'—'}</td><td>${a.ecr||'—'}</td><td>${a.proj||'—'}</td><td>${a.salary!==undefined?'$'+a.salary:'—'}</td><td>${fmt(a.market)}</td><td><b>${fmt(modelValue(a))}</b></td><td class="${(a.trend||0)>=0?'good':'bad'}">${(a.trend||0)>0?'+':''}${a.trend||0}</td><td class="${signal(a)[1]}">${signal(a)[0]}</td><td><button type="button" class="ghost" onclick="editAsset('${a.id}')">Edit</button></td></tr>`).join('')}</tbody></table></div></div>`}
 function sortMarket(v){if(v==='trend')db.assets.sort((a,b)=>(b.trend||0)-(a.trend||0));if(v==='arb')db.assets.sort((a,b)=>arbitrage(b)-arbitrage(a));renderMarket()}
 function newAsset(){let name=prompt('Player or asset name');if(!name)return;let pos=(prompt('Position (QB/RB/WR/TE/EDGE/LB/S/CB)','WR')||'WR').toUpperCase();db.assets.push({id:uid('asset'),name,type:'PLAYER',pos,nfl:'',age:24,market:2500,adp:0,ecr:0,proj:180,ppg:0,role:65,trend:0,risk:35,liquidity:65,salary:0,years:1,roster:'',source:'Manual'});persist();renderMarket()}
 function editAsset(id){let a=db.assets.find(x=>x.id===id);if(!a)return;let old=modelValue(a);let form=`EDIT ${a.name}\n\nEnter values in prompts. Cancel keeps current.`;alert(form);let fields=a.type==='PICK'?[['market','Market value'],['classStrength','Class strength 0-100'],['liquidity','Liquidity 0-100'],['risk','Risk 0-100'],['trend','Trend -20 to 20']]:[['market','Market value'],['adp','Dynasty ADP'],['ecr','ECR / rank'],['proj','Projected points'],['age','Age'],['role','Role 0-100'],['salary','Salary'],['years','Contract years'],['trend','Trend -20 to 20'],['risk','Risk 0-100'],['liquidity','Liquidity 0-100']];for(let [k,l] of fields){let v=prompt(l,a[k]??'');if(v!==null&&v!=='')a[k]=Number(v)}if(a.type==='PLAYER'){let r=prompt('Roster / owner (blank = free agent)',a.roster||'');if(r!==null)a.roster=r}let reason=prompt('Reason for update','Manual data update');if(reason!==null)a.lastReason=reason;recordHistory(a,old);persist();renderView(localStorage.getItem('ccgm_view')||'market')}
@@ -2029,7 +2028,7 @@ function importCSV(file){if(!file)return;let r=new FileReader();r.onload=()=>{le
 function renderSync(){
   ensureMFLDefaults();
   const m=db.mfl;
-  sync.innerHTML=`<div class="card"><div class="correctionBar"><button class="correctionLaunch" onclick="toggleCorrectionPanel('rosterCorrectionPanel')">ADD ROSTER CORRECTION</button></div></div><div style="height:12px"></div><div class="grid">
+  sync.innerHTML=`<div class="card"><div class="correctionBar"><button type="button" class="correctionLaunch" onclick="toggleCorrectionPanel('rosterCorrectionPanel')">ADD ROSTER CORRECTION</button></div></div><div style="height:12px"></div><div class="grid">
     <div class="card">
       <div class="sectionhead"><h2>MFL Sync — Pride LG</h2><span class="pill">2026 · LEAGUE 29218</span></div>
       <div class="notice"><b>Secure server-side sync.</b> GM Lab talks to your Cloudflare Worker; the Worker talks to MFL. No MFL password is stored and this connection is read-only.</div>
@@ -2039,7 +2038,7 @@ function renderSync(){
         <div class="field"><label>Season</label><input value="2026" disabled></div>
         <div class="field"><label>League ID</label><input value="29218" disabled></div>
       </div>
-      <div class="actions"><button onclick="syncMFL()">SYNC PRIDE LG NOW</button><button class="secondary" onclick="testMFLConnection()">Test Sync Service</button></div>
+      <div class="actions"><button type="button" onclick="syncMFL()">SYNC PRIDE LG NOW</button><button type="button" class="secondary" onclick="testMFLConnection()">Test Sync Service</button></div>
       <div id="syncStatus" class="small" style="margin-top:9px">${db.lastSync?'Last successful sync: '+new Date(db.lastSync).toLocaleString():'Worker not connected yet'}</div>
       ${renderSyncSummary()}
     </div>
@@ -2058,12 +2057,12 @@ function renderSync(){
     </div>
   </div>
   
-  <div id="rosterCorrectionPanel" class="correctionPanel" hidden><div class="card" style="margin-top:12px">
+  <div id="rosterCorrectionPanel" class="correctionPanel"><div class="card" style="margin-top:12px">
     <div class="sectionhead"><h2>Roster Screenshot Merge</h2><span class="pill">CORRECTION LAYER</span></div>
     <div class="notice"><b>MFL stays primary.</b> Screenshot corrections now use a deliberate 3-step flow.</div>
     <div class="importSteps"><div class="importStep"><b>1. CHOOSE</b><br><span class="small">Select screenshots.</span></div><div class="importStep"><b>2. PROCESS</b><br><span class="small">AI reads the image.</span></div><div class="importStep"><b>3. APPLY</b><br><span class="small">Review and commit corrections.</span></div></div>
     <div class="importGrid" style="margin-top:10px">
-      <label class="nativeUpload"><strong>Upload roster screenshots</strong><div class="uploadHint">Choose one or multiple team screenshots. Up to all 14 teams.</div><input id="rosterShots" type="file" accept="image/*" multiple onchange="handleRosterScreenshots(this.files)"></label><div class="actions"><button onclick="processRosterScreenshots()">PROCESS SCREENSHOTS</button></div>
+      <label class="nativeUpload"><strong>Upload roster screenshots</strong><div class="uploadHint">Choose one or multiple team screenshots. Up to all 14 teams.</div><input id="rosterShots" type="file" accept="image/*" multiple onchange="handleRosterScreenshots(this.files)"></label><div class="actions"><button type="button" onclick="processRosterScreenshots()">PROCESS SCREENSHOTS</button></div>
       <div class="field"><label>Merge mode</label><select id="rosterMergeMode"><option value="missing">Missing players only</option><option value="fields">Fill missing salary/years/status</option><option value="reconcile">Full reconciliation review</option></select><div class="small" style="margin-top:8px">Safest default: Missing players only.</div></div>
     </div>
     <div id="rosterImportReview"></div>
@@ -2367,16 +2366,16 @@ function applyManualCorrection(){saveUndoPoint('Before manual correction');
 }
 
 function renderSettings(){let c=db.config;settings.innerHTML=`<div class="osGrid">
-      <div class="backupBox"><div class="sectionhead"><h2>Backup / Rollback</h2><span class="pill">SAFETY</span></div><div class="actions"><button onclick="exportMasterBackup()">EXPORT MASTER BACKUP</button><label class="secondary" style="padding:9px;border-radius:8px;cursor:pointer">RESTORE BACKUP<input type="file" accept=".json,application/json" style="display:none" onchange="importMasterBackup(this.files[0])"></label><button class="secondary" onclick="undoLastAction()">UNDO LAST ACTION</button></div><div class="small">${(db.undoStack||[]).length} undo point(s) available.</div></div>
-      <div class="backupBox"><div class="sectionhead"><h2>Privacy</h2><span class="pill">PROTOTYPE</span></div><div class="notice">Search indexing is disabled. The passcode below is a local browser lock only; it is not a substitute for production server-side authentication.</div><div class="field"><label>Local passcode</label><input id="privacyPin" type="password"></div><div class="actions"><button onclick="setLocalLock()">ENABLE LOCAL LOCK</button><button class="secondary" onclick="clearLocalLock()">REMOVE LOCK</button></div></div>
+      <div class="backupBox"><div class="sectionhead"><h2>Backup / Rollback</h2><span class="pill">SAFETY</span></div><div class="actions"><button type="button" onclick="exportMasterBackup()">EXPORT MASTER BACKUP</button><label class="secondary" style="padding:9px;border-radius:8px;cursor:pointer">RESTORE BACKUP<input type="file" accept=".json,application/json" style="display:none" onchange="importMasterBackup(this.files[0])"></label><button type="button" class="secondary" onclick="undoLastAction()">UNDO LAST ACTION</button></div><div class="small">${(db.undoStack||[]).length} undo point(s) available.</div></div>
+      <div class="backupBox"><div class="sectionhead"><h2>Privacy</h2><span class="pill">PROTOTYPE</span></div><div class="notice">Search indexing is disabled. The passcode below is a local browser lock only; it is not a substitute for production server-side authentication.</div><div class="field"><label>Local passcode</label><input id="privacyPin" type="password"></div><div class="actions"><button type="button" onclick="setLocalLock()">ENABLE LOCAL LOCK</button><button type="button" class="secondary" onclick="clearLocalLock()">REMOVE LOCK</button></div></div>
     </div>
-    <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Audit Trail</h2><span class="pill">${auditRows().length}</span></div>${auditRows().slice(0,100).map(a=>`<div class="txLog"><b>${a.action}</b><br><span class="small">${a.source} · ${new Date(a.time).toLocaleString()} · ${JSON.stringify(a.detail).slice(0,160)}</span></div>`).join('')||'<div class="notice">Audit entries appear as corrections, transactions, imports and backups are used.</div>'}</div><div style="height:12px"></div><div id="manualCorrectionPanel" class="correctionPanel" hidden><div class="sectionhead"><h2>Manual Override</h2><span class="pill">FINAL AUTHORITY</span></div>
+    <div class="card" style="margin-top:12px"><div class="sectionhead"><h2>Audit Trail</h2><span class="pill">${auditRows().length}</span></div>${auditRows().slice(0,100).map(a=>`<div class="txLog"><b>${a.action}</b><br><span class="small">${a.source} · ${new Date(a.time).toLocaleString()} · ${JSON.stringify(a.detail).slice(0,160)}</span></div>`).join('')||'<div class="notice">Audit entries appear as corrections, transactions, imports and backups are used.</div>'}</div><div style="height:12px"></div><div id="manualCorrectionPanel" class="correctionPanel"><div class="sectionhead"><h2>Manual Override</h2><span class="pill">FINAL AUTHORITY</span></div>
     <div class="notice">Use this only when synced or screenshot data is wrong. Manual values should override lower-confidence sources.</div>
     <div class="grid3" style="margin-top:8px">
       <div class="field"><label>Player / asset name</label><input id="manualCorrName" placeholder="Exact name"></div>
       <div class="field"><label>Field</label><select id="manualCorrField"><option value="roster">Roster</option><option value="salary">Salary</option><option value="years">Contract years</option><option value="proj">Projection</option><option value="market">Market value</option><option value="role">Role score</option><option value="risk">Risk score</option></select></div>
       <div class="field"><label>Correct value</label><input id="manualCorrValue" placeholder="New value"></div>
-    </div><div class="actions"><button onclick="applyManualCorrection()">APPLY CORRECTION</button></div></div><div style="height:12px"></div><div class="grid"><div class="card"><h2>League Rules</h2><div class="grid3"><div class="field"><label>League name</label><input value="${c.leagueName}" onchange="cset('leagueName',this.value)"></div><div class="field"><label>Your franchise</label><input value="${c.teamName}" onchange="cset('teamName',this.value)"></div><div class="field"><label>Teams</label><input type="number" value="${c.teams}" onchange="cset('teams',Number(this.value))"></div><div class="field"><label>Salary cap</label><input type="number" value="${c.salaryCap}" onchange="cset('salaryCap',Number(this.value))"></div><div class="field"><label>B- threshold</label><input type="number" value="${c.threshold}" onchange="cset('threshold',Number(this.value))"></div><div class="field"><label>Prongs required</label><input type="number" value="${c.requiredProngs}" onchange="cset('requiredProngs',Number(this.value))"></div></div>${['superflex','tep','idp','sackPremium'].map(k=>`<label class="gate"><span>${k==='tep'?'TE Premium':k==='idp'?'IDP':k==='sackPremium'?'Sack Premium':'Superflex'}</span><input style="width:auto" type="checkbox" ${c[k]?'checked':''} onchange="cset('${k}',this.checked)"></label>`).join('')}</div><div class="card"><h2>Replacement-Level Points</h2><div class="grid4">${Object.keys(c.replacement).map(k=>`<div class="field"><label>${k}</label><input type="number" value="${c.replacement[k]}" onchange="db.config.replacement['${k}']=Number(this.value);persist()"></div>`).join('')}</div><p class="small">Replacement level is critical. It converts raw projections into points above replacement so scarce positions are valued correctly for your league.</p></div></div><div class="grid" style="margin-top:12px"><div class="card"><h2>Value Engine Weights</h2>${Object.keys(c.weights).map(k=>`<div class="field"><label>${k} (${Math.round(c.weights[k]*100)}%)</label><input type="range" min="0" max="30" value="${c.weights[k]*100}" oninput="db.config.weights['${k}']=Number(this.value)/100;this.previousElementSibling.textContent='${k} ('+this.value+'%)';persist()"></div>`).join('')}</div><div class="card"><h2>Data Controls</h2><button class="secondary" onclick="exportData()">Export Full Backup</button> <button class="secondary" onclick="downloadCSV()">Export Market CSV</button><hr style="border-color:#263753"><button class="danger" onclick="resetAll()">Reset App Database</button><p class="small">Reset returns to the bundled seed database and erases local edits/history from this device.</p><p class="small">App version ${APP_VERSION}</p></div></div>`}
+    </div><div class="actions"><button type="button" onclick="applyManualCorrection()">APPLY CORRECTION</button></div></div><div style="height:12px"></div><div class="grid"><div class="card"><h2>League Rules</h2><div class="grid3"><div class="field"><label>League name</label><input value="${c.leagueName}" onchange="cset('leagueName',this.value)"></div><div class="field"><label>Your franchise</label><input value="${c.teamName}" onchange="cset('teamName',this.value)"></div><div class="field"><label>Teams</label><input type="number" value="${c.teams}" onchange="cset('teams',Number(this.value))"></div><div class="field"><label>Salary cap</label><input type="number" value="${c.salaryCap}" onchange="cset('salaryCap',Number(this.value))"></div><div class="field"><label>B- threshold</label><input type="number" value="${c.threshold}" onchange="cset('threshold',Number(this.value))"></div><div class="field"><label>Prongs required</label><input type="number" value="${c.requiredProngs}" onchange="cset('requiredProngs',Number(this.value))"></div></div>${['superflex','tep','idp','sackPremium'].map(k=>`<label class="gate"><span>${k==='tep'?'TE Premium':k==='idp'?'IDP':k==='sackPremium'?'Sack Premium':'Superflex'}</span><input style="width:auto" type="checkbox" ${c[k]?'checked':''} onchange="cset('${k}',this.checked)"></label>`).join('')}</div><div class="card"><h2>Replacement-Level Points</h2><div class="grid4">${Object.keys(c.replacement).map(k=>`<div class="field"><label>${k}</label><input type="number" value="${c.replacement[k]}" onchange="db.config.replacement['${k}']=Number(this.value);persist()"></div>`).join('')}</div><p class="small">Replacement level is critical. It converts raw projections into points above replacement so scarce positions are valued correctly for your league.</p></div></div><div class="grid" style="margin-top:12px"><div class="card"><h2>Value Engine Weights</h2>${Object.keys(c.weights).map(k=>`<div class="field"><label>${k} (${Math.round(c.weights[k]*100)}%)</label><input type="range" min="0" max="30" value="${c.weights[k]*100}" oninput="db.config.weights['${k}']=Number(this.value)/100;this.previousElementSibling.textContent='${k} ('+this.value+'%)';persist()"></div>`).join('')}</div><div class="card"><h2>Data Controls</h2><button type="button" class="secondary" onclick="exportData()">Export Full Backup</button> <button type="button" class="secondary" onclick="downloadCSV()">Export Market CSV</button><hr style="border-color:#263753"><button type="button" class="danger" onclick="resetAll()">Reset App Database</button><p class="small">Reset returns to the bundled seed database and erases local edits/history from this device.</p><p class="small">App version ${APP_VERSION}</p></div></div>`}
 function cset(k,v){db.config[k]=v;persist();document.getElementById('subline').textContent=`${db.config.leagueName} engine • ${db.config.superflex?'SF • ':''}${db.config.tep?'TEP • ':''}${db.config.sackPremium?'sack-premium IDP • ':''}cap/contracts • dynamic asset pricing`}
 function exportData(){let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`capitol-carnage-gm-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
 function importData(file){if(!file)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.assets||!x.config)throw Error('Invalid backup');db=x;persist();renderAssetList();showView('dashboard');alert('Backup restored.')}catch(e){alert('Could not restore: '+e.message)}};r.readAsText(file)}
@@ -2400,6 +2399,27 @@ async function autoRefreshMFL(){
 }
 
 ensureMFLDefaults();persist();nav();renderAssetList();cset('leagueName',db.config.leagueName);let initial=localStorage.getItem('ccgm_view')||'dashboard';showView(initial);setTimeout(autoRefreshMFL,800);
+
+function interactionHealth(msg='READY'){
+  const el=document.getElementById('buildHealth');
+  if(el)el.innerHTML=`<b>GM's Locker v6.1</b> · Interaction layer: <span class="good">${msg}</span>`;
+}
+window.addEventListener('error',e=>{
+  const el=document.getElementById('buildHealth');
+  if(el)el.innerHTML=`<b>GM's Locker v6.1</b> · <span class="bad">JS ERROR:</span> ${String(e.message||'unknown error')}`;
+});
+window.addEventListener('unhandledrejection',e=>{
+  const el=document.getElementById('buildHealth');
+  if(el)el.innerHTML=`<b>GM's Locker v6.1</b> · <span class="bad">PROMISE ERROR:</span> ${String(e.reason?.message||e.reason||'unknown error')}`;
+});
+window.addEventListener('load',()=>interactionHealth('READY'));
+
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(r=>r.update())).catch(()=>{});
+  if('caches' in window)caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('gmslocker-')&&k!=='gmslocker-v6-1-assets').map(k=>caches.delete(k)))).catch(()=>{});
+}
+
 </script>
 </body>
 </html>
