@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "gms-locker-ai",
-  "main": "src/worker.js",
+  "main": "src/worker-fixed.js",
   "compatibility_date": "2026-08-09",
   "workers_dev": true,
   "observability": {
