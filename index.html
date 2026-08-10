@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GM's Locker</title>
+<title>GM's Locker — Pride Dynasty</title>
 <script>
 (function () {
   var LEAGUE = "astbqxhwmk4b6bg9";
@@ -65,18 +65,19 @@
     html = html.replace(/id="serverAuthLock"[^>]*/g, 'id="serverAuthLock" style="display:none!important;pointer-events:none;visibility:hidden"');
     html = html.replace(/class="privacyLock"/g, 'class="privacyLock" style="display:none!important"');
     html = html.replace(/v6\.7/g, "v8.1");
-    html = html.replace(/Private vault locked/g, "Fantrax live");
+    html = html.replace(/Private vault locked/g, "Pride Bylaws live");
     html = html.replace(/Sign in required/gi, "");
     var boot = '<script>(function(){window.__GMS_OPEN=true;window.GMSLOCKER_ACCESS_TOKEN="";try{localStorage.setItem("gmslocker_access_ok","1");}catch(e){}function killLock(){var el=document.getElementById("serverAuthLock");if(el){el.style.display="none";try{el.remove();}catch(e){}}}window.hideServerAuth=killLock;window.showServerAuth=function(){};window.requireAccess=function(){return false;};document.addEventListener("DOMContentLoaded",killLock);setInterval(killLock,400);})();<\/script>';
     if (html.indexOf("</head>") >= 0) html = html.replace("</head>", boot + "</head>");
     var scripts =
+      '<script src="/pride-bylaws.js"><\/script>' +
       '<script src="/pride-intercept.js"><\/script>' +
       '<script src="/pride-boot.js"><\/script>' +
       '<script src="/pride-override.js"><\/script>' +
+      '<script src="/pride-cap.js"><\/script>' +
       '<script src="/pride-optimize.js"><\/script>' +
       '<script src="/pride-news.js"><\/script>' +
-      '<script src="/pride-trade.js"><\/script>' +
-      '<script src="/pride-cap.js"><\/script>';
+      '<script src="/pride-trade.js"><\/script>';
     if (html.indexOf("</body>") >= 0) html = html.replace("</body>", scripts + "</body>");
     else html += scripts;
     document.open(); document.write(html); document.close();
@@ -87,6 +88,6 @@
 </script>
 </head>
 <body style="margin:0;background:#050505;color:#f1cf62;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh">
-<div>Loading gmslocker.com…</div>
+<div>Loading Pride Dynasty…</div>
 </body>
 </html>
