@@ -35,7 +35,8 @@
       else html = unlock + html;
 
       var scripts = '<script src="./public-release/pride-override.js"><\/script>' +
-        '<script src="./public-release/pride-boot.js"><\/script>';
+        '<script src="./public-release/pride-boot.js"><\/script>' +
+        '<script src="./public-release/pride-optimize.js"><\/script>';
       if (html.indexOf('</body>') >= 0) html = html.replace('</body>', scripts + '</body>');
       else html += scripts;
 

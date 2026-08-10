@@ -34,7 +34,7 @@
       if (html.indexOf('</head>') >= 0) html = html.replace('</head>', unlock + '</head>');
       else html = unlock + html;
 
-      var scripts = '<script src="./pride-override.js"><\/script><script src="./pride-boot.js"><\/script>';
+      var scripts = '<script src="./pride-override.js"><\/script><script src="./pride-boot.js"><\/script><script src="./pride-optimize.js"><\/script>';
       if (html.indexOf('</body>') >= 0) html = html.replace('</body>', scripts + '</body>');
       else html += scripts;
 
