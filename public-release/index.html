@@ -3,30 +3,46 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GM's Locker — Loading</title>
+<title>GM's Locker</title>
 <script>
-// Loader: fetch the full app, inject open-access override, then render
-(async function(){
-  try {
-    const res = await fetch('./index-app.html', {cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    let html = await res.text();
-    // Force hide auth lock + load override before body ends
-    html = html.replace('id="serverAuthLock" class="privacyLock"', 'id="serverAuthLock" class="privacyLock" style="display:none"');
-    if(!html.includes('pride-override.js')){
-      html = html.replace('</body>', '<script src="./pride-override.js"></'+'script>\n</body>');
+(async function () {
+  var sources = [
+    './index-app.html',
+    'https://raw.githubusercontent.com/capitolcarnagegm/capitol-carnage-trade-lab/4c5b4ecb943ad419a53c7ae584d04071dc64a863/public-release/index.html'
+  ];
+  var lastErr = null;
+  for (var i = 0; i < sources.length; i++) {
+    try {
+      var res = await fetch(sources[i], { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' from ' + sources[i]);
+      var html = await res.text();
+      if (html.length < 10000) throw new Error('Response too small from ' + sources[i]);
+      html = html.replace('id="serverAuthLock" class="privacyLock"', 'id="serverAuthLock" class="privacyLock" style="display:none"');
+      html = html.replace(/GM's Locker v6\.7/g, "GM's Locker v6.8");
+      html = html.replace(/Build v6\.7/g, 'Build v6.8');
+      if (html.indexOf('pride-override.js') === -1) {
+        html = html.replace('</body>', '<script src="./pride-override.js"></' + 'script>\n</body>');
+      }
+      document.open();
+      document.write(html);
+      document.close();
+      return;
+    } catch (e) {
+      lastErr = e;
     }
-    html = html.replace(/GM's Locker v6\.7/g, "GM's Locker v6.8");
-    document.open();
-    document.write(html);
-    document.close();
-  } catch(e){
-    document.body.innerHTML = '<div style="font-family:system-ui;background:#050505;color:#f1cf62;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px"><div style="max-width:420px;border:1px solid #6b5720;border-radius:16px;padding:24px;background:#0d0d0d"><h1>GM\'s Locker</h1><p>Could not load the full app.</p><p style="color:#aaa;font-size:13px">'+String(e)+'</p><p><a href="./index-app.html" style="color:#f1cf62">Open index-app.html directly</a></p></div></div>';
   }
+  document.body.innerHTML =
+    '<div style="font-family:system-ui;background:#050505;color:#f1cf62;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">' +
+    '<div style="max-width:440px;border:1px solid #6b5720;border-radius:16px;padding:24px;background:#0d0d0d">' +
+    '<h1 style="margin:0 0 12px">GM\'s Locker</h1>' +
+    '<p>Could not load the full app.</p>' +
+    '<p style="color:#aaa;font-size:13px">' + String(lastErr) + '</p>' +
+    '<p><a href="https://raw.githubusercontent.com/capitolcarnagegm/capitol-carnage-trade-lab/4c5b4ecb943ad419a53c7ae584d04071dc64a863/public-release/index.html" style="color:#f1cf62">Open raw full app</a></p>' +
+    '</div></div>';
 })();
 </script>
 </head>
-<body style="background:#050505;color:#f1cf62;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">
+<body style="margin:0;background:#050505;color:#f1cf62;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh">
 <div>Loading GM's Locker…</div>
 </body>
 </html>
