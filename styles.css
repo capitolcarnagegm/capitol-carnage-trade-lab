@@ -26,6 +26,22 @@ html, body {
 }
 a { color: var(--gold2); text-decoration: none; }
 a:hover { text-decoration: underline; }
+
+.top-banner {
+  background: #000;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 12px 8px;
+}
+.top-banner .banner-logo {
+  max-width: min(560px, 94vw);
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .site-header {
   position: sticky; top: 0; z-index: 100;
   background: linear-gradient(180deg, #0a0a0a 0%, #080808 100%);
@@ -39,15 +55,18 @@ a:hover { text-decoration: underline; }
   color: var(--gold2); font-size: 1.05rem;
   white-space: nowrap;
 }
-.brand-mark {
-  width: 36px; height: 36px; border-radius: 8px;
-  background: linear-gradient(135deg, #1a1508, #0a0a0a);
-  border: 1px solid var(--gold-dim);
-  display: grid; place-items: center;
-  color: var(--gold); font-weight: 800; font-size: 14px;
+.brand-logo {
+  height: 48px;
+  width: auto;
+  border-radius: 6px;
+  object-fit: contain;
 }
+.brand-text { display: flex; flex-direction: column; gap: 2px; }
+.brand-title { font-weight: 700; color: var(--gold2); font-size: 1.05rem; letter-spacing: 0.04em; }
+.brand-sub { font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: 0.08em; }
 .asof { font-size: 12px; color: var(--muted); margin-left: auto; }
 .asof b { color: var(--gold2); font-weight: 600; }
+
 .nav {
   display: flex; gap: 4px; flex-wrap: wrap;
   padding: 8px 12px;
@@ -72,6 +91,7 @@ a:hover { text-decoration: underline; }
   border-color: var(--gold);
   font-weight: 600;
 }
+
 .main { max-width: 1100px; margin: 0 auto; padding: 16px 14px 80px; }
 .card {
   background: var(--card);
@@ -191,6 +211,7 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 .bhs.buy { background: rgba(62,207,142,0.2); color: var(--good); }
 .bhs.hold { background: rgba(232,184,74,0.2); color: var(--warn); }
 .bhs.sell { background: rgba(232,93,93,0.2); color: var(--bad); }
+
 .pinvault {
   position: fixed; right: 12px; bottom: 12px; z-index: 90;
   background: rgba(10,10,10,0.94); border: 1px solid var(--border);
@@ -209,4 +230,13 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 .pinvault .pv-tag {
   display: block; font-size: 10px; color: var(--muted); line-height: 1.25;
 }
-.pinvault a:hover .pv-tag { color: var(--gold2); }
+.pinvault .pv-store {
+  display: block; margin-top: 4px; font-size: 11px; color: var(--gold2); font-weight: 600;
+}
+.pinvault a:hover .pv-tag, .pinvault a:hover .pv-store { color: var(--gold); }
+
+@media (max-width: 480px) {
+  .top-banner { padding: 8px 8px 4px; }
+  .brand-title { font-size: 0.95rem; }
+  .brand-logo { height: 36px; }
+}
