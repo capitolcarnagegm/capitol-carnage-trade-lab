@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GM's Locker v8.0</title>
+<title>GM's Locker v8.1</title>
+<script src="./pride-intercept.js"></script>
 <script>
 (async function () {
   var sources = [
@@ -13,47 +14,26 @@
   for (var i = 0; i < sources.length; i++) {
     try {
       var res = await fetch(sources[i], { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' from ' + sources[i]);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       var html = await res.text();
-      if (html.length < 10000) throw new Error('Response too small from ' + sources[i]);
-
+      if (html.length < 10000) throw new Error('too small');
       html = html.replace(/id="serverAuthLock"[^>]*/g, 'id="serverAuthLock" style="display:none!important;pointer-events:none;visibility:hidden"');
       html = html.replace(/class="privacyLock"/g, 'class="privacyLock" style="display:none!important"');
-      html = html.replace(/GM's Locker v6\.7/g, "GM's Locker v8.0");
-      html = html.replace(/GM's Locker v6\.8/g, "GM's Locker v8.0");
-      html = html.replace(/Build v6\.7/g, "Build v8.0");
-      html = html.replace(/Build v6\.8/g, "Build v8.0");
-      html = html.replace(/v6\.7/g, "v8.0");
-
-      var unlock = '<script>(function(){' +
-        'window.__GMS_OPEN=true;window.GMSLOCKER_ACCESS_TOKEN="";' +
-        'try{localStorage.setItem("gmslocker_access_ok","1");}catch(e){}' +
-        'function killLock(){var el=document.getElementById("serverAuthLock");if(el){el.style.display="none";try{el.remove();}catch(e){}}}' +
-        'window.hideServerAuth=killLock;window.showServerAuth=function(){};window.requireAccess=function(){return false;};' +
-        'document.addEventListener("DOMContentLoaded",killLock);setInterval(killLock,400);' +
-        'setInterval(function(){var h=document.getElementById("buildHealth");if(h&&/v6\./.test(h.textContent||"")){h.innerHTML=(h.innerHTML||"").replace(/v6\.\d+/g,"v8.0");}},1000);' +
-        '})();<\/script>';
+      html = html.replace(/v6\.7/g, "v8.1");
+      html = html.replace(/Private vault locked/g, "Direct Fantrax mode");
+      html = html.replace(/Sign in required/g, "");
+      var unlock = '<script src="./pride-intercept.js"><\/script><script>(function(){window.__GMS_OPEN=true;window.GMSLOCKER_ACCESS_TOKEN="";try{localStorage.setItem("gmslocker_access_ok","1");}catch(e){}function killLock(){var el=document.getElementById("serverAuthLock");if(el){el.style.display="none";try{el.remove();}catch(e){}}}window.hideServerAuth=killLock;window.showServerAuth=function(){};window.requireAccess=function(){return false;};document.addEventListener("DOMContentLoaded",killLock);setInterval(killLock,400);})();<\/script>';
       if (html.indexOf('</head>') >= 0) html = html.replace('</head>', unlock + '</head>');
-      else html = unlock + html;
-
-      var scripts = '<script src="./pride-override.js"><\/script><script src="./pride-boot.js"><\/script><script src="./pride-optimize.js"><\/script><script src="./pride-news.js"><\/script><script src="./pride-trade.js"><\/script>';
+      var scripts = '<script src="./pride-intercept.js"><\/script><script src="./pride-override.js"><\/script><script src="./pride-boot.js"><\/script><script src="./pride-optimize.js"><\/script><script src="./pride-news.js"><\/script><script src="./pride-trade.js"><\/script>';
       if (html.indexOf('</body>') >= 0) html = html.replace('</body>', scripts + '</body>');
-      else html += scripts;
-
-      document.open();
-      document.write(html);
-      document.close();
-      return;
-    } catch (e) {
-      lastErr = e;
-    }
+      document.open(); document.write(html); document.close(); return;
+    } catch (e) { lastErr = e; }
   }
-  document.body.innerHTML =
-    '<div style="font-family:system-ui;background:#050505;color:#f1cf62;padding:24px"><h1>GM\'s Locker</h1><p>' + String(lastErr) + '</p></div>';
+  document.body.innerHTML = '<div style="padding:24px;color:#f1cf62">' + String(lastErr) + '</div>';
 })();
 </script>
 </head>
 <body style="margin:0;background:#050505;color:#f1cf62;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh">
-<div>Loading GM's Locker v8.0…</div>
+<div>Loading GM's Locker v8.1…</div>
 </body>
 </html>
