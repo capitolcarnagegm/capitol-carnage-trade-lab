@@ -7,7 +7,6 @@
 <script>
 (async function () {
   var sources = [
-    './public-release/index-app.html',
     'https://raw.githubusercontent.com/capitolcarnagegm/capitol-carnage-trade-lab/4c5b4ecb943ad419a53c7ae584d04071dc64a863/public-release/index.html'
   ];
   var lastErr = null;
@@ -20,13 +19,6 @@
 
       html = html.replace(/id="serverAuthLock"[^>]*/g, 'id="serverAuthLock" style="display:none!important;pointer-events:none;visibility:hidden"');
       html = html.replace(/class="privacyLock"/g, 'class="privacyLock" style="display:none!important"');
-
-      // Fix relative asset paths when loaded from site root
-      html = html.replace(/src="\.\/pride-override\.js"/g, 'src="./public-release/pride-override.js"');
-      html = html.replace(/href="\.\/([^"])+"/g, function(m) {
-        if (m.indexOf('public-release') >= 0) return m;
-        return m;
-      });
 
       var unlock = '<script>(function(){' +
         'window.__GMS_OPEN=true;' +
@@ -42,11 +34,10 @@
       if (html.indexOf('</head>') >= 0) html = html.replace('</head>', unlock + '</head>');
       else html = unlock + html;
 
-      if (html.indexOf('pride-override.js') === -1) {
-        html = html.replace('</body>', '<script src="./public-release/pride-override.js"><\/script></body>');
-      } else if (html.indexOf('./pride-override.js') >= 0) {
-        html = html.replace('./pride-override.js', './public-release/pride-override.js');
-      }
+      var scripts = '<script src="./public-release/pride-override.js"><\/script>' +
+        '<script src="./public-release/pride-boot.js"><\/script>';
+      if (html.indexOf('</body>') >= 0) html = html.replace('</body>', scripts + '</body>');
+      else html += scripts;
 
       document.open();
       document.write(html);
@@ -60,8 +51,7 @@
     '<div style="font-family:system-ui;background:#050505;color:#f1cf62;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">' +
     '<div style="max-width:440px;border:1px solid #6b5720;border-radius:16px;padding:24px;background:#0d0d0d;text-align:center">' +
     '<h1>GM\'s Locker</h1>' +
-    '<p>Could not load the app from root.</p>' +
-    '<p><a href="./public-release/" style="color:#f1cf62;font-weight:800">Open via /public-release/</a></p>' +
+    '<p>Could not load the app.</p>' +
     '<p style="color:#aaa;font-size:13px">' + String(lastErr) + '</p></div></div>';
 })();
 </script>
