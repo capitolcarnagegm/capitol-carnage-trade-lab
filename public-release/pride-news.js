@@ -1,6 +1,5 @@
-// NFL News Feed — all teams + filter
+// NFL News — ESPN direct (no worker)
 (function () {
-  var GATEWAY = "https://gms-locker-ai.robinharvey001.workers.dev";
   var TEAMS = [
     { id: "", name: "All NFL" },
     { id: "1", name: "ATL" }, { id: "2", name: "BUF" }, { id: "3", name: "CHI" }, { id: "4", name: "CIN" },
@@ -29,17 +28,13 @@
 
   function patchNav() {
     var navEl = document.getElementById("nav");
-    if (!navEl) return;
-    if (navEl.querySelector('[data-view="newsfeed"]')) return;
+    if (!navEl || navEl.querySelector('[data-view="newsfeed"]')) return;
     var btn = document.createElement("button");
     btn.type = "button";
     btn.dataset.view = "newsfeed";
     btn.textContent = "NFL News";
     btn.onclick = function () { showView("newsfeed"); };
-    // insert after Schedule or near top
-    var after = navEl.querySelector('[data-view="schedule"]') || navEl.querySelector('[data-view="livecenter"]');
-    if (after && after.nextSibling) navEl.insertBefore(btn, after.nextSibling);
-    else navEl.appendChild(btn);
+    navEl.appendChild(btn);
   }
 
   window.renderNewsFeed = async function () {
@@ -49,7 +44,7 @@
     var team = window.__newsTeam || "";
     root.innerHTML =
       '<div class="card"><div class="sectionhead"><h2>NFL News Feed</h2><span class="pill">LIVE ESPN</span></div>' +
-      '<div class="notice"><b>All 32 teams.</b> Filter by team or scan league-wide buzz for waiver and trade edges.</div>' +
+      '<div class="notice"><b>All 32 teams.</b> Filter by team or scan league-wide buzz.</div>' +
       '<div class="field" style="margin-top:10px"><label>Team filter</label><select id="newsTeamSelect">' +
       TEAMS.map(function (t) {
         return '<option value="' + t.id + '"' + (t.id === team ? " selected" : "") + '>' + esc(t.name) + "</option>";
@@ -57,7 +52,6 @@
       '</select></div>' +
       '<div class="actions" style="margin-top:8px"><button type="button" onclick="window.prideLoadNews()">REFRESH NEWS</button></div>' +
       '<div id="newsList" style="margin-top:12px"><div class="notice">Loading news…</div></div></div>';
-
     var sel = document.getElementById("newsTeamSelect");
     if (sel) sel.onchange = function () {
       window.__newsTeam = this.value;
@@ -72,29 +66,29 @@
     list.innerHTML = '<div class="notice">Loading…</div>';
     try {
       var team = window.__newsTeam || "";
-      var url = GATEWAY + "/sports/news?limit=50" + (team ? "&team=" + encodeURIComponent(team) : "");
+      var url = team
+        ? "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/" + team + "/news?limit=40"
+        : "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50";
       var res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error("ESPN HTTP " + res.status);
       var data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "HTTP " + res.status);
       var arts = data.articles || [];
       if (!arts.length) {
         list.innerHTML = '<div class="notice">No articles right now.</div>';
         return;
       }
       list.innerHTML = arts.map(function (a) {
-        var teams = (a.teams || []).map(function (t) { return t.abbr || t.name; }).filter(Boolean).join(" · ");
+        var link = (a.links && a.links.web && a.links.web.href) || "";
         var when = a.published ? new Date(a.published).toLocaleString() : "";
         return '<div class="gate" style="align-items:flex-start">' +
           '<span style="flex:1"><b>' + esc(a.headline) + '</b><br>' +
           '<span class="small">' + esc(a.description || "") + '</span><br>' +
-          '<span class="small muted">' + esc(when) + (teams ? " · " + esc(teams) : "") +
-          (a.byline ? " · " + esc(a.byline) : "") + '</span></span>' +
-          (a.link ? '<a class="secondary" href="' + esc(a.link) + '" target="_blank" rel="noopener" style="padding:8px 12px;border:1px solid #6b5720;border-radius:8px;color:#f1cf62;text-decoration:none">Open</a>' : '') +
+          '<span class="small muted">' + esc(when) + (a.byline ? " · " + esc(a.byline) : "") + '</span></span>' +
+          (link ? '<a href="' + esc(link) + '" target="_blank" rel="noopener" style="padding:8px 12px;border:1px solid #6b5720;border-radius:8px;color:#f1cf62;text-decoration:none">Open</a>' : '') +
           '</div>';
       }).join("");
     } catch (e) {
-      list.innerHTML = '<div class="notice"><b>News failed.</b> ' + esc(e.message || e) +
-        ' Deploy worker v8, then refresh.</div>';
+      list.innerHTML = '<div class="notice"><b>News failed.</b> ' + esc(e.message || e) + '</div>';
     }
   };
 
@@ -118,8 +112,7 @@
   function boot() {
     ensureView();
     patchNav();
-    setTimeout(patchNav, 1000);
-    setInterval(patchNav, 5000);
+    setInterval(patchNav, 4000);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

@@ -1,12 +1,17 @@
-// Pride boot — teams, salaries, draft picks, salary cap, ESPN projections
+// Pride boot v8.1 — Fantrax direct (no worker auth required)
 (function () {
-  var GATEWAY = "https://gms-locker-ai.robinharvey001.workers.dev";
+  var LEAGUE = "astbqxhwmk4b6bg9";
   var SALARY_CAP = 1404;
+  var GATEWAY = "https://gms-locker-ai.robinharvey001.workers.dev";
   var tries = 0;
 
   function hideLock() {
     var el = document.getElementById("serverAuthLock");
     if (el) { el.style.display = "none"; try { el.remove(); } catch (e) {} }
+    var health = document.getElementById("buildHealth");
+    if (health && /vault locked/i.test(health.textContent || "")) {
+      health.innerHTML = "<b>GM's Locker v8.1</b> · loading Fantrax…";
+    }
   }
 
   function waitDb() {
@@ -18,15 +23,6 @@
         setTimeout(tick, 150);
       })();
     });
-  }
-
-  function normName(n) {
-    var s = String(n || "").toLowerCase().replace(/[^a-z\s,]/g, " ").replace(/\s+/g, " ").trim();
-    if (s.indexOf(",") >= 0) {
-      var parts = s.split(",").map(function (x) { return x.trim(); }).filter(Boolean);
-      if (parts.length >= 2) s = parts[1] + " " + parts[0];
-    }
-    return s.replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "").replace(/\s+/g, " ").trim();
   }
 
   function pickLabel(year, round, originalName) {
@@ -43,26 +39,45 @@
     return 400;
   }
 
+  async function fx(endpoint, extra) {
+    var url = "https://www.fantrax.com/fxea/general/" + endpoint + "?leagueId=" + encodeURIComponent(LEAGUE);
+    if (extra) {
+      Object.keys(extra).forEach(function (k) {
+        url += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(extra[k]);
+      });
+    }
+    var res = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error(endpoint + " HTTP " + res.status);
+    return res.json();
+  }
+
   async function loadLeague() {
     hideLock();
     tries++;
     try {
-      var res = await fetch(GATEWAY + "/fantrax/live", { cache: "no-store" });
-      var payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || "HTTP " + res.status);
       if (typeof db === "undefined") return;
 
-      var snaps = payload.snapshots || {};
-      var rosterMap = (snaps.rosters && snaps.rosters.rosters) || {};
-      var players = snaps.players || {};
-      var draftPicks = snaps.draftPicks || {};
-      var futurePicks = draftPicks.futureDraftPicks || [];
-      var standings = snaps.standings || [];
-      var projections = payload.projections || {};
+      var results = await Promise.all([
+        fx("getTeamRosters"),
+        fx("getPlayerIds").catch(function () { return {}; }),
+        fx("getStandings").catch(function () { return []; }),
+        fx("getMatchupScores").catch(function () { return {}; }),
+        fx("getDraftPicks").catch(function () { return {}; })
+      ]);
+
+      var rostersPayload = results[0] || {};
+      var players = results[1] || {};
+      var standings = results[2] || [];
+      var matchups = results[3] || {};
+      var draftPicks = results[4] || {};
+
+      var rosterMap = rostersPayload.rosters || rostersPayload || {};
+      // Some responses nest under .rosters
+      if (rosterMap.rosters) rosterMap = rosterMap.rosters;
 
       var id2name = {};
       Object.keys(rosterMap).forEach(function (id) {
-        id2name[id] = rosterMap[id].teamName || id;
+        id2name[id] = (rosterMap[id] && rosterMap[id].teamName) || id;
       });
 
       var franchises = Object.keys(rosterMap).map(function (id) {
@@ -73,26 +88,24 @@
       db.config.salaryCap = SALARY_CAP;
       db.config.leagueName = "Pride Dynasty";
       db.config.teamName = "Capitol Carnage";
-      db.config.teams = franchises.length;
-      db.config.superflex = true;
-      db.config.tep = true;
-      db.config.idp = true;
+      db.config.teams = franchises.length || 14;
 
       db.mfl = db.mfl || {};
       db.mfl.franchises = franchises;
       db.assets = db.assets || [];
 
-      var byFantraxId = {};
-      db.assets.forEach(function (a) {
-        if (a.fantraxId) byFantraxId[String(a.fantraxId)] = a;
-      });
-
+      // Drop old Fantrax picks to avoid stacking
       db.assets = db.assets.filter(function (a) {
         if (a.type === "PICK" && String(a.source || "").indexOf("Fantrax") >= 0) return false;
         return true;
       });
 
-      var withProj = 0;
+      var byId = {};
+      db.assets.forEach(function (a) {
+        if (a.fantraxId) byId[String(a.fantraxId)] = a;
+      });
+
+      var created = 0;
       Object.keys(rosterMap).forEach(function (teamId) {
         var team = rosterMap[teamId];
         var teamName = team.teamName || teamId;
@@ -103,31 +116,24 @@
           var salary = Number(item.salary || 0);
           var years = Number((item.contract && (item.contract.smallId || item.contract.name)) || 0) || 0;
           var pos = String(item.position || p.position || "").toUpperCase();
-          var proj = Number(item.proj || 0);
-          if (!proj) {
-            var key = normName(p.name || "");
-            if (key && projections[key] != null) proj = Number(projections[key]);
-          }
-          if (proj > 0) withProj++;
-
-          if (byFantraxId[id]) {
-            var a = byFantraxId[id];
+          var name = p.name || item.name || id;
+          if (byId[id]) {
+            var a = byId[id];
             a.roster = teamName;
             a.salary = salary;
             a.years = years || a.years;
             a.status = item.status || a.status;
             a.fantraxId = id;
-            a.name = p.name || a.name;
+            a.name = name || a.name;
             a.pos = pos || a.pos;
             a.nfl = p.team || a.nfl;
             a.source = "Fantrax Live";
-            if (proj > 0) a.proj = proj;
             if (!Number(a.market) || Number(a.market) < 50) a.market = Math.max(200, salary * 40);
           } else {
-            db.assets.push({
+            var row = {
               id: "fantrax-" + id,
               fantraxId: id,
-              name: p.name || id,
+              name: name,
               type: "PLAYER",
               pos: pos,
               nfl: p.team || "",
@@ -136,14 +142,18 @@
               roster: teamName,
               status: item.status || "ACTIVE",
               market: Math.max(200, salary * 40),
-              proj: proj,
-              age: 0, role: 55, trend: 0, risk: 40,
+              proj: 0,
+              weeklyProj: 0,
               source: "Fantrax Live"
-            });
+            };
+            db.assets.push(row);
+            byId[id] = row;
+            created++;
           }
         });
       });
 
+      var futurePicks = draftPicks.futureDraftPicks || [];
       var picksAdded = 0;
       futurePicks.forEach(function (fp) {
         var ownerId = fp.currentOwnerTeamId;
@@ -153,7 +163,7 @@
         var name = pickLabel(year, round, origName && origName !== ownerName ? origName : "");
         var id = "pick-" + year + "-r" + round + "-" + (fp.originalOwnerTeamId || ownerId) + "-" + ownerId;
         db.assets.push({
-          id: id, fantraxId: id, name: name, type: "PICK", pos: "PICK", nfl: "",
+          id: id, fantraxId: id, name: name, type: "PICK", pos: "PICK",
           salary: 0, years: 0, roster: ownerName, status: "PICK",
           market: marketForPick(round), proj: 0,
           pickYear: year, pickRound: round, originalOwner: origName, source: "Fantrax Live"
@@ -161,65 +171,40 @@
         picksAdded++;
       });
 
-      var capByTeam = {};
-      franchises.forEach(function (f) {
-        var sal = 0, picks = 0, proj = 0;
-        db.assets.forEach(function (a) {
-          if (String(a.roster || "") !== f.name) return;
-          if (a.type === "PICK") picks++;
-          else {
-            sal += Number(a.salary || 0);
-            proj += Number(a.proj || 0);
-          }
-        });
-        capByTeam[f.name] = {
-          salaryUsed: Math.round(sal * 10) / 10,
-          salaryCap: SALARY_CAP,
-          capSpace: Math.round((SALARY_CAP - sal) * 10) / 10,
-          pickCount: picks,
-          projTotal: Math.round(proj)
-        };
-      });
-
-      db.fantraxMatchups = snaps.matchups || null;
-      db.fantraxStandings = standings;
-      db.fantraxCap = capByTeam;
+      db.fantraxMatchups = matchups;
+      db.fantraxStandings = Array.isArray(standings) ? standings : [];
       db.fantraxLiveMeta = {
         configured: true,
-        syncedAt: payload.syncedAt || new Date().toISOString(),
+        syncedAt: new Date().toISOString(),
         teamCount: franchises.length,
         pickCount: picksAdded,
-        salaryCap: SALARY_CAP,
-        withProj: withProj
+        source: "Fantrax direct"
       };
-      db.lastSync = payload.syncedAt || new Date().toISOString();
+      db.lastSync = new Date().toISOString();
 
       try { if (typeof persist === "function") persist(); } catch (e) {}
 
-      console.log("[pride-boot] teams", franchises.length, "picks", picksAdded, "proj", withProj);
       var health = document.getElementById("buildHealth");
       if (health) {
-        health.innerHTML = "<b>GM's Locker</b> · <span class=\"good\">" +
-          franchises.length + " teams · " + picksAdded + " picks · " + withProj + " projections · cap $" + SALARY_CAP + "</span>";
+        health.innerHTML = "<b>GM's Locker v8.1</b> · <span class=\"good\">" +
+          franchises.length + " teams · " + picksAdded + " picks · direct Fantrax</span>";
+      }
+      console.log("[pride-boot] direct load", franchises.length, "teams", created, "new", picksAdded, "picks");
+
+      if (typeof window.renderTeamsPage === "function") {
+        try { window.renderTeamsPage(); } catch (e) {}
       }
     } catch (e) {
-      console.warn("[pride-boot] load failed", e);
-      if (tries < 4) setTimeout(loadLeague, 1600);
+      console.warn("[pride-boot] direct load failed", e);
+      var health = document.getElementById("buildHealth");
+      if (health) health.innerHTML = "<b>GM's Locker v8.1</b> · <span class=\"bad\">Fantrax load failed: " + String(e.message || e) + "</span>";
+      if (tries < 4) setTimeout(loadLeague, 2000);
     }
   }
-
-  window.prideTeamCap = function (teamName) {
-    var c = (db && db.fantraxCap && db.fantraxCap[teamName]) || null;
-    if (c) return c;
-    return { salaryUsed: 0, salaryCap: SALARY_CAP, capSpace: SALARY_CAP, pickCount: 0, projTotal: 0 };
-  };
 
   window.prideForceRefresh = async function () {
     tries = 0;
     await loadLeague();
-    if (typeof window.renderTeamsPage === "function") {
-      try { window.renderTeamsPage(); } catch (e) {}
-    }
   };
 
   async function start() {
@@ -227,7 +212,7 @@
     setInterval(hideLock, 500);
     await waitDb();
     await loadLeague();
-    setTimeout(loadLeague, 2500);
+    setTimeout(loadLeague, 3000);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
