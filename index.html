@@ -1,93 +1,56 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GM's Locker — Pride Dynasty</title>
-<script>
-(function () {
-  var LEAGUE = "astbqxhwmk4b6bg9";
-  var _fetch = window.fetch.bind(window);
-  window.fetch = async function (input, init) {
-    var u = "";
-    try { u = typeof input === "string" ? input : (input && input.url) || ""; } catch (e) {}
-    var isWorker = u.indexOf("gms-locker-ai") >= 0 || u.indexOf("workers.dev") >= 0;
-    if (!isWorker) return _fetch(input, init);
-    if (u.indexOf("/sports/news") >= 0 || /\/news(\?|$)/.test(u)) {
-      try {
-        var er = await _fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50", { cache: "no-store" });
-        var ed = await er.json();
-        return new Response(JSON.stringify({ ok: true, articles: ed.articles || [] }), { status: 200, headers: { "Content-Type": "application/json" } });
-      } catch (e) {
-        return new Response(JSON.stringify({ ok: false, error: String(e.message || e) }), { status: 200, headers: { "Content-Type": "application/json" } });
-      }
-    }
-    if (u.indexOf("/optimize") >= 0) {
-      return new Response(JSON.stringify({ ok: false, error: "client-optimize" }), { status: 200, headers: { "Content-Type": "application/json" } });
-    }
-    if (u.indexOf("/fantrax") >= 0 || u.indexOf("/health") >= 0) {
-      try {
-        async function fx(ep) {
-          var r = await _fetch("https://www.fantrax.com/fxea/general/" + ep + "?leagueId=" + encodeURIComponent(LEAGUE), { cache: "no-store", headers: { Accept: "application/json" } });
-          if (!r.ok) throw new Error(ep + " HTTP " + r.status);
-          return r.json();
-        }
-        if (u.indexOf("/health") >= 0) {
-          return new Response(JSON.stringify({ ok: true, accessConfigured: false, fantraxConfigured: true }), { status: 200, headers: { "Content-Type": "application/json" } });
-        }
-        var parts = await Promise.all([
-          fx("getTeamRosters"),
-          fx("getPlayerIds").catch(function () { return {}; }),
-          fx("getStandings").catch(function () { return []; }),
-          fx("getMatchupScores").catch(function () { return {}; }),
-          fx("getDraftPicks").catch(function () { return {}; })
-        ]);
-        return new Response(JSON.stringify({
-          ok: true, configured: true, syncedAt: new Date().toISOString(),
-          snapshots: { rosters: parts[0], players: parts[1], standings: parts[2], matchups: parts[3], draftPicks: parts[4] }
-        }), { status: 200, headers: { "Content-Type": "application/json" } });
-      } catch (e) {
-        return new Response(JSON.stringify({ ok: false, error: String(e.message || e) }), { status: 200, headers: { "Content-Type": "application/json" } });
-      }
-    }
-    return _fetch(input, init);
-  };
-})();
-</script>
-<script>
-(async function () {
-  var APP = "https://raw.githubusercontent.com/capitolcarnagegm/capitol-carnage-trade-lab/4c5b4ecb943ad419a53c7ae584d04071dc64a863/public-release/index.html";
-  try {
-    var res = await fetch(APP, { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    var html = await res.text();
-    if (html.length < 10000) throw new Error("App shell too small");
-    html = html.replace(/id="serverAuthLock"[^>]*/g, 'id="serverAuthLock" style="display:none!important;pointer-events:none;visibility:hidden"');
-    html = html.replace(/class="privacyLock"/g, 'class="privacyLock" style="display:none!important"');
-    html = html.replace(/v6\.7/g, "v8.1");
-    html = html.replace(/Private vault locked/g, "Pride Bylaws live");
-    html = html.replace(/Sign in required/gi, "");
-    var boot = '<script>(function(){window.__GMS_OPEN=true;window.GMSLOCKER_ACCESS_TOKEN="";try{localStorage.setItem("gmslocker_access_ok","1");}catch(e){}function killLock(){var el=document.getElementById("serverAuthLock");if(el){el.style.display="none";try{el.remove();}catch(e){}}}window.hideServerAuth=killLock;window.showServerAuth=function(){};window.requireAccess=function(){return false;};document.addEventListener("DOMContentLoaded",killLock);setInterval(killLock,400);})();<\/script>';
-    if (html.indexOf("</head>") >= 0) html = html.replace("</head>", boot + "</head>");
-    var scripts =
-      '<script src="/pride-bylaws.js"><\/script>' +
-      '<script src="/pride-intercept.js"><\/script>' +
-      '<script src="/pride-boot.js"><\/script>' +
-      '<script src="/pride-override.js"><\/script>' +
-      '<script src="/pride-cap.js"><\/script>' +
-      '<script src="/pride-optimize.js"><\/script>' +
-      '<script src="/pride-news.js"><\/script>' +
-      '<script src="/pride-trade.js"><\/script>';
-    if (html.indexOf("</body>") >= 0) html = html.replace("</body>", scripts + "</body>");
-    else html += scripts;
-    document.open(); document.write(html); document.close();
-  } catch (e) {
-    document.body.innerHTML = '<div style="padding:24px;background:#050505;color:#f1cf62;font-family:system-ui"><h1>GM\'s Locker</h1><p>' + String(e) + '</p></div>';
-  }
-})();
-</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050505">
+  <title>GM's Locker — Pride Dynasty</title>
+  <meta name="description" content="War Room for Fantrax dynasty. Simulate moves. Execute in your league.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%23050505' width='64' height='64' rx='12'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' font-family='system-ui' font-weight='800' fill='%23d4af37'%3EGM%3C/text%3E%3C/svg%3E">
 </head>
-<body style="margin:0;background:#050505;color:#f1cf62;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh">
-<div>Loading Pride Dynasty…</div>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <div class="brand-mark">GM</div>
+      <div>
+        GM's Locker
+        <div style="font-size:11px;color:var(--muted);font-weight:500;letter-spacing:0.08em">PRIDE DYNASTY · FANTRAX</div>
+      </div>
+    </div>
+    <div class="asof" id="asof">Connecting…</div>
+  </header>
+
+  <nav class="nav" id="nav">
+    <button type="button" data-view="war">War Room</button>
+    <button type="button" data-view="team">My Team</button>
+    <button type="button" data-view="teams">Teams</button>
+    <button type="button" data-view="cap">Cap / Dead</button>
+    <button type="button" data-view="bhs">Buy / Hold / Sell</button>
+    <button type="button" data-view="waivers">Waivers</button>
+    <button type="button" data-view="trade">Trade Lab</button>
+    <button type="button" data-view="analysts">Analysts</button>
+    <button type="button" data-view="picks">Picks</button>
+    <button type="button" data-view="news">News</button>
+    <button type="button" data-view="chat">GM Chat</button>
+    <button type="button" data-view="settings">Settings</button>
+  </nav>
+
+  <main class="main" id="main">
+    <div class="loading">Loading GM's Locker…</div>
+  </main>
+
+  <footer class="site-footer">
+    <div><span class="gold">GM's Locker</span> · Simulate here · Execute in Fantrax</div>
+    <div style="margin-top:6px">Pride ain't cheap. · Bylaws-aware · O + IDP</div>
+  </footer>
+
+  <div class="pinvault" id="pinvault">
+    <span class="x" id="pinvaultClose" title="Dismiss">×</span>
+    Get your collectibles from<br>
+    <a href="https://www.pinvaultcollectibles.com" target="_blank" rel="noopener">Pin Vault Collectibles</a>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
