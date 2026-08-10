@@ -29,106 +29,206 @@ const ENDPOINTS = {
   players: "getPlayerIds"
 };
 
+const SEASON_PROJ = "PROJECTION_0_23l_SEASON";
+const WEEKLY_PROJ = "PROJECTION_0_23l_EVENT_PROJECTED_WEEKLY";
+const MY_TEAM_ID = "nsf1b7esmk4b6bgd";
+
 async function fantrax(endpoint, leagueId, extra = {}) {
   const url = new URL(`https://www.fantrax.com/fxea/general/${endpoint}`);
   if (endpoint !== "getPlayerIds") url.searchParams.set("leagueId", leagueId);
   else url.searchParams.set("sport", "NFL");
   for (const [k, v] of Object.entries(extra)) url.searchParams.set(k, v);
   const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json", "User-Agent": "GMsLocker/7.3" }
+    headers: { Accept: "application/json", "User-Agent": "GMsLocker/7.4" }
   });
   if (!res.ok) throw new Error(`${endpoint} HTTP ${res.status}`);
   return res.json();
 }
 
-function normName(n) {
-  let s = String(n || "").toLowerCase().replace(/[^a-z\s,]/g, " ").replace(/\s+/g, " ").trim();
-  if (s.includes(",")) {
-    const parts = s.split(",").map((x) => x.trim()).filter(Boolean);
-    if (parts.length >= 2) s = parts[1] + " " + parts[0];
-  }
-  return s.replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "").replace(/\s+/g, " ").trim();
-}
-
-async function fetchEspnProjections() {
-  const filter = {
-    players: {
-      filterStatus: { value: ["FREEAGENT", "WAIVERS", "ONTEAM"] },
-      sortPercOwned: { sortPriority: 1, sortAsc: false },
-      limit: 1500
-    }
-  };
-  const url =
-    "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leaguedefaults/3?view=kona_player_info";
-  const res = await fetch(url, {
+async function fantraxPa(leagueId, msgs) {
+  const res = await fetch(`https://www.fantrax.com/fxpa/req?leagueId=${leagueId}`, {
+    method: "POST",
     headers: {
       Accept: "application/json",
-      "User-Agent": "GMsLocker/7.3",
-      "x-fantasy-filter": JSON.stringify(filter)
-    }
+      "Content-Type": "application/json",
+      "User-Agent": "GMsLocker/7.4"
+    },
+    body: JSON.stringify({ msgs })
   });
-  if (!res.ok) throw new Error("ESPN projections HTTP " + res.status);
-  const data = await res.json();
-  const byName = {};
-  for (const row of data.players || []) {
-    const pl = row.player || {};
-    const name = pl.fullName || "";
-    if (!name) continue;
-    let best = null;
-    for (const s of pl.stats || []) {
-      if (s.seasonId === 2026 && s.scoringPeriodId === 0 && s.statSourceId === 1) {
-        best = Number(s.appliedTotal || 0);
-        break;
-      }
+  if (!res.ok) throw new Error(`fxpa HTTP ${res.status}`);
+  return res.json();
+}
+
+function cellNum(cells, idx) {
+  const raw = cells?.[idx]?.content;
+  if (raw == null) return 0;
+  const n = Number(String(raw).replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+async function fetchTeamProjections(leagueId, teamId, seasonOrProjection) {
+  const resp = await fantraxPa(leagueId, [{
+    method: "getTeamRosterInfo",
+    data: {
+      leagueId,
+      teamId,
+      view: "STATS",
+      seasonOrProjection
     }
-    if (best == null) {
-      let sum = 0;
-      let weeks = 0;
-      for (const s of pl.stats || []) {
-        if (s.seasonId === 2026 && s.statSourceId === 1 && (s.scoringPeriodId || 0) > 0) {
-          sum += Number(s.appliedTotal || 0);
-          weeks++;
-        }
+  }]);
+  const data = resp?.responses?.[0]?.data || {};
+  const rows = data?.tables?.[0]?.rows || [];
+  const out = {};
+  for (const row of rows) {
+    const id = row?.scorer?.scorerId;
+    if (!id) continue;
+    // Fantrax roster table: [2]=salary [3]=years [4]=FPTS [5]=PPG
+    const fpts = cellNum(row.cells, 4);
+    const ppg = cellNum(row.cells, 5);
+    out[id] = {
+      id,
+      name: row?.scorer?.name || id,
+      pos: String(row?.scorer?.posShortNames || "").replace(/<[^>]+>/g, ""),
+      statusId: row?.statusId,
+      posId: row?.posId,
+      eligiblePosIds: row?.eligiblePosIds || [],
+      fpts,
+      ppg,
+      opponent: row?.cells?.[1]?.content || ""
+    };
+  }
+  return out;
+}
+
+async function fetchAllProjections(leagueId, teamIds) {
+  const season = {};
+  const weekly = {};
+  const settled = await Promise.allSettled(
+    teamIds.flatMap((tid) => [
+      fetchTeamProjections(leagueId, tid, SEASON_PROJ).then((m) => ({ kind: "season", tid, m })),
+      fetchTeamProjections(leagueId, tid, WEEKLY_PROJ).then((m) => ({ kind: "weekly", tid, m }))
+    ])
+  );
+  for (const r of settled) {
+    if (r.status !== "fulfilled") continue;
+    const { kind, m } = r.value;
+    const target = kind === "season" ? season : weekly;
+    Object.assign(target, m);
+  }
+  return { season, weekly };
+}
+
+// Active lineup slots for Pride Dynasty (from Fantrax rosterInfo)
+const LINEUP_SLOTS = [
+  { slot: "QB", need: 1, accept: ["QB"] },
+  { slot: "SFX", need: 1, accept: ["QB", "RB", "WR", "TE"] },
+  { slot: "RB", need: 2, accept: ["RB"] },
+  { slot: "WR", need: 3, accept: ["WR"] },
+  { slot: "TE", need: 1, accept: ["TE"] },
+  { slot: "RWT", need: 1, accept: ["RB", "WR", "TE"] },
+  { slot: "DL", need: 3, accept: ["DL"] },
+  { slot: "LB", need: 2, accept: ["LB"] },
+  { slot: "DB", need: 3, accept: ["DB"] },
+  { slot: "ID", need: 2, accept: ["DL", "LB", "DB"] }
+];
+
+function primaryPos(posStr) {
+  const p = String(posStr || "").toUpperCase();
+  if (p.includes("QB") || p.includes("SFX")) return "QB";
+  if (p.includes("RB")) return "RB";
+  if (p.includes("WR")) return "WR";
+  if (p.includes("TE")) return "TE";
+  if (p.includes("DL") || p.includes("DE") || p.includes("DT")) return "DL";
+  if (p.includes("LB")) return "LB";
+  if (p.includes("DB") || p.includes("CB") || p.includes("S")) return "DB";
+  return p.split(/[^A-Z]/)[0] || "?";
+}
+
+function optimizeLineup(players) {
+  // players: [{id,name,pos,weekly,season,status}]
+  const pool = players
+    .filter((p) => p && Number(p.weekly || p.season || 0) >= 0)
+    .map((p) => ({
+      ...p,
+      primary: primaryPos(p.pos),
+      score: Number(p.weekly || 0) || Number(p.season || 0) / 17
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  const used = new Set();
+  const starters = [];
+  for (const spec of LINEUP_SLOTS) {
+    for (let n = 0; n < spec.need; n++) {
+      const pick = pool.find((p) => !used.has(p.id) && spec.accept.includes(p.primary));
+      if (!pick) {
+        starters.push({ slot: spec.slot, empty: true });
+        continue;
       }
-      if (weeks) best = sum;
-    }
-    if (best != null && best > 0) {
-      byName[normName(name)] = Math.round(best * 10) / 10;
+      used.add(pick.id);
+      starters.push({
+        slot: spec.slot,
+        id: pick.id,
+        name: pick.name,
+        pos: pick.pos,
+        weekly: Math.round(pick.score * 10) / 10,
+        season: pick.season || 0
+      });
     }
   }
-  return byName;
+  const bench = pool
+    .filter((p) => !used.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      pos: p.pos,
+      weekly: Math.round(p.score * 10) / 10,
+      season: p.season || 0
+    }));
+  const projectedTotal = starters.reduce((s, x) => s + (x.weekly || 0), 0);
+  return {
+    slots: LINEUP_SLOTS.map((s) => ({ slot: s.slot, need: s.need })),
+    starters,
+    bench,
+    projectedTotal: Math.round(projectedTotal * 10) / 10
+  };
 }
 
 async function syncAll(leagueId) {
   const startedAt = new Date().toISOString();
   const kinds = Object.keys(ENDPOINTS);
-  const results = await Promise.allSettled([
-    ...kinds.map((k) => fantrax(ENDPOINTS[k], leagueId)),
-    fetchEspnProjections()
-  ]);
+  const base = await Promise.allSettled(kinds.map((k) => fantrax(ENDPOINTS[k], leagueId)));
   const snapshots = {};
   const errors = [];
-  kinds.forEach((kind, i) => {
-    const r = results[i];
+  base.forEach((r, i) => {
+    const kind = kinds[i];
     if (r.status === "fulfilled") snapshots[kind] = r.value;
     else errors.push({ kind, error: String(r.reason?.message || r.reason) });
   });
-  const projResult = results[results.length - 1];
-  let projections = {};
-  if (projResult.status === "fulfilled") projections = projResult.value;
-  else errors.push({ kind: "projections", error: String(projResult.reason?.message || projResult.reason) });
 
-  // Attach proj onto roster items when name matches
-  const players = snapshots.players || {};
-  const rosters = snapshots.rosters?.rosters || {};
+  const rosterMap = snapshots.rosters?.rosters || {};
+  const teamIds = Object.keys(rosterMap);
+  let projections = { season: {}, weekly: {} };
+  try {
+    projections = await fetchAllProjections(leagueId, teamIds.length ? teamIds : [MY_TEAM_ID]);
+  } catch (e) {
+    errors.push({ kind: "projections", error: String(e?.message || e) });
+  }
+
+  // Attach onto roster items
   let matched = 0;
-  for (const team of Object.values(rosters)) {
+  for (const team of Object.values(rosterMap)) {
     for (const item of team.rosterItems || []) {
-      const p = players[item.id] || {};
-      const key = normName(p.name || "");
-      if (key && projections[key] != null) {
-        item.proj = projections[key];
+      const id = String(item.id || "");
+      const s = projections.season[id];
+      const w = projections.weekly[id];
+      if (s) {
+        item.proj = s.fpts;
+        item.ppg = s.ppg;
         matched++;
+      }
+      if (w) {
+        item.weeklyProj = w.fpts;
+        item.opponent = w.opponent;
       }
     }
   }
@@ -139,7 +239,15 @@ async function syncAll(leagueId) {
     syncedAt: startedAt,
     snapshots,
     projections,
-    projectionMeta: { source: "ESPN 2026 season", matched, total: Object.keys(projections).length },
+    projectionMeta: {
+      source: "Fantrax roster projections",
+      seasonCode: SEASON_PROJ,
+      weeklyCode: WEEKLY_PROJ,
+      matched,
+      seasonCount: Object.keys(projections.season).length,
+      weeklyCount: Object.keys(projections.weekly).length
+    },
+    lineupSlots: LINEUP_SLOTS,
     errors,
     leagueId
   };
@@ -153,6 +261,7 @@ export default {
     }
     const url = new URL(request.url);
     const leagueId = env.FANTRAX_LEAGUE_ID || "astbqxhwmk4b6bg9";
+    const teamId = env.FANTRAX_TEAM_ID || MY_TEAM_ID;
 
     if (url.pathname === "/" || url.pathname === "/health") {
       return json({
@@ -160,7 +269,7 @@ export default {
         service: "GM's Locker Fantrax Proxy",
         fantraxConfigured: true,
         leagueId,
-        projections: true,
+        projections: "fantrax",
         providers: { gemini: Boolean(env.GEMINI_API_KEY) }
       }, 200, origin);
     }
@@ -168,55 +277,50 @@ export default {
     try {
       if ((url.pathname === "/fantrax/live" && request.method === "GET") ||
           (url.pathname === "/fantrax/sync" && request.method === "POST")) {
-        const data = await syncAll(leagueId);
-        return json(data, 200, origin);
+        return json(await syncAll(leagueId), 200, origin);
       }
-      if (url.pathname === "/league-data" && request.method === "GET") {
+
+      if (url.pathname === "/optimize" && (request.method === "GET" || request.method === "POST")) {
         const data = await syncAll(leagueId);
-        const players = data.snapshots.players || {};
-        const rosters = data.snapshots.rosters?.rosters || {};
-        const assets = [];
-        for (const team of Object.values(rosters)) {
-          for (const item of team.rosterItems || []) {
-            const p = players[item.id] || {};
-            assets.push({
-              fantraxId: item.id,
-              name: p.name || item.id,
-              pos: item.position || p.position || "",
-              nfl: p.team || "",
-              salary: item.salary ?? 0,
-              years: Number(item.contract?.smallId || item.contract?.name || 0) || 0,
-              roster: team.teamName,
-              status: item.status || "ROSTERED",
-              proj: item.proj || 0
-            });
-          }
-        }
-        const teams = Object.entries(rosters).map(([id, t]) => ({ id, name: t.teamName }));
+        const rosterMap = data.snapshots?.rosters?.rosters || {};
+        const playersMap = data.snapshots?.players || {};
+        const season = data.projections?.season || {};
+        const weekly = data.projections?.weekly || {};
+        const my = rosterMap[teamId];
+        if (!my) return json({ ok: false, error: "Team not found" }, 404, origin);
+        const players = (my.rosterItems || []).map((item) => {
+          const p = playersMap[item.id] || {};
+          const s = season[item.id] || {};
+          const w = weekly[item.id] || {};
+          return {
+            id: item.id,
+            name: p.name || s.name || item.id,
+            pos: item.position || p.position || s.pos || "",
+            status: item.status,
+            salary: item.salary,
+            weekly: w.fpts || item.weeklyProj || 0,
+            season: s.fpts || item.proj || 0,
+            opponent: w.opponent || item.opponent || ""
+          };
+        });
+        // Prefer ACTIVE for starter pool; still allow RESERVE if needed
+        const activeFirst = [
+          ...players.filter((p) => /ACTIVE/i.test(p.status || "")),
+          ...players.filter((p) => !/ACTIVE/i.test(p.status || "") && !/MINORS|INJURED/i.test(p.status || ""))
+        ];
+        const lineup = optimizeLineup(activeFirst.length ? activeFirst : players);
         return json({
           ok: true,
-          dataset: {
-            schemaVersion: 1,
-            datasetVersion: data.syncedAt,
-            source: "Fantrax Live + ESPN Projections",
-            importedAt: data.syncedAt,
-            league: {
-              name: "Pride Dynasty",
-              teamName: "Capitol Carnage",
-              teamCount: teams.length,
-              teams,
-              salaryCap: 1404
-            },
-            assets,
-            counts: {
-              totalPlayers: assets.length,
-              rostered: assets.length,
-              freeAgents: 0,
-              withProj: assets.filter((a) => a.proj > 0).length
-            }
-          }
+          team: my.teamName,
+          teamId,
+          opponent: (data.snapshots?.matchups?.matchups || []).find((g) =>
+            g?.home?.teamId === teamId || g?.away?.teamId === teamId
+          ) || null,
+          source: "Fantrax weekly projections",
+          lineup
         }, 200, origin);
       }
+
       return json({ ok: false, error: "Not found" }, 404, origin);
     } catch (e) {
       return json({ ok: false, error: String(e?.message || e) }, 500, origin);
