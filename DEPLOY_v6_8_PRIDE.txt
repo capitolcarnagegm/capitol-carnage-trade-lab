@@ -1,0 +1,18 @@
+GM's Locker v6.8.0-pride-fantrax
+
+Changes:
+- DEFAULT_CONFIG locked to Pride Dynasty / Capitol Carnage
+- Fantrax League ID: astbqxhwmk4b6bg9
+- Team ID: nsf1b7esmk4b6bgd
+- 14 teams, Superflex, TEP, IDP, sack premium
+- Worker falls back to Pride league ID if env missing
+- FANTRAX_LEAGUE_ID added to wrangler vars
+
+REQUIRED (you must do this in Cloudflare):
+1. Deploy the multi-ai-worker / worker with:
+   npx wrangler deploy
+2. Confirm secret GEMINI_API_KEY is set on the worker
+3. Confirm var FANTRAX_LEAGUE_ID = astbqxhwmk4b6bg9
+4. After deploy, POST /fantrax/sync to load live rosters
+
+GitHub Pages will serve the updated index.html once the root file is restored.

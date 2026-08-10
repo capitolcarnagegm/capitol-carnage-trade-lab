@@ -15,8 +15,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "your-private-d1",
-      "database_id": "replace-locally-and-never-commit",
+      "database_name": "gms-locker-db",
+      "database_id": "4d3b93c6-25cf-42cc-9458-8fe6deb20c17",
       "migrations_dir": "migrations"
     }
   ],
@@ -31,6 +31,7 @@
     "GEMINI_MODEL": "gemini-3.5-flash-lite",
     "LLAMA_MODEL": "@cf/meta/llama-4-scout-17b-16e-instruct",
     "GEMINI_DAILY_REQUEST_LIMIT": "45",
+    "FANTRAX_LEAGUE_ID": "astbqxhwmk4b6bg9",
     "LLAMA_DAILY_NEURON_LIMIT": "7500"
   }
 }
