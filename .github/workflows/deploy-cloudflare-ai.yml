@@ -25,6 +25,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_D1_DATABASE_NAME: gms-locker-db
 
     steps:
       - name: Check out repository
@@ -40,12 +41,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate required deployment secrets
+      - name: Validate Cloudflare credentials
         shell: bash
         run: |
           set -euo pipefail
           missing=0
-          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_D1_DATABASE_ID CLOUDFLARE_D1_DATABASE_NAME; do
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
             if [ -z "${!name:-}" ]; then
               echo "::error::Missing GitHub Actions secret: ${name}"
               missing=1
@@ -54,28 +55,40 @@ jobs:
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
-        env:
-          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
-          CLOUDFLARE_D1_DATABASE_NAME: ${{ secrets.CLOUDFLARE_D1_DATABASE_NAME }}
 
-      - name: Build CI Wrangler config
+      - name: Discover existing D1 database and build Wrangler config
         shell: bash
         run: |
           set -euo pipefail
+          npx wrangler d1 list --json > /tmp/d1-list.json
           cp wrangler.example.jsonc wrangler.jsonc
           python3 - <<'PY'
           from pathlib import Path
+          import json
           import os
+
+          raw = json.loads(Path("/tmp/d1-list.json").read_text())
+          if isinstance(raw, dict):
+              databases = raw.get("result") or raw.get("databases") or raw.get("items") or []
+          else:
+              databases = raw
+
+          name = os.environ["CLOUDFLARE_D1_DATABASE_NAME"]
+          match = next((db for db in databases if db.get("name") == name), None)
+          if not match:
+              raise SystemExit(f"Cloudflare D1 database {name!r} was not found")
+
+          database_id = match.get("uuid") or match.get("database_id") or match.get("id")
+          if not database_id:
+              raise SystemExit(f"Cloudflare did not return an ID for D1 database {name!r}")
 
           path = Path("wrangler.jsonc")
           text = path.read_text()
-          text = text.replace('"database_name": "your-private-d1"', f'"database_name": "{os.environ["CLOUDFLARE_D1_DATABASE_NAME"]}"')
-          text = text.replace('"database_id": "replace-locally-and-never-commit"', f'"database_id": "{os.environ["CLOUDFLARE_D1_DATABASE_ID"]}"')
+          text = text.replace('"database_name": "your-private-d1"', f'"database_name": "{name}"')
+          text = text.replace('"database_id": "replace-locally-and-never-commit"', f'"database_id": "{database_id}"')
           path.write_text(text)
+          print(f"Using D1 database: {name}")
           PY
-        env:
-          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
-          CLOUDFLARE_D1_DATABASE_NAME: ${{ secrets.CLOUDFLARE_D1_DATABASE_NAME }}
 
       - name: Run tests
         run: npm test
@@ -85,8 +98,6 @@ jobs:
 
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply "$CLOUDFLARE_D1_DATABASE_NAME" --remote --config wrangler.jsonc
-        env:
-          CLOUDFLARE_D1_DATABASE_NAME: ${{ secrets.CLOUDFLARE_D1_DATABASE_NAME }}
 
       - name: Deploy Worker
         run: npx wrangler deploy --config wrangler.jsonc
