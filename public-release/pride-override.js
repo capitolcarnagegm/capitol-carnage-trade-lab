@@ -1,42 +1,132 @@
-// Pride Dynasty v6.9 — Teams, Buy/Sell/Hold, dedupe, FA alerts, Fantrax-only
+// Pride Dynasty v7.0 — Force full Fantrax league load, Teams+values, Schedule, matchup analysis
 (function () {
   const MY_TEAM = "Capitol Carnage";
   const MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   const LEAGUE_ID = "astbqxhwmk4b6bg9";
+  const GATEWAY = (typeof AI_GATEWAY_URL !== "undefined" && AI_GATEWAY_URL) || "https://gms-locker-ai.robinharvey001.workers.dev";
+  let liveCache = null;
 
   function forceConfig() {
     if (typeof DEFAULT_CONFIG !== "undefined") {
       Object.assign(DEFAULT_CONFIG, {
-        leagueName: "Pride Dynasty",
-        teamName: MY_TEAM,
-        teams: 14,
-        salaryCap: 1404,
-        superflex: true,
-        tep: true,
-        idp: true,
-        sackPremium: true,
-        fantraxLeagueId: LEAGUE_ID,
-        fantraxTeamId: MY_TEAM_ID
+        leagueName: "Pride Dynasty", teamName: MY_TEAM, teams: 14, salaryCap: 1404,
+        superflex: true, tep: true, idp: true, sackPremium: true,
+        fantraxLeagueId: LEAGUE_ID, fantraxTeamId: MY_TEAM_ID
       });
     }
     if (typeof db !== "undefined" && db.config) {
       Object.assign(db.config, {
-        leagueName: "Pride Dynasty",
-        teamName: MY_TEAM,
-        teams: 14,
-        salaryCap: 1404,
-        superflex: true,
-        tep: true,
-        idp: true,
-        sackPremium: true
+        leagueName: "Pride Dynasty", teamName: MY_TEAM, teams: 14, salaryCap: 1404,
+        superflex: true, tep: true, idp: true, sackPremium: true
       });
-      try { localStorage.setItem("ccgm_db", JSON.stringify(db)); } catch (e) {}
     }
   }
 
   function hideLock() {
-    var lock = document.getElementById("serverAuthLock");
+    const lock = document.getElementById("serverAuthLock");
     if (lock) lock.style.display = "none";
+  }
+
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;" }[c]));
+  }
+
+  function ensureView(id) {
+    if (document.getElementById(id)) return;
+    const sec = document.createElement("section");
+    sec.id = id;
+    sec.className = "view";
+    (document.querySelector(".app") || document.body).appendChild(sec);
+  }
+
+  async function forceLoadFantraxLeague() {
+    forceConfig();
+    hideLock();
+    let payload;
+    try {
+      const res = await fetch(GATEWAY + "/fantrax/live", { cache: "no-store" });
+      payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || "HTTP " + res.status);
+    } catch (e) {
+      console.warn("[Pride] fantrax/live failed", e);
+      return null;
+    }
+    liveCache = payload;
+    const snaps = payload.snapshots || {};
+    const players = snaps.players || {};
+    const rosterMap = (snaps.rosters && snaps.rosters.rosters) || {};
+    const standings = snaps.standings || [];
+    if (typeof db === "undefined") return payload;
+
+    const franchises = Object.entries(rosterMap).map(([id, t]) => ({ id, name: t.teamName || id }));
+    db.mfl = db.mfl || {};
+    db.mfl.franchises = franchises;
+    db.mfl.standings = (Array.isArray(standings) ? standings : []).map((s) => ({
+      franchise: s.teamName, wins: 0, losses: 0, points: s.totalPointsFor || 0, raw: s
+    }));
+
+    const byId = new Map();
+    (db.assets || []).forEach((a) => { if (a.fantraxId) byId.set(String(a.fantraxId), a); });
+    const rosteredIds = new Set();
+    let created = 0, updated = 0;
+
+    for (const [teamId, team] of Object.entries(rosterMap)) {
+      const teamName = team.teamName || teamId;
+      for (const item of team.rosterItems || []) {
+        const id = String(item.id || "");
+        if (!id) continue;
+        rosteredIds.add(id);
+        const p = players[id] || {};
+        const name = p.name || id;
+        const pos = String(item.position || p.position || "").toUpperCase();
+        const salary = Number(item.salary || 0);
+        const years = Number(item.contract && (item.contract.smallId || item.contract.name) || 0) || 0;
+        const status = item.status || "ACTIVE";
+        const nfl = p.team || "";
+        let asset = byId.get(id);
+        if (!asset) {
+          asset = {
+            id: "fantrax-" + id, fantraxId: id, name, type: "PLAYER", pos, nfl, age: 0,
+            market: Math.max(200, salary * 40), adp: 0, ecr: 0, proj: 0, ppg: 0, role: 55, trend: 0, risk: 40, liquidity: 55,
+            salary, years, roster: teamName, status, source: "Fantrax Live",
+            sources: { roster: "Fantrax Live", salary: "Fantrax Live", name: "Fantrax Live", pos: "Fantrax Live" }
+          };
+          db.assets = db.assets || [];
+          db.assets.push(asset);
+          byId.set(id, asset);
+          created++;
+        } else {
+          asset.fantraxId = id;
+          asset.name = name || asset.name;
+          asset.pos = pos || asset.pos;
+          asset.nfl = nfl || asset.nfl;
+          asset.salary = salary;
+          asset.years = years || asset.years;
+          asset.roster = teamName;
+          asset.status = status;
+          asset.source = "Fantrax Live";
+          asset.sources = asset.sources || {};
+          asset.sources.roster = "Fantrax Live";
+          asset.sources.salary = "Fantrax Live";
+          if (!Number(asset.market) || Number(asset.market) < 50) asset.market = Math.max(200, salary * 40);
+          updated++;
+        }
+      }
+    }
+
+    db.fantraxLiveMeta = { configured: true, syncedAt: payload.syncedAt || new Date().toISOString(), teamCount: franchises.length, rosteredCount: rosteredIds.size };
+    db.fantraxMatchups = snaps.matchups || null;
+    db.fantraxStandings = standings;
+    db.config.teams = franchises.length;
+    db.config.leagueName = "Pride Dynasty";
+    db.config.teamName = MY_TEAM;
+    db.lastSync = payload.syncedAt || new Date().toISOString();
+    dedupeAssets();
+    try { if (typeof persist === "function") persist(); } catch (e) {}
+    console.log("[Pride] League loaded:", franchises.length, "teams,", rosteredIds.size, "rostered, +", created, "new,", updated, "updated");
+    const health = document.getElementById("buildHealth");
+    if (health) health.innerHTML = `<b>GM's Locker v7.0</b> · <span class="good">${franchises.length} teams · ${rosteredIds.size} rostered from Fantrax</span>`;
+    return payload;
   }
 
   function dedupeAssets() {
@@ -45,21 +135,13 @@
     const kept = [];
     let removed = 0;
     for (const a of db.assets) {
-      const fid = String(a.fantraxId || a.mflId || "").trim();
+      const fid = String(a.fantraxId || "").trim();
       const nameKey = String(a.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       const key = fid ? "id:" + fid : "name:" + nameKey + "|" + String(a.pos || "").toUpperCase();
       if (!nameKey && !fid) { kept.push(a); continue; }
       if (byKey.has(key)) {
         const prev = byKey.get(key);
-        const score = (x) => {
-          let s = 0;
-          if (String(x.source || "").toUpperCase().includes("FANTRAX")) s += 10;
-          if (x.fantraxId) s += 5;
-          if (x.roster && !/free agent|^fa$/i.test(String(x.roster))) s += 3;
-          s += Number(x.salary || 0) / 1000;
-          s += Number(x.proj || 0) / 10000;
-          return s;
-        };
+        const score = (x) => (x.fantraxId ? 5 : 0) + (Number(x.salary || 0) / 100) + (x.roster && !/free agent/i.test(x.roster) ? 2 : 0);
         if (score(a) > score(prev)) {
           const idx = kept.indexOf(prev);
           if (idx >= 0) kept[idx] = a;
@@ -74,82 +156,13 @@
     if (removed) {
       db.assets = kept;
       try { if (typeof persist === "function") persist(); } catch (e) {}
-      console.log("[Pride] Deduped assets, removed", removed);
     }
     return removed;
   }
 
-  function ensureView(id) {
-    if (document.getElementById(id)) return;
-    const sec = document.createElement("section");
-    sec.id = id;
-    sec.className = "view";
-    const app = document.querySelector(".app") || document.body;
-    app.appendChild(sec);
-  }
-
-  function patchNav() {
-    if (typeof nav !== "function") return;
-    window.nav = function () {
-      const tabs = [
-        ["dashboard", "War Room"],
-        ["teams", "Teams"],
-        ["myroster", "My Roster"],
-        ["buysell", "Buy / Sell / Hold"],
-        ["teamanalyzer", "Team Analysis"],
-        ["fa", "Free Agents"],
-        ["trade", "Trade Lab"],
-        ["draft", "Draft & Picks"],
-        ["edgefinder", "Edge Finder"],
-        ["transactions", "Transactions"],
-        ["livecenter", "NFL Live"],
-        ["leagueanalyzer", "League Power"],
-        ["aigm", "AI GM"],
-        ["sync", "Live Sync"],
-        ["settings", "Settings"]
-      ];
-      const navEl = document.getElementById("nav");
-      if (!navEl) return;
-      navEl.innerHTML = tabs
-        .map(([id, l]) => `<button type="button" data-view="${id}" onclick="showView('${id}')">${l}</button>`)
-        .join("");
-    };
-    const origShow = window.showView;
-    window.showView = function (id) {
-      ensureView("teams");
-      ensureView("buysell");
-      if (id === "teams") {
-        document.querySelectorAll(".view").forEach((x) => x.classList.remove("active"));
-        const el = document.getElementById("teams");
-        if (el) el.classList.add("active");
-        document.querySelectorAll("#nav button").forEach((x) => x.classList.toggle("active", x.dataset.view === id));
-        localStorage.setItem("ccgm_view", id);
-        renderTeamsPage();
-        return;
-      }
-      if (id === "buysell") {
-        document.querySelectorAll(".view").forEach((x) => x.classList.remove("active"));
-        const el = document.getElementById("buysell");
-        if (el) el.classList.add("active");
-        document.querySelectorAll("#nav button").forEach((x) => x.classList.toggle("active", x.dataset.view === id));
-        localStorage.setItem("ccgm_view", id);
-        renderBuySellHoldPage();
-        return;
-      }
-      if (typeof origShow === "function") {
-        origShow(id);
-        if (id === "teamanalyzer") setTimeout(enhanceTeamAnalysis, 50);
-        if (id === "dashboard") setTimeout(injectFAAlerts, 80);
-        if (id === "fa") setTimeout(markHelpfulFAs, 80);
-        if (id === "sync") setTimeout(stripMFLFromSync, 50);
-        if (id === "settings") setTimeout(stripMFLFromSettings, 50);
-      }
-    };
-  }
-
-  function allFranchiseNames() {
-    const fromMfl = (db.mfl && db.mfl.franchises) || [];
-    if (fromMfl.length) return fromMfl.map((f) => f.name).filter(Boolean);
+  function allTeams() {
+    const f = (db.mfl && db.mfl.franchises) || [];
+    if (f.length) return f.map((x) => x.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
     const names = new Set();
     (db.assets || []).forEach((a) => {
       if (a.roster && !/free agent|^fa$/i.test(String(a.roster))) names.add(a.roster);
@@ -163,279 +176,257 @@
     );
   }
 
-  function esc(s) {
-    return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;" }[c]));
+  function prideVal(a) {
+    try { if (typeof modelValue === "function") return modelValue(a); } catch (e) {}
+    return Number(a.market || 0) || Math.max(100, Number(a.salary || 0) * 40);
+  }
+
+  function teamStrength(team) {
+    const players = teamPlayers(team);
+    const salary = players.reduce((s, a) => s + Number(a.salary || 0), 0);
+    const value = players.reduce((s, a) => s + prideVal(a), 0);
+    const active = players.filter((a) => /ACTIVE/i.test(String(a.status || "ACTIVE")));
+    const byPos = {};
+    players.forEach((a) => {
+      let p = String(a.pos || "?").toUpperCase();
+      if (/DE|DT|EDGE|DL/.test(p)) p = "DL";
+      if (/CB|S|DB/.test(p)) p = "DB";
+      if (/SFX/.test(p)) p = "QB";
+      byPos[p] = (byPos[p] || 0) + prideVal(a);
+    });
+    return { team, players: players.length, salary, value, active: active.length, byPos };
   }
 
   function renderTeamsPage() {
     ensureView("teams");
     const root = document.getElementById("teams");
     if (!root) return;
-    dedupeAssets();
-    const teams = allFranchiseNames();
+    const teams = allTeams();
     const selected = window.__teamsSelected || MY_TEAM;
     window.__teamsSelected = selected;
-    const players = teamPlayers(selected).sort((a, b) => {
-      const order = { ACTIVE: 0, RESERVE: 1, MINORS: 2, TAXI: 2, INJURED_RESERVE: 3 };
-      const sa = String(a.status || a.rosterStatus || "ACTIVE").toUpperCase();
-      const sb = String(b.status || b.rosterStatus || "ACTIVE").toUpperCase();
-      return (order[sa] ?? 4) - (order[sb] ?? 4) || Number(b.salary || 0) - Number(a.salary || 0);
-    });
-    const totalSal = players.reduce((s, a) => s + Number(a.salary || 0), 0);
-    const byStatus = {};
-    players.forEach((a) => {
-      const st = String(a.status || "ACTIVE").toUpperCase();
-      byStatus[st] = (byStatus[st] || 0) + 1;
-    });
+    const players = teamPlayers(selected).sort((a, b) => prideVal(b) - prideVal(a) || Number(b.salary || 0) - Number(a.salary || 0));
+    const strength = teamStrength(selected);
+    const snap = teams.map(teamStrength).sort((a, b) => b.value - a.value);
 
     root.innerHTML = `
       <div class="card">
-        <div class="sectionhead"><h2>League Teams</h2><span class="pill">FANTRAX LIVE · ${teams.length} TEAMS</span></div>
-        <div class="notice"><b>All Pride Dynasty franchises.</b> Data from Fantrax live refresh. Pick a team to inspect the full roster.</div>
-        <div class="field" style="margin-top:10px"><label>Franchise</label>
-          <select id="teamsSelect" onchange="window.__teamsSelected=this.value;renderTeamsPage()">
-            ${teams.map((t) => `<option value="${t.replace(/"/g, """)}" ${t === selected ? "selected" : ""}>${t}${t === MY_TEAM ? " (YOU)" : ""}</option>`).join("")}
+        <div class="sectionhead"><h2>League Teams</h2><span class="pill">FANTRAX · ${teams.length} TEAMS</span></div>
+        <div class="notice"><b>Full league roster board.</b> Values use Pride model (salary-seeded when market empty). Analyze compares any two teams.</div>
+        <div class="actions" style="margin-top:8px">
+          <button type="button" onclick="window.prideForceRefresh()">REFRESH ALL ROSTERS FROM FANTRAX</button>
+        </div>
+        <div class="field" style="margin-top:10px"><label>Team</label>
+          <select onchange="window.__teamsSelected=this.value;renderTeamsPage()">
+            ${teams.map((t) => `<option value="${esc(t)}" ${t === selected ? "selected" : ""}>${esc(t)}${t === MY_TEAM ? " (YOU)" : ""}</option>`).join("")}
           </select>
         </div>
         <div class="grid4" style="margin-top:10px">
-          <div class="metric"><b>${players.length}</b><span>Players</span></div>
-          <div class="metric"><b>$${totalSal.toFixed(1)}</b><span>Salary used</span></div>
-          <div class="metric"><b>$${Math.max(0, 1404 - totalSal).toFixed(1)}</b><span>Est. cap left</span></div>
-          <div class="metric"><b>${Object.keys(byStatus).length}</b><span>Status groups</span></div>
+          <div class="metric"><b>${strength.players}</b><span>Players</span></div>
+          <div class="metric"><b>$${strength.salary.toFixed(1)}</b><span>Salary</span></div>
+          <div class="metric"><b>${Math.round(strength.value).toLocaleString()}</b><span>Roster value</span></div>
+          <div class="metric"><b>${strength.active}</b><span>Active</span></div>
+        </div>
+        <div class="actions" style="margin-top:10px">
+          <button type="button" onclick="window.__analyzeA='${String(selected).replace(/'/g, "\\'")}';window.__analyzeB='${MY_TEAM === selected ? (teams.find((t) => t !== MY_TEAM) || "") : MY_TEAM}';showView('matchup')">ANALYZE MATCHUP</button>
+          <button type="button" class="secondary" onclick="window.teamAnalyzerTeam='${String(selected).replace(/'/g, "\\'")}';showView('teamanalyzer')">FULL TEAM ANALYSIS</button>
         </div>
       </div>
       <div class="card" style="margin-top:12px">
-        <div class="sectionhead"><h2>${esc(selected)}</h2><span class="pill">${players.length} PLAYERS</span></div>
+        <div class="sectionhead"><h2>${esc(selected)} Roster</h2><span class="pill">${players.length}</span></div>
         <div class="tableWrap"><table><thead><tr>
-          <th>Player</th><th>Pos</th><th>NFL</th><th>Status</th><th>Salary</th><th>Years</th><th>Proj</th>
+          <th>Player</th><th>Pos</th><th>NFL</th><th>Status</th><th>Salary</th><th>Yrs</th><th>Value</th>
         </tr></thead><tbody>
           ${players.length ? players.map((a) => `<tr>
-            <td><b>${esc(a.name)}</b></td>
-            <td>${esc(a.pos || "")}</td>
-            <td>${esc(a.nfl || "")}</td>
-            <td>${esc(a.status || "ACTIVE")}</td>
-            <td>$${Number(a.salary || 0).toFixed(1)}</td>
-            <td>${a.years || "—"}</td>
-            <td>${a.proj ? Math.round(a.proj) : "—"}</td>
-          </tr>`).join("") : "<tr><td colspan=\"7\">No roster loaded — open Live Sync and refresh Fantrax.</td></tr>"}
+            <td><b>${esc(a.name)}</b></td><td>${esc(a.pos || "")}</td><td>${esc(a.nfl || "")}</td>
+            <td>${esc(a.status || "")}</td><td>$${Number(a.salary || 0).toFixed(1)}</td>
+            <td>${a.years || "—"}</td><td><b>${Math.round(prideVal(a)).toLocaleString()}</b></td>
+          </tr>`).join("") : "<tr><td colspan=7>No players — tap REFRESH ALL ROSTERS FROM FANTRAX</td></tr>"}
         </tbody></table></div>
       </div>
       <div class="card" style="margin-top:12px">
-        <div class="sectionhead"><h2>All Franchises Snapshot</h2></div>
-        <div class="tableWrap"><table><thead><tr><th>Team</th><th>Players</th><th>Salary</th><th></th></tr></thead><tbody>
-          ${teams.map((t) => {
-            const ps = teamPlayers(t);
-            const sal = ps.reduce((s, a) => s + Number(a.salary || 0), 0);
-            return `<tr>
-              <td><b>${esc(t)}</b>${t === MY_TEAM ? ' <span class="teamBadge">YOU</span>' : ""}</td>
-              <td>${ps.length}</td>
-              <td>$${sal.toFixed(1)}</td>
-              <td><button type="button" class="secondary" onclick="window.__teamsSelected='${String(t).replace(/'/g, "\\'")}';renderTeamsPage()">Open</button></td>
-            </tr>`;
-          }).join("")}
+        <div class="sectionhead"><h2>Power Snapshot (all teams)</h2></div>
+        <div class="tableWrap"><table><thead><tr>
+          <th>#</th><th>Team</th><th>Players</th><th>Salary</th><th>Value</th><th></th>
+        </tr></thead><tbody>
+          ${snap.map((t, i) => `<tr>
+            <td><b>${i + 1}</b></td>
+            <td><b>${esc(t.team)}</b>${t.team === MY_TEAM ? ' <span class="teamBadge">YOU</span>' : ""}</td>
+            <td>${t.players}</td><td>$${t.salary.toFixed(1)}</td>
+            <td><b>${Math.round(t.value).toLocaleString()}</b></td>
+            <td>
+              <button type="button" class="secondary" onclick="window.__teamsSelected='${String(t.team).replace(/'/g, "\\'")}';renderTeamsPage()">Roster</button>
+              <button type="button" onclick="window.__analyzeA='${MY_TEAM.replace(/'/g, "\\'")}';window.__analyzeB='${String(t.team).replace(/'/g, "\\'")}';showView('matchup')">Analyze</button>
+            </td>
+          </tr>`).join("")}
         </tbody></table></div>
       </div>`;
   }
   window.renderTeamsPage = renderTeamsPage;
 
-  function signalFor(a) {
-    if (typeof signal === "function") {
-      try { return signal(a); } catch (e) {}
-    }
-    const mv = typeof modelValue === "function" ? modelValue(a) : Number(a.market || 0);
-    const m = Number(a.market || mv || 1);
-    const edge = (mv - m) / Math.max(1, m);
-    const trend = Number(a.trend || 0);
-    if (edge > 0.12 && trend >= 0) return ["BUY", "good"];
-    if (edge < -0.12) return ["SELL", "bad"];
-    return ["HOLD", "blue"];
-  }
-
-  function renderBuySellHoldPage() {
-    ensureView("buysell");
-    const root = document.getElementById("buysell");
+  function renderMatchupPage() {
+    ensureView("matchup");
+    const root = document.getElementById("matchup");
     if (!root) return;
-    dedupeAssets();
-    const mine = teamPlayers(MY_TEAM);
-    const rows = mine.map((a) => {
-      const sig = signalFor(a);
-      const mv = typeof modelValue === "function" ? modelValue(a) : Number(a.market || 0);
-      return { a, sig, mv };
+    const teams = allTeams();
+    const aName = window.__analyzeA || MY_TEAM;
+    const bName = window.__analyzeB || teams.find((t) => t !== aName) || teams[0];
+    window.__analyzeA = aName;
+    window.__analyzeB = bName;
+    const A = teamStrength(aName);
+    const B = teamStrength(bName);
+    const positions = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
+    const rows = positions.map((p) => {
+      const av = A.byPos[p] || 0, bv = B.byPos[p] || 0;
+      return { p, av, bv, edge: av - bv };
     });
-    const buys = rows.filter((r) => String(r.sig[0]).includes("BUY")).sort((x, y) => y.mv - x.mv);
-    const sells = rows.filter((r) => /SELL|SHOP/i.test(String(r.sig[0]))).sort((x, y) => y.mv - x.mv);
-    const holds = rows.filter((r) => !String(r.sig[0]).includes("BUY") && !/SELL|SHOP/i.test(String(r.sig[0]))).sort((x, y) => y.mv - x.mv);
-
-    function block(title, list, tone) {
-      return `<div class="card" style="margin-top:12px">
-        <div class="sectionhead"><h2>${title}</h2><span class="pill">${list.length}</span></div>
-        ${list.length ? list.map(({ a, sig, mv }) => `
-          <div class="gate">
-            <span><b>${esc(a.name)}</b> · ${esc(a.pos || "")}<br>
-            <span class="small">$${Number(a.salary || 0).toFixed(1)} · Proj ${a.proj ? Math.round(a.proj) : "—"} · Pride ${typeof fmt === "function" ? fmt(mv) : Math.round(mv)}</span></span>
-            <b class="${sig[1]}">${esc(sig[0])}</b>
-          </div>`).join("") : `<div class="notice">No ${tone} signals on your roster right now.</div>`}
-      </div>`;
-    }
-
     root.innerHTML = `
       <div class="card">
-        <div class="sectionhead"><h2>Buy / Sell / Hold</h2><span class="pill">${MY_TEAM}</span></div>
-        <div class="notice"><b>Your assets only.</b> BUY = undervalued keep/add exposure. SELL/SHOP = price looks rich or fit is weak. HOLD = core or fairly priced.</div>
-        <div class="grid3" style="margin-top:10px">
-          <div class="metric"><b>${buys.length}</b><span>Buy / hold-strong</span></div>
-          <div class="metric"><b>${sells.length}</b><span>Sell / shop</span></div>
-          <div class="metric"><b>${holds.length}</b><span>Hold</span></div>
+        <div class="sectionhead"><h2>Team Matchup Analysis</h2><span class="pill">HEAD TO HEAD</span></div>
+        <div class="grid">
+          <div class="field"><label>Team A</label>
+            <select onchange="window.__analyzeA=this.value;renderMatchupPage()">
+              ${teams.map((t) => `<option ${t === aName ? "selected" : ""}>${esc(t)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field"><label>Team B</label>
+            <select onchange="window.__analyzeB=this.value;renderMatchupPage()">
+              ${teams.map((t) => `<option ${t === bName ? "selected" : ""}>${esc(t)}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="grid4" style="margin-top:10px">
+          <div class="metric"><b>${Math.round(A.value).toLocaleString()}</b><span>${esc(aName)} value</span></div>
+          <div class="metric"><b>${Math.round(B.value).toLocaleString()}</b><span>${esc(bName)} value</span></div>
+          <div class="metric"><b>$${A.salary.toFixed(0)}</b><span>${esc(aName)} salary</span></div>
+          <div class="metric"><b>$${B.salary.toFixed(0)}</b><span>${esc(bName)} salary</span></div>
+        </div>
+        <div class="notice" style="margin-top:10px">
+          <b>Overall edge:</b> ${A.value >= B.value ? esc(aName) : esc(bName)} by ${Math.round(Math.abs(A.value - B.value)).toLocaleString()} Pride value
+          · Size ${A.players} vs ${B.players} · Active ${A.active} vs ${B.active}
         </div>
       </div>
-      ${block("BUY — undervalued / keep exposure", buys, "buy")}
-      ${block("SELL / SHOP — move candidates", sells, "sell")}
-      ${block("HOLD — core & fair value", holds, "hold")}`;
+      <div class="card" style="margin-top:12px">
+        <div class="sectionhead"><h2>Position Group Values</h2></div>
+        ${rows.map((r) => `
+          <div class="gate">
+            <span><b>${r.p}</b><br><span class="small">${esc(aName)} ${Math.round(r.av).toLocaleString()} · ${esc(bName)} ${Math.round(r.bv).toLocaleString()}</span></span>
+            <b class="${r.edge > 0 ? "good" : r.edge < 0 ? "bad" : "muted"}">${r.edge > 0 ? "+" : ""}${Math.round(r.edge).toLocaleString()}</b>
+          </div>`).join("")}
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <div class="card"><h2>${esc(aName)} top assets</h2>
+          ${teamPlayers(aName).sort((x, y) => prideVal(y) - prideVal(x)).slice(0, 8).map((p) =>
+            `<div class="gate"><span><b>${esc(p.name)}</b> · ${esc(p.pos)}</span><b>${Math.round(prideVal(p)).toLocaleString()}</b></div>`
+          ).join("")}
+        </div>
+        <div class="card"><h2>${esc(bName)} top assets</h2>
+          ${teamPlayers(bName).sort((x, y) => prideVal(y) - prideVal(x)).slice(0, 8).map((p) =>
+            `<div class="gate"><span><b>${esc(p.name)}</b> · ${esc(p.pos)}</span><b>${Math.round(prideVal(p)).toLocaleString()}</b></div>`
+          ).join("")}
+        </div>
+      </div>`;
   }
-  window.renderBuySellHoldPage = renderBuySellHoldPage;
+  window.renderMatchupPage = renderMatchupPage;
 
-  function myNeeds() {
-    const positions = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
-    const needs = [];
-    for (const pos of positions) {
-      let score = 50;
-      if (typeof rosterNeedScore === "function") {
-        try { score = rosterNeedScore(MY_TEAM, pos); } catch (e) {}
-      } else {
-        const count = teamPlayers(MY_TEAM).filter((a) => String(a.pos || "").toUpperCase().includes(pos) || (pos === "DB" && /S|CB|DB/i.test(a.pos || ""))).length;
-        score = Math.max(0, 100 - count * 15);
-      }
-      needs.push({ pos, score });
-    }
-    return needs.sort((a, b) => b.score - a.score);
-  }
-
-  function helpfulFreeAgents(limit) {
-    limit = limit || 12;
-    let fas = [];
-    if (typeof deriveLeagueFreeAgents === "function") {
-      try { fas = deriveLeagueFreeAgents(); } catch (e) {}
-    }
-    if (!fas.length) {
-      fas = (db.assets || []).filter((a) => a.type !== "PICK" && /free agent|^fa$/i.test(String(a.roster || "")));
-    }
-    const needs = myNeeds();
-    const needMap = Object.fromEntries(needs.map((n) => [n.pos, n.score]));
-    return fas
-      .map((a) => {
-        const pos = String(a.pos || "").toUpperCase();
-        let npos = pos;
-        if (/DE|DT|EDGE|DL/.test(pos)) npos = "DL";
-        if (/CB|S|DB/.test(pos)) npos = "DB";
-        const need = needMap[npos] || needMap[pos] || 0;
-        const proj = Number(a.proj || 0);
-        const score = need * 0.55 + Math.min(100, proj / 2) * 0.35 + Number(a.role || 50) * 0.1;
-        return { a, need, npos, score, proj };
-      })
-      .filter((x) => x.need >= 40 || x.proj >= 80)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
-  }
-
-  function injectFAAlerts() {
-    const dash = document.getElementById("dashboard");
-    if (!dash || dash.querySelector("#prideFaAlerts")) return;
-    const helpful = helpfulFreeAgents(8);
-    if (!helpful.length) return;
-    const box = document.createElement("div");
-    box.id = "prideFaAlerts";
-    box.className = "card";
-    box.style.marginTop = "12px";
-    box.innerHTML = `
-      <div class="sectionhead"><h2>Free Agents Who Can Help You</h2><span class="pill">${helpful.length} MATCHES</span></div>
-      <div class="notice"><b>Based on Capitol Carnage positional need + projection.</b> Only players currently unowned in Pride Dynasty.</div>
-      ${helpful.map(({ a, need, npos, score, proj }) => `
-        <div class="gate">
-          <span><b>${esc(a.name)}</b> · ${esc(a.pos || npos)} · ${esc(a.nfl || "")}<br>
-          <span class="small">Need ${Math.round(need)}/100 · Proj ${proj ? Math.round(proj) : "—"} · Fit score ${Math.round(score)}</span></span>
-          <button type="button" onclick="showView('fa')">Open FA</button>
-        </div>`).join("")}`;
-    dash.appendChild(box);
-  }
-
-  function markHelpfulFAs() {
-    const fa = document.getElementById("fa");
-    if (!fa || fa.querySelector("#prideFaBanner")) return;
-    const helpful = helpfulFreeAgents(5);
-    if (!helpful.length) return;
-    const banner = document.createElement("div");
-    banner.id = "prideFaBanner";
-    banner.className = "card";
-    banner.style.marginBottom = "12px";
-    banner.innerHTML = `<div class="sectionhead"><h2>Helps Capitol Carnage</h2><span class="pill">NEED MATCH</span></div>
-      ${helpful.map(({ a, need, proj }) => `<div class="gate"><span><b>${esc(a.name)}</b> · ${esc(a.pos)}</span><span class="small">Need ${Math.round(need)} · Proj ${proj ? Math.round(proj) : "—"}</span></div>`).join("")}`;
-    fa.insertBefore(banner, fa.firstChild);
-  }
-
-  function enhanceTeamAnalysis() {
-    if (!window.teamAnalyzerTeam) window.teamAnalyzerTeam = MY_TEAM;
-  }
-
-  function stripMFLFromSync() {
-    const root = document.getElementById("sync");
+  function renderSchedulePage() {
+    ensureView("schedule");
+    const root = document.getElementById("schedule");
     if (!root) return;
-    root.querySelectorAll("h2").forEach((h) => {
-      if (/MFL/i.test(h.textContent)) h.textContent = h.textContent.replace(/MFL/gi, "Legacy");
-    });
+    const mu = db.fantraxMatchups || (liveCache && liveCache.snapshots && liveCache.snapshots.matchups) || {};
+    const period = mu.period || 1;
+    const games = mu.matchups || [];
+    const standings = db.fantraxStandings || [];
+    root.innerHTML = `
+      <div class="card">
+        <div class="sectionhead"><h2>League Schedule</h2><span class="pill">PERIOD ${period}</span></div>
+        <div class="notice"><b>Current Fantrax matchups.</b> Your games are highlighted.</div>
+        <div class="actions"><button type="button" onclick="window.prideForceRefresh().then(function(){renderSchedulePage()})">REFRESH</button></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="sectionhead"><h2>This Period's Games</h2><span class="pill">${games.length}</span></div>
+        ${games.length ? games.map((g) => {
+          const home = g.home || {}, away = g.away || {};
+          const mine = home.teamName === MY_TEAM || away.teamName === MY_TEAM;
+          return `<div class="gate" style="${mine ? "border-color:#d4af37" : ""}">
+            <span><b>${esc(away.teamName || "Away")}</b> ${Number(away.score || 0)}
+            <span class="small"> @ </span>
+            <b>${esc(home.teamName || "Home")}</b> ${Number(home.score || 0)}
+            ${mine ? '<br><span class="pill">YOUR GAME</span>' : ""}</span>
+            <b class="muted">P${period}</b>
+          </div>`;
+        }).join("") : '<div class="notice">No matchups loaded. Tap REFRESH.</div>'}
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="sectionhead"><h2>Standings</h2></div>
+        <div class="tableWrap"><table><thead><tr><th>Rank</th><th>Team</th><th>Record</th><th>PF</th></tr></thead><tbody>
+          ${(standings || []).map((s) => `<tr>
+            <td><b>${s.rank || ""}</b></td>
+            <td><b>${esc(s.teamName)}</b>${s.teamName === MY_TEAM ? ' <span class="teamBadge">YOU</span>' : ""}</td>
+            <td>${esc(s.points || "0-0-0")}</td>
+            <td>${Number(s.totalPointsFor || 0).toFixed(1)}</td>
+          </tr>`).join("") || "<tr><td colspan=4>Standings after refresh</td></tr>"}
+        </tbody></table></div>
+      </div>`;
   }
-  function stripMFLFromSettings() {
-    const root = document.getElementById("settings");
-    if (!root) return;
-    root.querySelectorAll("h2, .notice, .small").forEach((el) => {
-      if (/MFL/i.test(el.textContent || "")) {
-        el.innerHTML = (el.innerHTML || "").replace(/MFL/gi, "Fantrax");
+  window.renderSchedulePage = renderSchedulePage;
+
+  function patchNav() {
+    window.nav = function () {
+      const tabs = [
+        ["dashboard", "War Room"], ["teams", "Teams"], ["matchup", "Matchup"], ["schedule", "Schedule"],
+        ["myroster", "My Roster"], ["buysell", "Buy / Sell / Hold"], ["teamanalyzer", "Team Analysis"],
+        ["fa", "Free Agents"], ["trade", "Trade Lab"], ["draft", "Draft & Picks"], ["edgefinder", "Edge Finder"],
+        ["transactions", "Transactions"], ["livecenter", "NFL Live"], ["leagueanalyzer", "League Power"],
+        ["aigm", "AI GM"], ["sync", "Live Sync"], ["settings", "Settings"]
+      ];
+      const navEl = document.getElementById("nav");
+      if (!navEl) return;
+      navEl.innerHTML = tabs.map(([id, l]) => `<button type="button" data-view="${id}" onclick="showView('${id}')">${l}</button>`).join("");
+    };
+    const origShow = window.showView;
+    window.showView = function (id) {
+      ["teams", "matchup", "schedule", "buysell"].forEach(ensureView);
+      const custom = { teams: renderTeamsPage, matchup: renderMatchupPage, schedule: renderSchedulePage };
+      if (custom[id]) {
+        document.querySelectorAll(".view").forEach((x) => x.classList.remove("active"));
+        const el = document.getElementById(id);
+        if (el) el.classList.add("active");
+        document.querySelectorAll("#nav button").forEach((x) => x.classList.toggle("active", x.dataset.view === id));
+        localStorage.setItem("ccgm_view", id);
+        custom[id]();
+        return;
       }
-    });
+      if (typeof origShow === "function") origShow(id);
+    };
   }
+
+  window.prideForceRefresh = async function () {
+    const health = document.getElementById("buildHealth");
+    if (health) health.innerHTML = `<b>GM's Locker</b> · Refreshing Fantrax…`;
+    try { await fetch(GATEWAY + "/fantrax/sync", { method: "POST", cache: "no-store" }); } catch (e) {}
+    await forceLoadFantraxLeague();
+    const view = localStorage.getItem("ccgm_view") || "teams";
+    if (typeof showView === "function") showView(view);
+    else renderTeamsPage();
+  };
 
   window.initializePrivateVault = async function () {
     hideLock();
     forceConfig();
-    try {
-      if (typeof startPrivateServices === "function") await startPrivateServices();
-    } catch (e) {
-      console.warn(e);
-      try { if (typeof loadFantraxLive === "function") await loadFantraxLive({ quiet: true }); } catch (err) {}
-    }
+    await forceLoadFantraxLeague();
+    try { if (typeof startPrivateServices === "function") await startPrivateServices(); } catch (e) {}
     dedupeAssets();
-    forceConfig();
   };
-
-  if (typeof apiFetch === "function") {
-    const _apiFetch = apiFetch;
-    window.apiFetch = async function (path, options) {
-      const res = await _apiFetch(path, options || {});
-      if (res.status === 401) hideLock();
-      return res;
-    };
-  }
 
   function boot() {
     forceConfig();
     hideLock();
-    ensureView("teams");
-    ensureView("buysell");
+    ["teams", "matchup", "schedule", "buysell"].forEach(ensureView);
     patchNav();
     if (typeof nav === "function") nav();
-    dedupeAssets();
-    setTimeout(function () {
-      hideLock();
-      if (typeof startPrivateServices === "function" && !window.__prideStarted) {
-        window.__prideStarted = true;
-        startPrivateServices()
-          .then(() => {
-            dedupeAssets();
-            forceConfig();
-            if (typeof nav === "function") nav();
-          })
-          .catch(() => {});
-      }
-    }, 300);
+    forceLoadFantraxLeague().then(() => {
+      if (typeof nav === "function") nav();
+    });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
