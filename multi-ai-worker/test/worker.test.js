@@ -146,7 +146,7 @@ test("Gemini rejects requests without explicit free-tier data-use consent", asyn
   assert.match(body.error, /explicit consent/);
 });
 
-test("Gemini receives public NFL context but not the submitted private league context", { concurrency: false }, async () => {
+test("Gemini receives public NFL context and approved personalization but not private league context", { concurrency: false }, async () => {
   const originalFetch = globalThis.fetch;
   let upstreamBody;
   globalThis.fetch = async (_url, options) => {
@@ -171,7 +171,7 @@ test("Gemini receives public NFL context but not the submitted private league co
           league: { secretMarker: "PRIVATE-LEAGUE-MARKER" },
           nflLive: { breakingNews: [{ headline: "PUBLIC-NEWS-MARKER" }] }
         },
-        memory: { secretMarker: "PRIVATE-MEMORY-MARKER" }
+        memory: { personalization: "PERSONAL-PROFILE-MARKER", secretMarker: "PRIVATE-MEMORY-MARKER" }
       })
     }), { DB: new FakeDB(), GEMINI_API_KEY: "test-only" }, ctx);
     const body = await response.json();
@@ -179,6 +179,7 @@ test("Gemini receives public NFL context but not the submitted private league co
     assert.equal(response.status, 200);
     assert.equal(body.answer.text, "Public-context answer");
     assert.match(upstreamBody.system_instruction, /PUBLIC-NEWS-MARKER/);
+    assert.match(upstreamBody.system_instruction, /PERSONAL-PROFILE-MARKER/);
     assert.doesNotMatch(upstreamBody.system_instruction, /PRIVATE-(?:ROSTER|LEAGUE|MEMORY)-MARKER/);
     assert.equal(upstreamBody.store, false);
   } finally {

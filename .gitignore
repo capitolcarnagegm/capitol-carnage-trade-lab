@@ -3,7 +3,9 @@ multi-ai-worker/node_modules/
 multi-ai-worker/.wrangler/
 .dev.vars
 multi-ai-worker/.dev.vars
+multi-ai-worker/.env
 multi-ai-worker/wrangler.jsonc
+scripts/connect-cloudflare-token.sh
 
 # Private league exports and generated database imports must never be committed.
 data/pride-dynasty*.json

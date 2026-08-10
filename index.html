@@ -246,7 +246,7 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 .aiDot.on{background:#d4af37;box-shadow:0 0 10px rgba(212,175,55,.55)}
 @media(max-width:900px){.aiGmHero{grid-template-columns:1fr 1fr}.aiGmLayout{grid-template-columns:1fr}.aiChat{max-height:none}.aiComposer{grid-template-columns:1fr}.aiComposer button{width:100%}}
 
-/* v6.6 PERSISTENT GEMINI COMPANION */
+/* v6.7 PERSONALIZED GEMINI COMPANION */
 .chatgptLauncher{position:fixed;right:max(0px,env(safe-area-inset-right));top:50%;z-index:70;transform:translateY(-50%);display:flex;align-items:center;gap:7px;border-radius:13px 0 0 13px!important;padding:12px 10px!important;writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:.08em;box-shadow:-8px 10px 28px rgba(0,0,0,.4)}
 .chatgptLauncher .aiDot{flex:0 0 auto}
 .sideChatScrim{position:fixed;inset:0;z-index:78;background:rgba(0,0,0,.54);opacity:0;pointer-events:none;transition:opacity .2s ease}
@@ -270,7 +270,7 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 </head>
 <body>
 <div class="app">
-<header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Private dynasty engine • live league data • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button type="button" class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button type="button" class="secondary" onclick="serverSignOut()">Lock</button><button type="button" id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav><div id="buildHealth" class="small" style="padding:6px 12px;border-bottom:1px solid #302815">Build v6.6 · Private vault locked</div></header>
+<header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Private dynasty engine • live league data • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button type="button" class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button type="button" class="secondary" onclick="serverSignOut()">Lock</button><button type="button" id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav><div id="buildHealth" class="small" style="padding:6px 12px;border-bottom:1px solid #302815">Build v6.7 · Private vault locked</div></header>
 
 <section id="dashboard" class="view active"><div class="card"><h2>Opening GM's Locker…</h2><div class="small">Loading your locally saved league data.</div></div></section>
 <section id="myroster" class="view"></section>
@@ -304,7 +304,7 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
   </div>
 </div>
 <script>
-const APP_VERSION='6.6.0-private-gemini';
+const APP_VERSION='6.7.0-personal-gemini';
 const AI_GATEWAY_URL='https://gms-locker-ai.robinharvey001.workers.dev';
 const AI_MESSAGES_KEY='gmslocker_ai_messages_v1';
 const AI_PROVIDER_KEY='gmslocker_ai_provider_v1';
@@ -312,6 +312,7 @@ const GEMINI_CONSENT_KEY='gmslocker_gemini_public_context_consent_v1';
 const SIDE_CHAT_MESSAGES_KEY='gmslocker_gemini_messages_v2';
 const LEGACY_SIDE_CHAT_MESSAGES_KEY='gmslocker_chatgpt_messages_v1';
 const SIDE_CHAT_OPEN_KEY='gmslocker_gemini_open_v2';
+const GEMINI_PROFILE_KEY='gmslocker_gemini_profile_v1';
 const SESSION_TOKEN_KEY='gmslocker_private_session_v1';
 const SESSION_EXPIRY_KEY='gmslocker_private_session_expiry_v1';
 const FANTRAX_SOURCE='Private Fantrax Baseline';
@@ -675,12 +676,12 @@ async function loadFantraxDataset({force=false}={}){
     const current=localStorage.getItem('ccgm_view')||'dashboard';
     requestAnimationFrame(()=>showView(current));
     const el=document.getElementById('buildHealth');
-    if(el)el.innerHTML=`<b>GM's Locker v6.6</b> · <span class="good">${counts.rostered} rostered + ${counts.freeAgents.toLocaleString()} free agents loaded privately</span> · FREE AI READY`;
+    if(el)el.innerHTML=`<b>GM's Locker v6.7</b> · <span class="good">${counts.rostered} rostered + ${counts.freeAgents.toLocaleString()} free agents loaded privately</span> · FREE AI READY`;
     return counts;
   })().catch(error=>{
     fantraxLoadPromise=null;console.warn('Fantrax dataset load failed',error);
     const el=document.getElementById('buildHealth');
-    if(el)el.innerHTML=`<b>GM's Locker v6.6</b> · <span class="warn">Private league data retry needed</span> · FREE AI READY`;
+    if(el)el.innerHTML=`<b>GM's Locker v6.7</b> · <span class="warn">Private league data retry needed</span> · FREE AI READY`;
     return null;
   });
   return fantraxLoadPromise;
@@ -2928,13 +2929,13 @@ function buildAIGMMemory(){
 function buildGeminiPublicContext(){
   return {
     asOf:new Date().toISOString(),
-    privacyBoundary:'Public NFL scores and news only. No league identity, rosters, contracts, salaries, transactions, picks, saved memory, or private database records.',
+    privacyBoundary:'Public NFL scores/news plus the user-approved Gemini profile only. No league identity, rosters, contracts, salaries, transactions, picks, or private database records.',
     nflLive:{scoreboard:sportsLiveSnapshots.scores?.events||[],breakingNews:(sportsLiveSnapshots.news?.articles||[]).slice(0,20)}
   };
 }
 function ensureGeminiConsent(){
   if(localStorage.getItem(GEMINI_CONSENT_KEY)==='yes')return true;
-  const accepted=confirm('Gemini API free-tier prompts and responses may be used to improve Google products. GM\'s Locker will send only what you type plus public NFL scores/news—never your private league database, roster, contracts, or saved memory. Continue?');
+  const accepted=confirm('Gemini API free-tier prompts and responses may be used to improve Google products. GM\'s Locker will send what you type, public NFL scores/news, and the Gemini profile you choose to save—never your private league database, rosters, contracts, or transactions. Continue?');
   if(accepted)localStorage.setItem(GEMINI_CONSENT_KEY,'yes');
   return accepted;
 }
@@ -3065,11 +3066,22 @@ function loadSideChatMessages(){
 let sideChatMessages=loadSideChatMessages();
 let sideChatBusy=false;
 let sideChatError='';
+function loadGeminiProfile(){return String(localStorage.getItem(GEMINI_PROFILE_KEY)||'').slice(0,2000)}
+function saveGeminiProfile(){
+  const value=String(document.getElementById('geminiProfile')?.value||'').trim().slice(0,2000);
+  if(value&&!ensureGeminiConsent())return;
+  if(value)localStorage.setItem(GEMINI_PROFILE_KEY,value);else localStorage.removeItem(GEMINI_PROFILE_KEY);
+  renderSideChat();
+}
+function geminiPersonalMemory(){
+  const personalization=loadGeminiProfile();
+  return personalization?{personalization,source:'User-approved Gemini profile saved on this device'}:null;
+}
 
 function renderSideChat(){
   const panel=document.getElementById('sideChatPanel');
   if(!panel)return;
-  const transcript=sideChatMessages.length?sideChatMessages.map(m=>`<div class="aiBubble ${m.role}"><span class="aiMeta">${m.role==='user'?'You':aiEscape(m.meta||'Gemini')}</span>${aiEscape(m.content).replace(/\n/g,'<br>')}</div>`).join(''):`<div class="notice"><b>Gemini public-context mode.</b> It receives only what you type plus public NFL scores/news. Your private league database, rosters, contracts, picks, and saved memory are excluded.</div>`;
+  const transcript=sideChatMessages.length?sideChatMessages.map(m=>`<div class="aiBubble ${m.role}"><span class="aiMeta">${m.role==='user'?'You':aiEscape(m.meta||'Gemini')}</span>${aiEscape(m.content).replace(/\n/g,'<br>')}</div>`).join(''):`<div class="notice"><b>Personal Gemini chat.</b> It remembers this conversation and the profile you choose to save. Your private league database, rosters, contracts, picks, and transactions remain excluded.</div>`;
   panel.innerHTML=`
     <div class="sideChatHeader">
       <div><h2><span class="aiStatus"><i class="aiDot on"></i>Gemini Assistant</span></h2><p>ONGOING GMSLOCKER CONVERSATION · FLASH-LITE</p></div>
@@ -3077,11 +3089,12 @@ function renderSideChat(){
     </div>
     <div id="sideChatTranscript" class="sideChatTranscript" aria-live="polite">${transcript}${sideChatBusy?'<div class="aiBubble assistant"><span class="aiMeta">Gemini</span>Thinking with your text and public NFL context…</div>':''}</div>
     ${sideChatError?`<div class="notice" style="border-left-color:#ef4444"><b>Gemini request failed:</b> ${aiEscape(sideChatError)}</div>`:''}
+    <details class="notice"><summary><b>What Gemini should remember about me</b></summary><div class="field" style="margin-top:8px"><textarea id="geminiProfile" maxlength="2000" placeholder="Example: Call me Rob. Be direct, explain decisions simply, and favor long-term dynasty value.">${aiEscape(loadGeminiProfile())}</textarea></div><button type="button" class="secondary" onclick="saveGeminiProfile()">SAVE PROFILE</button><div class="small" style="margin-top:6px">Saved on this device and sent to Gemini with each message. Do not enter private league data here.</div></details>
     <div class="sideChatComposer">
       <textarea id="sideChatInput" maxlength="12000" aria-label="Message Gemini" placeholder="Ask about a player, contract, trade, free agent, or what you see in GMSLOCKER…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendSideChatMessage()}"></textarea>
       <button id="sideChatSend" type="button" onclick="sendSideChatMessage()" ${sideChatBusy?'disabled':''}>${sideChatBusy?'THINKING…':'SEND'}</button>
     </div>
-    <div class="sideChatHint">History saved only on this device · Gemini free-tier data-use warning appears before first send</div>`;
+    <div class="sideChatHint">Conversation and profile saved on this device · Gemini free-tier data-use warning appears before first send</div>`;
   requestAnimationFrame(()=>{const transcriptEl=document.getElementById('sideChatTranscript');if(transcriptEl)transcriptEl.scrollTop=transcriptEl.scrollHeight});
 }
 function setSideChatOpen(open){
@@ -3118,7 +3131,7 @@ async function sendSideChatMessage(){
       body:JSON.stringify({
         provider:'gemini',conversationId:'public-gemini-side-chat',
         messages:sideChatMessages.slice(-16).map(({role,content})=>({role,content})),
-        context,memory:null,geminiConsent:true
+        context,memory:geminiPersonalMemory(),geminiConsent:true
       })
     });
     let payload;
@@ -3231,15 +3244,15 @@ function interactionHealth(msg='READY'){
   const live=db.fantraxLiveMeta||{},counts=db.fantraxDatasetVersion?db.fantraxImport?.counts:null;
   const liveFreeAgents=Math.max(0,Number(live.poolCount||0)-Number(live.rosteredCount||0));
   const league=live.syncedAt?`${Number(live.rosteredCount||0).toLocaleString()} rostered + ${liveFreeAgents.toLocaleString()} free agents (live)`:counts?`${Number(counts.rostered||0).toLocaleString()} rostered + ${Number(counts.freeAgents||0).toLocaleString()} free agents (baseline)`:'League data loading';
-  if(el)el.innerHTML=`<b>GM's Locker v6.6</b> · ${league} · FREE AI: <span class="good">${msg}</span>`;
+  if(el)el.innerHTML=`<b>GM's Locker v6.7</b> · ${league} · FREE AI: <span class="good">${msg}</span>`;
 }
 window.addEventListener('error',e=>{
   const el=document.getElementById('buildHealth');
-  if(el)el.innerHTML=`<b>GM's Locker v6.6</b> · <span class="bad">JS ERROR:</span> ${String(e.message||'unknown error')}`;
+  if(el)el.innerHTML=`<b>GM's Locker v6.7</b> · <span class="bad">JS ERROR:</span> ${String(e.message||'unknown error')}`;
 });
 window.addEventListener('unhandledrejection',e=>{
   const el=document.getElementById('buildHealth');
-  if(el)el.innerHTML=`<b>GM's Locker v6.6</b> · <span class="bad">PROMISE ERROR:</span> ${String(e.reason?.message||e.reason||'unknown error')}`;
+  if(el)el.innerHTML=`<b>GM's Locker v6.7</b> · <span class="bad">PROMISE ERROR:</span> ${String(e.reason?.message||e.reason||'unknown error')}`;
 });
 
 </script>

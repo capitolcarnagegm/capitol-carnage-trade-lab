@@ -168,9 +168,14 @@ function buildSystem(context, memory) {
 function publicGeminiContext(context) {
   return {
     asOf: context?.asOf || new Date().toISOString(),
-    privacyBoundary: "No private league database, roster ownership, contracts, salaries, team identity, transactions, saved memory, or draft-pick ownership is included.",
+    privacyBoundary: "No private league database, roster ownership, contracts, salaries, team identity, transactions, or draft-pick ownership is included.",
     nflLive: context?.nflLive || null
   };
+}
+
+function publicGeminiMemory(memory) {
+  const personalization = typeof memory?.personalization === "string" ? memory.personalization.trim().slice(0, 2000) : "";
+  return personalization ? { personalization, source: "User-approved Gemini profile" } : null;
 }
 
 function transcript(messages) {
@@ -694,7 +699,7 @@ async function handleChat(request, env, origin) {
     throw httpError("Gemini requires explicit consent because free-tier content may be used to improve Google products.", 400);
   }
   const context = requested === "gemini" ? publicGeminiContext(body.context || null) : body.context || null;
-  const memory = requested === "gemini" ? null : body.memory || null;
+  const memory = requested === "gemini" ? publicGeminiMemory(body.memory) : body.memory || null;
   const system = buildSystem(context, memory);
   const answer = await askProvider(requested, env, messages, system);
   return json({ ok: true, mode: requested, routedTo: requested, answer }, 200, origin);

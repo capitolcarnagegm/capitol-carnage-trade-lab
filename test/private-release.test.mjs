@@ -134,7 +134,7 @@ test('Llama is private by default while Gemini is consented public-context only'
   assert.match(config, /"binding": "AI"/);
 });
 
-test('the Gemini side conversation keeps separate local history and sends authorization', async () => {
+test('the Gemini side conversation keeps separate local history, personalization, and authorization', async () => {
   let request;
   const {context, storage} = await loadApp(async (url, options) => {
     request = {url, options, body: JSON.parse(options.body)};
@@ -142,13 +142,14 @@ test('the Gemini side conversation keeps separate local history and sends author
   });
   storage.set('gmslocker_private_session_v1', 's'.repeat(43));
   storage.set('gmslocker_private_session_expiry_v1', new Date(Date.now() + 86400000).toISOString());
+  storage.set('gmslocker_gemini_profile_v1', 'Call me Rob and keep answers direct.');
   context.document.getElementById('sideChatInput').value = 'Audit my wide receivers.';
   await vm.runInContext('sendSideChatMessage()', context);
 
   assert.equal(request.body.provider, 'gemini');
   assert.equal(request.body.conversationId, 'public-gemini-side-chat');
   assert.equal(request.body.geminiConsent, true);
-  assert.equal(request.body.memory, null);
+  assert.equal(request.body.memory.personalization, 'Call me Rob and keep answers direct.');
   assert.equal('myTeam' in request.body.context, false);
   assert.match(request.body.context.privacyBoundary, /No league identity/);
   assert.equal(new Headers(request.options.headers).get('Authorization'), `Bearer ${'s'.repeat(43)}`);
@@ -301,7 +302,7 @@ test('live NFL routes and private cron cadence are present', async () => {
 
 test('the service worker caches only the public shell', async () => {
   const serviceWorker = await readFile(serviceWorkerPath, 'utf8');
-  assert.match(serviceWorker, /gmslocker-v6-6-private-gemini/);
+  assert.match(serviceWorker, /gmslocker-v6-7-personal-gemini/);
   assert.doesNotMatch(serviceWorker, /league-data|gm-chat|fantrax/);
   assert.match(serviceWorker, /preloaded\|\|await fetch\(event\.request,\{cache:'no-cache'\}\)/);
   assert.doesNotMatch(serviceWorker, /if\(cached\)return cached/);
