@@ -1,0 +1,21 @@
+GM's Locker v8 deploy
+=====================
+
+cd multi-ai-worker
+git pull
+npx wrangler deploy
+
+Optional secrets/vars:
+  FANTRAX_LEAGUE_ID=astbqxhwmk4b6bg9
+  FANTRAX_TEAM_ID=nsf1b7esmk4b6bgd
+  GEMINI_API_KEY=...
+
+Do NOT set GMSLOCKER_ACCESS_TOKEN (leave open).
+
+Verify:
+  curl https://gms-locker-ai.robinharvey001.workers.dev/health
+  Should say: GM's Locker v8 Fantrax Gateway, accessConfigured:false
+
+  curl -H "Origin: https://gmslocker.com" https://gms-locker-ai.robinharvey001.workers.dev/sports/news
+
+Site: https://gmslocker.com
