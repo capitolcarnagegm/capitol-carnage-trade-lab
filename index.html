@@ -10,12 +10,16 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%23050505' width='64' height='64' rx='12'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' font-family='system-ui' font-weight='800' fill='%23d4af37'%3EGM%3C/text%3E%3C/svg%3E">
 </head>
 <body>
+  <div class="top-banner">
+    <img id="bannerImg" alt="GM's Locker — GM Sports Assistant" class="banner-logo">
+  </div>
+
   <header class="site-header">
     <div class="brand">
-      <div class="brand-mark">GM</div>
-      <div>
-        GM's Locker
-        <div style="font-size:11px;color:var(--muted);font-weight:500;letter-spacing:0.08em">PRIDE DYNASTY · FANTRAX</div>
+      <img id="brandImg" alt="GM's Locker" class="brand-logo">
+      <div class="brand-text">
+        <div class="brand-title">GM's Locker</div>
+        <div class="brand-sub">PRIDE DYNASTY · FANTRAX</div>
       </div>
     </div>
     <div class="asof" id="asof">Connecting…</div>
@@ -47,12 +51,26 @@
 
   <div class="pinvault" id="pinvault">
     <span class="x" id="pinvaultClose" title="Dismiss">×</span>
-    <a href="https://www.pinvaultcollectibles.com" target="_blank" rel="noopener" class="pv-link">
-      <img src="pinvault-collectibles-logo.svg" alt="Pin Vault Collectibles" class="pv-logo" width="120" height="48" style="height:auto;object-fit:contain;background:#0a0a0a;padding:6px;border-radius:8px;">
+    <a href="https://www.ebay.com/str/pinvaultcollectibles" target="_blank" rel="noopener" class="pv-link">
+      <img id="pvImg" alt="Pin Vault Collectibles" class="pv-logo" width="120" height="120">
       <span class="pv-tag">Get your collectibles from Pin Vault Collectibles</span>
+      <span class="pv-store">eBay Store →</span>
     </a>
   </div>
 
+  <script>
+  (function () {
+    function setLogo(id, path) {
+      fetch(path, { cache: "force-cache" }).then(function (r) { return r.text(); }).then(function (b64) {
+        var el = document.getElementById(id);
+        if (el) el.src = "data:image/jpeg;base64," + b64.replace(/\s/g, "");
+      }).catch(function () {});
+    }
+    setLogo("bannerImg", "gms-header.b64");
+    setLogo("brandImg", "gms-header.b64");
+    setLogo("pvImg", "pv-corner.b64");
+  })();
+  </script>
   <script src="app.js"></script>
 </body>
 </html>
