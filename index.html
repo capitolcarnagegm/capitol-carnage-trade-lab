@@ -31,13 +31,14 @@
         '<script src="./public-release/pride-override.js"><\/script>' +
         '<script src="./public-release/pride-boot.js"><\/script>' +
         '<script src="./public-release/pride-optimize.js"><\/script>' +
-        '<script src="./public-release/pride-news.js"><\/script>';
+        '<script src="./public-release/pride-news.js"><\/script>' +
+        '<script src="./public-release/pride-trade.js"><\/script>';
       if (html.indexOf('</body>') >= 0) html = html.replace('</body>', scripts + '</body>');
       else html += scripts;
       document.open(); document.write(html); document.close(); return;
     } catch (e) { lastErr = e; }
   }
-  document.body.innerHTML = '<div style="font-family:system-ui;background:#050505;color:#f1cf62;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px"><div><h1>GM\'s Locker</h1><p>' + String(lastErr) + '</p></div></div>';
+  document.body.innerHTML = '<div style="font-family:system-ui;background:#050505;color:#f1cf62;padding:24px"><h1>GM\'s Locker</h1><p>' + String(lastErr) + '</p></div>';
 })();
 </script>
 </head>
