@@ -7,7 +7,6 @@
 <script>
 (async function () {
   var sources = [
-    './index-app.html',
     'https://raw.githubusercontent.com/capitolcarnagegm/capitol-carnage-trade-lab/4c5b4ecb943ad419a53c7ae584d04071dc64a863/public-release/index.html'
   ];
   var lastErr = null;
@@ -35,9 +34,10 @@
       if (html.indexOf('</head>') >= 0) html = html.replace('</head>', unlock + '</head>');
       else html = unlock + html;
 
-      if (html.indexOf('pride-override.js') === -1) {
-        html = html.replace('</body>', '<script src="./pride-override.js"><\/script></body>');
-      }
+      var scripts = '<script src="./pride-override.js"><\/script><script src="./pride-boot.js"><\/script>';
+      if (html.indexOf('</body>') >= 0) html = html.replace('</body>', scripts + '</body>');
+      else html += scripts;
+
       document.open();
       document.write(html);
       document.close();
