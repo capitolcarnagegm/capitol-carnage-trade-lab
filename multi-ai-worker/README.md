@@ -1,71 +1,45 @@
-# GM's Locker Multi-AI Gateway
+# GM's Locker Private Gateway
 
-Cloudflare Worker gateway for OpenAI, Anthropic Claude, and xAI Grok.
+This Cloudflare Worker protects the private league database, performs live Fantrax and NFL feed refreshes, and routes AI analysis to Gemini or Cloudflare Workers AI.
 
-Default production models:
+## Authenticated routes
 
-- OpenAI: `gpt-5.6-terra`
-- Anthropic: `claude-sonnet-5`
-- xAI: `grok-4.5`
+- `POST /auth/login`
+- `GET /auth/status`
+- `POST /auth/logout`
+- `GET /league-data`
+- `GET|POST /fantrax/live|sync`
+- `GET|POST /sports/live|sync`
+- `POST /gm-chat`
 
-## Modes
+All data and AI routes require a short-lived bearer session. The health route reports whether bindings exist but never returns secret values.
 
-POST `/gm-chat` with `provider`:
+## Provider modes
 
-- `auto` - routes by task
-- `openai` - OpenAI only
-- `claude` - Claude only
-- `grok` - Grok only
-- `consensus` - asks all three in parallel, then uses OpenAI as the final GM judge when available
+- `llama` — private league analysis with Llama 4 Scout through Workers AI; the default mode
+- `gemini` — explicit-consent, public-context-only analysis with Gemini 3.5 Flash-Lite
+
+Gemini never receives the stored league database, roster, contracts, transactions, picks, or memory. Grok is a manual clipboard handoff in the browser and is never called by the Worker.
 
 ## Required secrets
 
-From the `multi-ai-worker` directory:
+```sh
+npx wrangler secret put GEMINI_API_KEY
+npx wrangler secret put GMSLOCKER_ACCESS_TOKEN
+npx wrangler secret put FANTRAX_LEAGUE_ID
+```
 
-```bash
+Never place secret values or the league ID in source, configuration variables, test fixtures, or logs.
+
+## Deploy
+
+Copy `wrangler.example.jsonc` to the gitignored `wrangler.jsonc`, then fill the real D1 database name and ID only in that local file or configure the binding in the Cloudflare dashboard.
+
+```sh
 npm install
-npx wrangler d1 create gms-locker-db
-# Put the returned database_id in wrangler.toml, then:
-npx wrangler d1 migrations apply gms-locker-db --remote
-npx wrangler secret put OPENAI_API_KEY
-npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put XAI_API_KEY
-npx wrangler deploy
+npm run db:migrate:remote
+npm test
+npm run deploy
 ```
 
-Never put provider keys in the browser or GitHub source.
-
-## Request
-
-```json
-{
-  "provider": "consensus",
-  "conversationId": "capitol-carnage",
-  "messages": [
-    {"role":"user","content":"Should we trade Garrett for this package?"}
-  ],
-  "context": {
-    "league": {},
-    "myTeam": {},
-    "opponent": {},
-    "freeAgents": [],
-    "currentNFL": []
-  },
-  "memory": {
-    "verifiedFacts": [],
-    "userTheses": [],
-    "pastDecisions": []
-  }
-}
-```
-
-The browser should send only relevant database context rather than the entire league database on every message.
-
-## Response
-
-Single-provider mode returns `answer` with provider/model/text/usage.
-Consensus mode additionally returns `panel`, preserving the individual model opinions for a three-scout view.
-
-## Memory
-
-The D1 schema for shared franchise memory, council reports, decisions, evidence, and audit history lives in `migrations/0001_init.sql`. The current gateway accepts memory in requests but does not yet write that memory to D1. The next application step is to connect the council workflow to these tables so all three providers share the same franchise brain. Store verified facts separately from user theses and model inference.
+The D1 schema is in `migrations/`. The complete private baseline is imported separately and must not be committed to this repository.

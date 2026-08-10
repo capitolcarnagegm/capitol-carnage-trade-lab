@@ -45,39 +45,33 @@
     "What is the full opportunity cost across five years including cap, contract, roster spot, replacement value, draft capital and flexibility?",
     "Is there a materially better alternative available now or likely to become available within the decision window?"
   ],
-  "council": {
-    "providers": ["openai","claude","grok"],
-    "defaultMode": "collaborative_council",
-    "rounds": [
-      "independent_analysis",
-      "cross_review",
-      "targeted_fact_verification",
-      "revised_positions",
-      "final_synthesis"
-    ],
+  "aiRouting": {
+    "privateContextProviders": ["cloudflare_llama"],
+    "publicContextOptInProviders": ["gemini"],
+    "manualHandoff": ["grok"],
+    "defaultMode": "private_cloudflare_llama",
+    "geminiMode": "explicit_consent_public_context_only",
     "principles": [
-      "Models collaborate toward one decision rather than compete for a vote.",
-      "All models receive the same authoritative league context.",
-      "Factual disagreements trigger verification before synthesis.",
-      "Consensus does not override stronger evidence.",
+      "Private league context is sent only to a provider whose published data-use policy excludes training and service improvement.",
+      "Gemini receives only explicit-consent user text and public NFL context.",
       "Statistics and cap math come from shared deterministic calculation tools where possible.",
       "Verified facts, current external information, user thesis and model inference remain separately labeled."
     ]
   },
   "tabIntegration": {
-    "globalCouncilAvailable": true,
+    "privateAIAvailable": true,
     "tabs": {
-      "warRoom": {"defaultCouncil":true,"purpose":"franchise direction, priority actions, championship path"},
-      "myRoster": {"defaultCouncil":true,"purpose":"roster construction, extensions, cuts, holds, five-year contract value"},
-      "teamAnalyzer": {"defaultCouncil":true,"purpose":"team strengths, weaknesses, windows, cap and five-year asset profile"},
-      "leagueAnalyzer": {"defaultCouncil":true,"purpose":"league power, owner tendencies, exploitable weaknesses, market structure"},
-      "edgeFinder": {"defaultCouncil":true,"purpose":"mispriced assets, buy-low, sell-high and arbitrage opportunities"},
-      "tradeLab": {"defaultCouncil":true,"purpose":"trade score, counteroffers, five-year value and championship impact"},
-      "freeAgency": {"defaultCouncil":true,"purpose":"bid range, replacement value, five-year contract value, roster fit"},
-      "draftPicks": {"defaultCouncil":true,"purpose":"pick valuation, class strength, trade-vs-use decisions, five-year expected value"},
-      "marketBoard": {"defaultCouncil":true,"purpose":"market pricing, liquidity, owner behavior and timing"},
-      "transactions": {"defaultCouncil":true,"purpose":"transaction interpretation, market learning and owner model updates"},
-      "integrity": {"defaultCouncil":false,"purpose":"data validation; deterministic checks first, council only for ambiguous reconciliation"}
+      "warRoom": {"privateAI":true,"purpose":"franchise direction, priority actions, championship path"},
+      "myRoster": {"privateAI":true,"purpose":"roster construction, extensions, cuts, holds, five-year contract value"},
+      "teamAnalyzer": {"privateAI":true,"purpose":"team strengths, weaknesses, windows, cap and five-year asset profile"},
+      "leagueAnalyzer": {"privateAI":true,"purpose":"league power, owner tendencies, exploitable weaknesses, market structure"},
+      "edgeFinder": {"privateAI":true,"purpose":"mispriced assets, buy-low, sell-high and arbitrage opportunities"},
+      "tradeLab": {"privateAI":true,"purpose":"trade score, counteroffers, five-year value and championship impact"},
+      "freeAgency": {"privateAI":true,"purpose":"bid range, replacement value, five-year contract value, roster fit"},
+      "draftPicks": {"privateAI":true,"purpose":"pick valuation, class strength, trade-vs-use decisions, five-year expected value"},
+      "marketBoard": {"privateAI":true,"purpose":"market pricing, liquidity, owner behavior and timing"},
+      "transactions": {"privateAI":true,"purpose":"transaction interpretation, market learning and owner model updates"},
+      "integrity": {"privateAI":false,"purpose":"data validation; deterministic checks first, AI only for ambiguous reconciliation"}
     }
   }
 }

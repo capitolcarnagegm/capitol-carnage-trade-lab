@@ -1,7 +1,7 @@
 {
-  "name": "GM's Locker",
-  "short_name": "GM's Locker",
-  "description": "Fantasy front-office intelligence with MFL sync, integrity reconciliation, roster and league analysis, Edge Finder, blind bids, transaction imports, trade intelligence, and live pick forecasts.",
+  "name": "GMSLOCKER",
+  "short_name": "GMSLOCKER",
+  "description": "Private dynasty front-office intelligence with live Fantrax rosters, free agents, league rules, transactions, NFL scores, news, and AI-assisted decisions.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 104" role="img" aria-labelledby="title desc">
+  <title id="title">GMSLOCKER</title>
+  <desc id="desc">Gold locker shield and GMSLOCKER wordmark</desc>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff0a8"/>
+      <stop offset="0.42" stop-color="#f1cf62"/>
+      <stop offset="1" stop-color="#b78618"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(4 4)">
+    <path d="M48 0 90 14v31c0 25-15 43-42 51C21 88 6 70 6 45V14L48 0Z" fill="#090909" stroke="url(#gold)" stroke-width="4"/>
+    <rect x="25" y="21" width="46" height="55" rx="7" fill="none" stroke="url(#gold)" stroke-width="4"/>
+    <path d="M33 31h30M33 42h30M33 64h12" stroke="#f1cf62" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="60" cy="58" r="4" fill="#fff"/>
+    <path d="M17 18 48 8l31 10" fill="none" stroke="#fff" stroke-opacity=".65" stroke-width="2"/>
+  </g>
+  <text x="112" y="61" fill="#fff" font-family="Arial Black,Arial,sans-serif" font-size="49" font-weight="900" letter-spacing="1.2">GMS</text>
+  <text x="216" y="61" fill="url(#gold)" font-family="Arial Black,Arial,sans-serif" font-size="49" font-weight="900" letter-spacing="1.2">LOCKER</text>
+  <path d="M113 76h346" stroke="#6b5720" stroke-width="2"/>
+  <text x="114" y="94" fill="#d8d8d8" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="700" letter-spacing="4.3">DYNASTY FRONT OFFICE</text>
+</svg>

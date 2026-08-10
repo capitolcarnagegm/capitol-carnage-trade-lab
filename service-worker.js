@@ -1,5 +1,5 @@
-const CACHE='gmslocker-v6-3-shell';
-const APP_SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE='gmslocker-v6-8-brand-launch';
+const APP_SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./gmslocker-logo.svg','./pinvault-collectibles-logo.svg'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(
@@ -29,7 +29,7 @@ self.addEventListener('fetch',event=>{
   if(url.origin!==self.location.origin)return;
 
   if(event.request.mode==='navigate' || event.request.destination==='document'){
-    const refresh=(async()=>{
+    event.respondWith((async()=>{
       try{
         const preloaded=await event.preloadResponse;
         const response=preloaded||await fetch(event.request,{cache:'no-cache'});
@@ -40,19 +40,11 @@ self.addEventListener('fetch',event=>{
         }
         return response;
       }catch(error){
-        return null;
+        return await caches.match('./index.html')||new Response('GM\'s Locker is offline. Reconnect and try again.',{
+          status:503,
+          headers:{'Content-Type':'text/plain; charset=utf-8'}
+        });
       }
-    })();
-
-    event.waitUntil(refresh.then(()=>undefined));
-    event.respondWith((async()=>{
-      const cached=await caches.match('./index.html');
-      if(cached)return cached;
-      const response=await refresh;
-      return response||new Response('GM\'s Locker is offline. Reconnect and try again.',{
-        status:503,
-        headers:{'Content-Type':'text/plain; charset=utf-8'}
-      });
     })());
     return;
   }
