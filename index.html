@@ -4,27 +4,69 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GM's Locker — Pride Dynasty</title>
-<meta http-equiv="refresh" content="0;url=./public-release/">
-<style>
-body{font-family:system-ui;background:#050505;color:#f1cf62;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
-.box{max-width:440px;padding:28px;border:1px solid #6b5720;border-radius:16px;background:#0d0d0d;text-align:center}
-a{color:#f1cf62;font-weight:800}
-.small{color:#aaa;font-size:12px;margin-top:14px}
-</style>
-</head>
-<body>
-<div class="box">
-<h1>GM's Locker</h1>
-<p><b>Pride Dynasty</b> · Capitol Carnage</p>
-<p>Full app is in the public-release build.</p>
-<p><a href="./public-release/">Open GM's Locker →</a></p>
-<p class="small">Fantrax league astbqxhwmk4b6bg9 is configured in the worker. Deploy the Worker + set GEMINI_API_KEY, then force /fantrax/sync.</p>
-</div>
 <script>
-try{
-  var base = location.pathname.replace(/index\.html$/,'').replace(/\/$/,'');
-  location.replace(location.origin + base + '/public-release/');
-}catch(e){}
+(async function () {
+  var sources = [
+    './public-release/index-app.html',
+    'https://raw.githubusercontent.com/capitolcarnagegm/capitol-carnage-trade-lab/4c5b4ecb943ad419a53c7ae584d04071dc64a863/public-release/index.html'
+  ];
+  var lastErr = null;
+  for (var i = 0; i < sources.length; i++) {
+    try {
+      var res = await fetch(sources[i], { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' from ' + sources[i]);
+      var html = await res.text();
+      if (html.length < 10000) throw new Error('Response too small from ' + sources[i]);
+
+      html = html.replace(/id="serverAuthLock"[^>]*/g, 'id="serverAuthLock" style="display:none!important;pointer-events:none;visibility:hidden"');
+      html = html.replace(/class="privacyLock"/g, 'class="privacyLock" style="display:none!important"');
+
+      // Fix relative asset paths when loaded from site root
+      html = html.replace(/src="\.\/pride-override\.js"/g, 'src="./public-release/pride-override.js"');
+      html = html.replace(/href="\.\/([^"])+"/g, function(m) {
+        if (m.indexOf('public-release') >= 0) return m;
+        return m;
+      });
+
+      var unlock = '<script>(function(){' +
+        'window.__GMS_OPEN=true;' +
+        'window.GMSLOCKER_ACCESS_TOKEN="";' +
+        'try{localStorage.setItem("gmslocker_access_ok","1");}catch(e){}' +
+        'function killLock(){var el=document.getElementById("serverAuthLock");if(el){el.style.display="none";el.style.visibility="hidden";try{el.remove();}catch(e){}}}' +
+        'window.hideServerAuth=killLock;' +
+        'window.showServerAuth=function(){};' +
+        'window.requireAccess=function(){return false;};' +
+        'document.addEventListener("DOMContentLoaded",killLock);' +
+        'setInterval(killLock,400);' +
+        '})();<\/script>';
+      if (html.indexOf('</head>') >= 0) html = html.replace('</head>', unlock + '</head>');
+      else html = unlock + html;
+
+      if (html.indexOf('pride-override.js') === -1) {
+        html = html.replace('</body>', '<script src="./public-release/pride-override.js"><\/script></body>');
+      } else if (html.indexOf('./pride-override.js') >= 0) {
+        html = html.replace('./pride-override.js', './public-release/pride-override.js');
+      }
+
+      document.open();
+      document.write(html);
+      document.close();
+      return;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  document.body.innerHTML =
+    '<div style="font-family:system-ui;background:#050505;color:#f1cf62;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">' +
+    '<div style="max-width:440px;border:1px solid #6b5720;border-radius:16px;padding:24px;background:#0d0d0d;text-align:center">' +
+    '<h1>GM\'s Locker</h1>' +
+    '<p>Could not load the app from root.</p>' +
+    '<p><a href="./public-release/" style="color:#f1cf62;font-weight:800">Open via /public-release/</a></p>' +
+    '<p style="color:#aaa;font-size:13px">' + String(lastErr) + '</p></div></div>';
+})();
 </script>
+</head>
+<body style="margin:0;background:#050505;color:#f1cf62;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh">
+<div>Loading GM's Locker…</div>
 </body>
 </html>
