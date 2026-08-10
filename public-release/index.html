@@ -17,11 +17,26 @@
       if (!res.ok) throw new Error('HTTP ' + res.status + ' from ' + sources[i]);
       var html = await res.text();
       if (html.length < 10000) throw new Error('Response too small from ' + sources[i]);
-      html = html.replace('id="serverAuthLock" class="privacyLock"', 'id="serverAuthLock" class="privacyLock" style="display:none"');
-      html = html.replace(/GM's Locker v6\.7/g, "GM's Locker v6.8");
-      html = html.replace(/Build v6\.7/g, 'Build v6.8');
+
+      html = html.replace(/id="serverAuthLock"[^>]*/g, 'id="serverAuthLock" style="display:none!important;pointer-events:none;visibility:hidden"');
+      html = html.replace(/class="privacyLock"/g, 'class="privacyLock" style="display:none!important"');
+
+      var unlock = '<script>(function(){' +
+        'window.__GMS_OPEN=true;' +
+        'window.GMSLOCKER_ACCESS_TOKEN="";' +
+        'try{localStorage.setItem("gmslocker_access_ok","1");}catch(e){}' +
+        'function killLock(){var el=document.getElementById("serverAuthLock");if(el){el.style.display="none";el.style.visibility="hidden";try{el.remove();}catch(e){}}}' +
+        'window.hideServerAuth=killLock;' +
+        'window.showServerAuth=function(){};' +
+        'window.requireAccess=function(){return false;};' +
+        'document.addEventListener("DOMContentLoaded",killLock);' +
+        'setInterval(killLock,400);' +
+        '})();<\/script>';
+      if (html.indexOf('</head>') >= 0) html = html.replace('</head>', unlock + '</head>');
+      else html = unlock + html;
+
       if (html.indexOf('pride-override.js') === -1) {
-        html = html.replace('</body>', '<script src="./pride-override.js"></' + 'script>\n</body>');
+        html = html.replace('</body>', '<script src="./pride-override.js"><\/script></body>');
       }
       document.open();
       document.write(html);
@@ -34,11 +49,8 @@
   document.body.innerHTML =
     '<div style="font-family:system-ui;background:#050505;color:#f1cf62;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">' +
     '<div style="max-width:440px;border:1px solid #6b5720;border-radius:16px;padding:24px;background:#0d0d0d">' +
-    '<h1 style="margin:0 0 12px">GM\'s Locker</h1>' +
-    '<p>Could not load the full app.</p>' +
-    '<p style="color:#aaa;font-size:13px">' + String(lastErr) + '</p>' +
-    '<p><a href="https://raw.githubusercontent.com/capitolcarnagegm/capitol-carnage-trade-lab/4c5b4ecb943ad419a53c7ae584d04071dc64a863/public-release/index.html" style="color:#f1cf62">Open raw full app</a></p>' +
-    '</div></div>';
+    '<h1>GM\'s Locker</h1><p>Could not load the full app.</p>' +
+    '<p style="color:#aaa;font-size:13px">' + String(lastErr) + '</p></div></div>';
 })();
 </script>
 </head>
