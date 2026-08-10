@@ -33,13 +33,14 @@ a:hover { text-decoration: underline; }
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 12px 12px 8px;
+  padding: 14px 12px 10px;
 }
 .top-banner .banner-logo {
-  max-width: min(560px, 94vw);
+  max-width: min(520px, 94vw);
   width: 100%;
   height: auto;
   display: block;
+  image-rendering: -webkit-optimize-contrast;
 }
 
 .site-header {
@@ -56,7 +57,7 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 .brand-logo {
-  height: 48px;
+  height: 42px;
   width: auto;
   border-radius: 6px;
   object-fit: contain;
@@ -212,11 +213,42 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 .bhs.hold { background: rgba(232,184,74,0.2); color: var(--warn); }
 .bhs.sell { background: rgba(232,93,93,0.2); color: var(--bad); }
 
+.contact-emails {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+.contact-emails a.email-card {
+  display: block;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+.contact-emails a.email-card:hover {
+  border-color: var(--gold);
+  text-decoration: none;
+}
+.contact-emails a.email-card b {
+  display: block;
+  color: var(--gold2);
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.contact-emails a.email-card span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .pinvault {
   position: fixed; right: 12px; bottom: 12px; z-index: 90;
-  background: rgba(10,10,10,0.94); border: 1px solid var(--border);
-  border-radius: 12px; padding: 8px; max-width: 140px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.5); text-align: center;
+  background: rgba(10,10,10,0.96); border: 1px solid var(--border);
+  border-radius: 12px; padding: 10px 10px 8px; max-width: 168px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.55); text-align: center;
 }
 .pinvault .x {
   position: absolute; top: 2px; right: 6px;
@@ -224,8 +256,14 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 }
 .pinvault .pv-link { display: block; text-decoration: none; }
 .pinvault .pv-logo {
-  width: 120px; height: 120px; border-radius: 8px;
-  display: block; margin: 0 auto 6px; object-fit: cover;
+  width: 148px;
+  height: auto;
+  max-height: 56px;
+  border-radius: 6px;
+  display: block;
+  margin: 4px auto 8px;
+  object-fit: contain;
+  background: #0a0a0a;
 }
 .pinvault .pv-tag {
   display: block; font-size: 10px; color: var(--muted); line-height: 1.25;
@@ -236,7 +274,9 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 .pinvault a:hover .pv-tag, .pinvault a:hover .pv-store { color: var(--gold); }
 
 @media (max-width: 480px) {
-  .top-banner { padding: 8px 8px 4px; }
+  .top-banner { padding: 10px 8px 6px; }
   .brand-title { font-size: 0.95rem; }
-  .brand-logo { height: 36px; }
+  .brand-logo { height: 34px; }
+  .pinvault { max-width: 140px; }
+  .pinvault .pv-logo { width: 120px; }
 }

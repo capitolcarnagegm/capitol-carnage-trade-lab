@@ -10,7 +10,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.0.0";
+  var VERSION = "1.0.1";
 
   var TIER = localStorage.getItem("gms_tier") || "free";
   var COACH = localStorage.getItem("gms_coach") || "process";
@@ -96,7 +96,11 @@
       try { localStorage.setItem("gms_last_sync", state.asOf); } catch (e) {}
     } catch (e) {
       state.loading = false;
-      state.error = String(e.message || e);
+      var msg = String(e.message || e);
+      if (/Failed to fetch|NetworkError|CORS|blocked/i.test(msg)) {
+        msg = "Fantrax blocked browser request (CORS). Need a proxy worker for live rosters. UI still works offline.";
+      }
+      state.error = msg;
     }
     render();
   }
@@ -267,7 +271,7 @@
     var actions = [];
     var mine = teamPlayers(MY_TEAM);
     if (!mine.length) {
-      return [{ type: "system", cls: "", title: "Sync Fantrax to load your roster", why: "No Capitol Carnage players yet. Tap Refresh.", grade: "—" }];
+      return [{ type: "system", cls: "", title: "Sync Fantrax to load your roster", why: "No Capitol Carnage players yet. Tap Refresh. If it keeps failing, browser is blocked from Fantrax (CORS) — proxy needed.", grade: "—" }];
     }
     var health = rosterHealth(MY_TEAM);
     if (health.space < 40) {
@@ -499,6 +503,23 @@
     return html;
   }
 
+  function viewContact() {
+    var html = '<div class="card"><div class="sectionhead"><h2>Contact Us</h2><span class="pill">GM\'S LOCKER</span></div>';
+    html += '<div class="notice"><b>Questions, feedback, or business?</b> Reach the GM\'s Locker / Pin Vault team here.</div>';
+    html += '<div class="contact-emails">';
+    html += '<a class="email-card" href="mailto:gmslocker@gmail.com"><b>gmslocker@gmail.com</b><span>Primary — GM\'s Locker / Pride Dynasty support</span></a>';
+    html += '<a class="email-card" href="mailto:pinvaultcollectibles@gmail.com"><b>pinvaultcollectibles@gmail.com</b><span>Pin Vault Collectibles · eBay store & pin questions</span></a>';
+    html += '</div>';
+    html += '<div class="notice" style="margin-top:14px">eBay store: <a href="https://www.ebay.com/str/pinvaultcollectibles" target="_blank" rel="noopener">pinvaultcollectibles</a></div>';
+    html += '</div>';
+    html += '<div class="card"><div class="sectionhead"><h2>Site</h2></div>';
+    html += '<div class="gate"><span>Domain</span><b>gmslocker.com</b></div>';
+    html += '<div class="gate"><span>League</span><b>Pride Dynasty (Fantrax)</b></div>';
+    html += '<div class="gate"><span>Team</span><b>Capitol Carnage</b></div>';
+    html += '</div>';
+    return html;
+  }
+
   function viewSettings() {
     var html = '<div class="card"><div class="sectionhead"><h2>Settings</h2></div>';
     html += '<div class="field"><label>Coach style</label><select onchange="GMS.setCoach(this.value)">';
@@ -547,7 +568,21 @@
     if (state.error) body += '<div class="error-banner"><b>Sync error:</b> ' + esc(state.error) + ' <button class="secondary" onclick="GMS.sync()">Retry</button></div>';
     if (state.loading && !Object.keys(state.teams).length) body += '<div class="loading">Loading Pride Dynasty from Fantrax…</div>';
     else {
-      var map = { war: viewWarRoom, team: viewTeam, teams: viewTeams, cap: viewCap, bhs: viewBHS, waivers: viewWaivers, trade: viewTrade, analysts: viewAnalysts, picks: viewPicks, news: viewNews, chat: viewChat, settings: viewSettings };
+      var map = {
+        war: viewWarRoom,
+        team: viewTeam,
+        teams: viewTeams,
+        cap: viewCap,
+        bhs: viewBHS,
+        waivers: viewWaivers,
+        trade: viewTrade,
+        analysts: viewAnalysts,
+        picks: viewPicks,
+        news: viewNews,
+        chat: viewChat,
+        contact: viewContact,
+        settings: viewSettings
+      };
       body += (map[currentView] || viewWarRoom)();
     }
     main.innerHTML = body;

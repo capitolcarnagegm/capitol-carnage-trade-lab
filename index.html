@@ -13,12 +13,12 @@
 </head>
 <body>
   <div class="top-banner">
-    <img id="bannerImg" alt="GM's Locker — GM Sports Assistant" class="banner-logo">
+    <img id="bannerImg" src="gmslocker-logo.svg" alt="GMS LOCKER — Dynasty Front Office" class="banner-logo">
   </div>
 
   <header class="site-header">
     <div class="brand">
-      <img id="brandImg" alt="GM's Locker" class="brand-logo">
+      <img id="brandImg" src="gmslocker-logo.svg" alt="GM's Locker" class="brand-logo">
       <div class="brand-text">
         <div class="brand-title">GM's Locker</div>
         <div class="brand-sub">PRIDE DYNASTY · FANTRAX</div>
@@ -39,6 +39,7 @@
     <button type="button" data-view="picks">Picks</button>
     <button type="button" data-view="news">News</button>
     <button type="button" data-view="chat">GM Chat</button>
+    <button type="button" data-view="contact">Contact</button>
     <button type="button" data-view="settings">Settings</button>
   </nav>
 
@@ -49,12 +50,17 @@
   <footer class="site-footer">
     <div><span class="gold">GM's Locker</span> · Simulate here · Execute in Fantrax</div>
     <div style="margin-top:6px">Pride ain't cheap. · Bylaws-aware · O + IDP</div>
+    <div style="margin-top:8px">
+      <a href="mailto:gmslocker@gmail.com">gmslocker@gmail.com</a>
+      ·
+      <a href="mailto:pinvaultcollectibles@gmail.com">pinvaultcollectibles@gmail.com</a>
+    </div>
   </footer>
 
   <div class="pinvault" id="pinvault">
     <span class="x" id="pinvaultClose" title="Dismiss">×</span>
     <a href="https://www.ebay.com/str/pinvaultcollectibles" target="_blank" rel="noopener" class="pv-link">
-      <img id="pvImg" alt="Pin Vault Collectibles" class="pv-logo" width="120" height="120">
+      <img id="pvImg" src="pinvault-collectibles-logo.svg" alt="Pin Vault Collectibles" class="pv-logo">
       <span class="pv-tag">Get your collectibles from Pin Vault Collectibles</span>
       <span class="pv-store">eBay Store →</span>
     </a>
@@ -62,13 +68,22 @@
 
   <script>
   (function () {
-    function apply(id, b64) {
+    // Prefer sharp SVG; fall back to base64 JPEG if present
+    function apply(id, b64, preferSrc) {
       var el = document.getElementById(id);
-      if (el && b64) el.src = "data:image/jpeg;base64," + b64;
+      if (!el) return;
+      if (preferSrc) {
+        el.src = preferSrc;
+        el.onerror = function () {
+          if (b64) el.src = "data:image/jpeg;base64," + b64;
+        };
+      } else if (b64) {
+        el.src = "data:image/jpeg;base64," + b64;
+      }
     }
-    apply("bannerImg", window.__GMS_LOGO_B64);
-    apply("brandImg", window.__GMS_LOGO_B64);
-    apply("pvImg", window.__PV_LOGO_B64);
+    apply("bannerImg", window.__GMS_LOGO_B64, "gmslocker-logo.svg");
+    apply("brandImg", window.__GMS_LOGO_B64, "gmslocker-logo.svg");
+    apply("pvImg", window.__PV_LOGO_B64, "pinvault-collectibles-logo.svg");
   })();
   </script>
   <script src="app.js"></script>
