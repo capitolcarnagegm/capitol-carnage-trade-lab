@@ -4,7 +4,58 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GM's Locker v8.1</title>
-<script src="./public-release/pride-intercept.js"></script>
+<script>
+/* INLINE intercept — runs before any other script */
+(function () {
+  var LEAGUE = "astbqxhwmk4b6bg9";
+  var _fetch = window.fetch.bind(window);
+  window.fetch = async function (input, init) {
+    var u = "";
+    try { u = typeof input === "string" ? input : (input && input.url) || ""; } catch (e) {}
+    var isWorker = u.indexOf("gms-locker-ai") >= 0 || u.indexOf("workers.dev") >= 0;
+    if (!isWorker) return _fetch(input, init);
+    if (u.indexOf("/sports/news") >= 0 || /\/news(\?|$)/.test(u)) {
+      try {
+        var espn = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50";
+        var er = await _fetch(espn, { cache: "no-store" });
+        var ed = await er.json();
+        return new Response(JSON.stringify({ ok: true, articles: ed.articles || [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      } catch (e) {
+        return new Response(JSON.stringify({ ok: false, error: String(e.message || e) }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+    }
+    if (u.indexOf("/optimize") >= 0) {
+      return new Response(JSON.stringify({ ok: false, error: "client-optimize" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    if (u.indexOf("/fantrax") >= 0 || u.indexOf("/health") >= 0) {
+      try {
+        async function fx(ep) {
+          var r = await _fetch("https://www.fantrax.com/fxea/general/" + ep + "?leagueId=" + encodeURIComponent(LEAGUE), { cache: "no-store", headers: { Accept: "application/json" } });
+          if (!r.ok) throw new Error(ep + " HTTP " + r.status);
+          return r.json();
+        }
+        if (u.indexOf("/health") >= 0) {
+          return new Response(JSON.stringify({ ok: true, service: "v8.1 direct", accessConfigured: false, fantraxConfigured: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+        var parts = await Promise.all([
+          fx("getTeamRosters"),
+          fx("getPlayerIds").catch(function () { return {}; }),
+          fx("getStandings").catch(function () { return []; }),
+          fx("getMatchupScores").catch(function () { return {}; }),
+          fx("getDraftPicks").catch(function () { return {}; })
+        ]);
+        return new Response(JSON.stringify({
+          ok: true, configured: true, syncedAt: new Date().toISOString(),
+          snapshots: { rosters: parts[0], players: parts[1], standings: parts[2], matchups: parts[3], draftPicks: parts[4] }
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      } catch (e) {
+        return new Response(JSON.stringify({ ok: false, error: String(e.message || e) }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+    }
+    return _fetch(input, init);
+  };
+})();
+</script>
 <script>
 (async function () {
   var sources = [
@@ -14,35 +65,31 @@
   for (var i = 0; i < sources.length; i++) {
     try {
       var res = await fetch(sources[i], { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' from ' + sources[i]);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       var html = await res.text();
-      if (html.length < 10000) throw new Error('Response too small');
+      if (html.length < 10000) throw new Error('too small');
 
       html = html.replace(/id="serverAuthLock"[^>]*/g, 'id="serverAuthLock" style="display:none!important;pointer-events:none;visibility:hidden"');
       html = html.replace(/class="privacyLock"/g, 'class="privacyLock" style="display:none!important"');
-      html = html.replace(/GM's Locker v6\.7/g, "GM's Locker v8.1");
       html = html.replace(/v6\.7/g, "v8.1");
-      html = html.replace(/Private vault locked/g, "Direct Fantrax mode");
-      html = html.replace(/Sign in required/g, "");
+      html = html.replace(/Private vault locked/g, "Direct Fantrax");
+      html = html.replace(/Sign in required/gi, "");
 
-      var unlock = '<script src="./public-release/pride-intercept.js"><\/script>' +
-        '<script>(function(){' +
-        'window.__GMS_OPEN=true;window.GMSLOCKER_ACCESS_TOKEN="";' +
-        'try{localStorage.setItem("gmslocker_access_ok","1");}catch(e){}' +
-        'function killLock(){var el=document.getElementById("serverAuthLock");if(el){el.style.display="none";try{el.remove();}catch(e){}}}' +
-        'window.hideServerAuth=killLock;window.showServerAuth=function(){};window.requireAccess=function(){return false;};' +
-        'document.addEventListener("DOMContentLoaded",killLock);setInterval(killLock,400);' +
-        '})();<\/script>';
+      // Re-inject intercept inside written document + loaders from raw github (always available)
+      var RAW = "https://raw.githubusercontent.com/capitolcarnagegm/capitol-carnage-trade-lab/main/public-release/";
+      var unlock =
+        '<script>(function(){var L="astbqxhwmk4b6bg9";var _f=window.fetch.bind(window);window.fetch=async function(input,init){var u="";try{u=typeof input==="string"?input:(input&&input.url)||"";}catch(e){}var w=u.indexOf("gms-locker-ai")>=0||u.indexOf("workers.dev")>=0;if(!w)return _f(input,init);if(u.indexOf("/fantrax")>=0||u.indexOf("/health")>=0){try{async function fx(ep){var r=await _f("https://www.fantrax.com/fxea/general/"+ep+"?leagueId="+L,{cache:"no-store"});if(!r.ok)throw new Error(ep);return r.json();}if(u.indexOf("/health")>=0)return new Response(JSON.stringify({ok:true,accessConfigured:false,fantraxConfigured:true}),{status:200,headers:{"Content-Type":"application/json"}});var p=await Promise.all([fx("getTeamRosters"),fx("getPlayerIds").catch(function(){return{};}),fx("getStandings").catch(function(){return[];}),fx("getMatchupScores").catch(function(){return{};}),fx("getDraftPicks").catch(function(){return{};})]);return new Response(JSON.stringify({ok:true,configured:true,syncedAt:new Date().toISOString(),snapshots:{rosters:p[0],players:p[1],standings:p[2],matchups:p[3],draftPicks:p[4]}}),{status:200,headers:{"Content-Type":"application/json"}});}catch(e){return new Response(JSON.stringify({ok:false,error:String(e.message||e)}),{status:200,headers:{"Content-Type":"application/json"}});}}if(u.indexOf("/sports/news")>=0||/\\/news(\\?|$)/.test(u)){try{var er=await _f("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50",{cache:"no-store"});var ed=await er.json();return new Response(JSON.stringify({ok:true,articles:ed.articles||[]}),{status:200,headers:{"Content-Type":"application/json"}});}catch(e){return new Response(JSON.stringify({ok:false,error:String(e.message||e)}),{status:200,headers:{"Content-Type":"application/json"}});}}if(u.indexOf("/optimize")>=0)return new Response(JSON.stringify({ok:false,error:"client-optimize"}),{status:200,headers:{"Content-Type":"application/json"}});return _f(input,init);};window.__GMS_OPEN=true;window.GMSLOCKER_ACCESS_TOKEN="";try{localStorage.setItem("gmslocker_access_ok","1");}catch(e){}function killLock(){var el=document.getElementById("serverAuthLock");if(el){el.style.display="none";try{el.remove();}catch(e){}}}window.hideServerAuth=killLock;window.showServerAuth=function(){};window.requireAccess=function(){return false;};document.addEventListener("DOMContentLoaded",killLock);setInterval(killLock,400);})();<\/script>';
+
       if (html.indexOf('</head>') >= 0) html = html.replace('</head>', unlock + '</head>');
       else html = unlock + html;
 
+      // Load pride scripts from raw.githubusercontent (never 404 on Pages)
       var scripts =
-        '<script src="./public-release/pride-intercept.js"><\/script>' +
-        '<script src="./public-release/pride-override.js"><\/script>' +
-        '<script src="./public-release/pride-boot.js"><\/script>' +
-        '<script src="./public-release/pride-optimize.js"><\/script>' +
-        '<script src="./public-release/pride-news.js"><\/script>' +
-        '<script src="./public-release/pride-trade.js"><\/script>';
+        '<script src="' + RAW + 'pride-override.js"><\/script>' +
+        '<script src="' + RAW + 'pride-boot.js"><\/script>' +
+        '<script src="' + RAW + 'pride-optimize.js"><\/script>' +
+        '<script src="' + RAW + 'pride-news.js"><\/script>' +
+        '<script src="' + RAW + 'pride-trade.js"><\/script>';
       if (html.indexOf('</body>') >= 0) html = html.replace('</body>', scripts + '</body>');
       else html += scripts;
 
@@ -54,6 +101,6 @@
 </script>
 </head>
 <body style="margin:0;background:#050505;color:#f1cf62;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh">
-<div>Loading GM's Locker v8.1…</div>
+<div>Loading GM's Locker v8.1 — direct Fantrax…</div>
 </body>
 </html>
