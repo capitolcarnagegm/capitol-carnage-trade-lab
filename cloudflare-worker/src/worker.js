@@ -4,13 +4,15 @@ const ALLOWED_ORIGINS = new Set([
   "https://capitolcarnagegm.github.io"
 ]);
 
-const DEFAULT_MFL_HOST = "www.myfantasyleague.com";
+const MFL_HOST = "www45.myfantasyleague.com";
+const SEASON = "2026";
+const LEAGUE_ID = "29218";
 
 function cors(origin) {
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : "null",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
     "Cache-Control": "no-store"
@@ -24,55 +26,10 @@ function json(data,status=200,origin="") {
   });
 }
 
-function mflConfig(env) {
-  const host=String(env.MFL_HOST||DEFAULT_MFL_HOST).replace(/^https?:\/\//,"").replace(/\/$/,"");
-  const season=String(env.MFL_SEASON||new Date().getUTCFullYear());
-  const leagueId=String(env.MFL_LEAGUE_ID||"").trim();
-  if(!/(^|\.)myfantasyleague\.com$/i.test(host))throw new Error("MFL host is invalid.");
-  if(!leagueId)throw new Error("MFL bridge is not configured.");
-  return {host,season,leagueId};
-}
-
-async function sha256Hex(value) {
-  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value)));
-  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
-}
-
-async function constantTimeEqual(left,right) {
-  const [a,b]=await Promise.all([sha256Hex(left),sha256Hex(right)]);
-  let difference=0;
-  for(let index=0;index<a.length;index+=1)difference|=a.charCodeAt(index)^b.charCodeAt(index);
-  return difference===0;
-}
-
-async function authorized(request,env) {
-  const expected=String(env.BRIDGE_ACCESS_TOKEN||"");
-  const supplied=String(request.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");
-  return expected.length>=20&&supplied.length>=20&&await constantTimeEqual(supplied,expected);
-}
-
-async function readBoundedResponseText(response,maximumBytes) {
-  const declaredLength=Number.parseInt(response.headers.get("Content-Length")||"",10);
-  if(Number.isFinite(declaredLength)&&declaredLength>maximumBytes)throw new Error("MFL response was too large.");
-  if(!response.body)return "";
-
-  const reader=response.body.getReader(),decoder=new TextDecoder();
-  let total=0,text="";
-  while(true){
-    const {done,value}=await reader.read();
-    if(done)break;
-    total+=value.byteLength;
-    if(total>maximumBytes){await reader.cancel();throw new Error("MFL response was too large.")}
-    text+=decoder.decode(value,{stream:true});
-  }
-  return text+decoder.decode();
-}
-
-async function getMFL(env,type, extra={}) {
-  const {host,season,leagueId}=mflConfig(env);
-  const url=new URL(`https://${host}/${season}/export`);
+async function getMFL(type, extra={}) {
+  const url=new URL(`https://${MFL_HOST}/${SEASON}/export`);
   url.searchParams.set("TYPE",type);
-  url.searchParams.set("L",leagueId);
+  url.searchParams.set("L",LEAGUE_ID);
   url.searchParams.set("JSON","1");
   for(const [k,v] of Object.entries(extra)) if(v!==undefined&&v!==null&&v!=="") url.searchParams.set(k,String(v));
 
@@ -80,29 +37,28 @@ async function getMFL(env,type, extra={}) {
     headers:{"Accept":"application/json,text/plain,*/*","User-Agent":"GMs-Locker/3.0"},
     cf:{cacheTtl:0,cacheEverything:false}
   });
-  const text=await readBoundedResponseText(r,16*1024*1024);
+  const text=await r.text();
   if(!r.ok) throw new Error(`${type}: MFL HTTP ${r.status}`);
   try{return JSON.parse(text)}
   catch{throw new Error(`${type}: MFL response was not JSON (${text.slice(0,100).replace(/\s+/g," ")})`)}
 }
 
-async function optionalMFL(env,type,extra={}) {
-  try{return {value:await getMFL(env,type,extra),error:null}}
+async function optionalMFL(type,extra={}) {
+  try{return {value:await getMFL(type,extra),error:null}}
   catch(e){return {value:{},error:String(e?.message||e)}}
 }
 
-async function buildSyncPayload(env) {
-  const {host,season}=mflConfig(env);
+async function buildSyncPayload() {
   const [league,players,rosters]=await Promise.all([
-    getMFL(env,"league"),getMFL(env,"players"),getMFL(env,"rosters")
+    getMFL("league"),getMFL("players"),getMFL("rosters")
   ]);
 
   const [standings,transactions,draftResults,futureDraftPicks,schedule]=await Promise.all([
-    optionalMFL(env,"leagueStandings"),
-    optionalMFL(env,"transactions",{COUNT:1000}),
-    optionalMFL(env,"draftResults"),
-    optionalMFL(env,"futureDraftPicks"),
-    optionalMFL(env,"schedule")
+    optionalMFL("leagueStandings"),
+    optionalMFL("transactions",{COUNT:1000}),
+    optionalMFL("draftResults"),
+    optionalMFL("futureDraftPicks"),
+    optionalMFL("schedule")
   ]);
 
   const errors={};
@@ -115,8 +71,9 @@ async function buildSyncPayload(env) {
   return {
     ok:true,
     syncedAt:new Date().toISOString(),
-    season,
-    upstream:host,
+    season:SEASON,
+    leagueId:LEAGUE_ID,
+    upstream:MFL_HOST,
     data:{
       league,
       players,
@@ -156,14 +113,13 @@ export default {
     if(!["GET","POST"].includes(request.method))return json({ok:false,error:"Method not allowed"},405,origin);
 
     if(url.pathname==="/"||url.pathname==="/health"){
-      return json({ok:true,service:"GM's Locker Legacy MFL Bridge",configured:Boolean(env.MFL_LEAGUE_ID&&env.BRIDGE_ACCESS_TOKEN)},200,origin);
+      return json({ok:true,service:"GM's Locker MFL Sync",season:SEASON,leagueId:LEAGUE_ID,upstream:MFL_HOST},200,origin);
     }
 
     if(!ALLOWED_ORIGINS.has(origin))return json({ok:false,error:"Origin not allowed"},403,origin);
-    if(!await authorized(request,env))return json({ok:false,error:"Authorization required"},401,origin);
 
     if(url.pathname==="/sync"&&request.method==="GET"){
-      try{return json(await buildSyncPayload(env),200,origin)}
+      try{return json(await buildSyncPayload(),200,origin)}
       catch(e){return json({ok:false,error:String(e?.message||e)},500,origin)}
     }
 

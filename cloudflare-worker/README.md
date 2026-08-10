@@ -1,14 +1,15 @@
-# Legacy MFL bridge
+# Capitol Carnage MFL Sync Worker
 
-This optional, deprecated Worker remains only for older MFL sync and screenshot-reader compatibility. Fantrax is the current league source.
+This is the server-side read-only sync bridge for Pride LG 2026, league 29218.
 
-All league-specific settings are Worker secrets or variables; no league identifier belongs in this repository. Data and image routes also require a bearer token.
+It is locked to:
+- GitHub Pages origin: https://capitolcarnagegm.github.io
+- MFL host: www45.myfantasyleague.com
+- Season: 2026
+- League ID: 29218
 
-Required configuration:
+Routes:
+- GET /health — deployment test
+- GET /sync — returns league, players, rosters and optional standings/transactions/draft results
 
-- `MFL_LEAGUE_ID`
-- `MFL_SEASON`
-- `MFL_HOST`
-- `BRIDGE_ACCESS_TOKEN` (secret)
-
-The public health route reports only whether the bridge is configured. It never returns the league identifier.
+No MFL password is stored. The Worker does not submit bids, lineups, drops, adds, or trades.

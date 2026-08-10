@@ -1,0 +1,20 @@
+CAPITOL CARNAGE GM LAB v2.3 — ROSTER-FIRST TRADE LAB
+
+UPLOAD TO EXISTING GITHUB REPO:
+- index.html
+- manifest.webmanifest
+- service-worker.js
+- cloudflare-worker/ (updated Worker can also request future draft-pick data)
+
+Because Cloudflare is connected to this GitHub repository, committing the updated
+cloudflare-worker folder should trigger a Worker rebuild automatically.
+
+NEW TRADE LAB:
+- Capitol Carnage locked as your franchise
+- Opponent dropdown uses synced Pride LG franchises
+- Entire rosters displayed by position
+- Tap + Trade to add assets
+- Picks shown when MFL future-pick endpoint supplies them
+- Post-trade points, salary, value, and depth-hole warnings
+- Last successful MFL snapshot persists locally
+- App auto-refreshes MFL when data is >6 hours old
