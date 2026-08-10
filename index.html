@@ -4,37 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#050505">
-  <title>GM's Locker — Pride Dynasty</title>
-  <meta name="description" content="War Room for Fantrax dynasty. Simulate moves. Execute in your league.">
+  <title>GMS Locker — GM Sports Assistant</title>
+  <meta name="description" content="Fantasy football GM sports assistant for rosters, cap, waivers, trades, picks and league analysis.">
   <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%23050505' width='64' height='64' rx='12'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' font-family='system-ui' font-weight='800' fill='%23d4af37'%3EGM%3C/text%3E%3C/svg%3E">
-  <script src="gms-banner.js"></script>
-  <script src="gms-brand.js"></script>
-  <script src="pv-badge.js"></script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%23050505' width='64' height='64' rx='12'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' font-family='system-ui' font-weight='800' fill='%23d4af37'%3EGMS%3C/text%3E%3C/svg%3E">
 </head>
 <body>
   <div class="top-banner">
-    <img id="bannerImg" alt="GMS LOCKER — GM Sports Assistant" class="banner-logo">
+    <img id="bannerImg" src="gmslocker-logo.svg" alt="GMS Locker — GM Sports Assistant" class="banner-logo">
   </div>
 
   <header class="site-header">
     <div class="brand">
-      <img id="brandImg" alt="GM's Locker" class="brand-logo">
+      <img id="brandImg" src="gmslocker-logo.svg" alt="GMS Locker" class="brand-logo">
       <div class="brand-text">
-        <div class="brand-title">GM's Locker</div>
-        <div class="brand-sub">PRIDE DYNASTY · FANTRAX</div>
+        <div class="brand-title">GMS Locker</div>
+        <div class="brand-sub">GM SPORTS ASSISTANT · PRIDE DYNASTY · FANTRAX</div>
       </div>
     </div>
     <div class="header-right">
       <div class="asof" id="asof">Connecting…</div>
+      <button type="button" class="secondary" id="syncBtn" title="Refresh Fantrax league data">Refresh</button>
       <a class="pv-top" href="https://www.ebay.com/str/pinvaultcollectibles" target="_blank" rel="noopener" title="Pin Vault Collectibles eBay Store">
-        <img id="pvImg" alt="Pin Vault Collectibles" class="pv-top-logo">
+        <img id="pvImg" src="pinvault-collectibles-logo.svg" alt="Pin Vault Collectibles" class="pv-top-logo">
         <span class="pv-top-label">eBay Store →</span>
       </a>
     </div>
   </header>
 
-  <nav class="nav" id="nav">
+  <nav class="nav" id="nav" aria-label="GMS Locker tools">
     <button type="button" data-view="war">War Room</button>
     <button type="button" data-view="team">My Team</button>
     <button type="button" data-view="teams">Teams</button>
@@ -51,11 +49,11 @@
   </nav>
 
   <main class="main" id="main">
-    <div class="loading">Loading GM's Locker…</div>
+    <div class="loading">Loading GMS Locker…</div>
   </main>
 
   <footer class="site-footer">
-    <div><span class="gold">GM's Locker</span> · Simulate here · Execute in Fantrax</div>
+    <div><span class="gold">GMS Locker</span> · Simulate here · Execute in Fantrax</div>
     <div style="margin-top:6px">Pride ain't cheap. · Bylaws-aware · O + IDP</div>
     <div style="margin-top:8px">
       <a href="mailto:gmslocker@gmail.com">gmslocker@gmail.com</a>
@@ -64,17 +62,16 @@
     </div>
   </footer>
 
+  <script src="fantrax-proxy.js"></script>
+  <script src="app.js"></script>
   <script>
   (function () {
-    function apply(id, b64) {
-      var el = document.getElementById(id);
-      if (el && b64) el.src = "data:image/jpeg;base64," + b64;
-    }
-    apply("bannerImg", window.__GMS_BANNER_B64);
-    apply("brandImg", window.__GMS_BRAND_B64);
-    apply("pvImg", window.__PV_BADGE_B64);
+    var btn = document.getElementById("syncBtn");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      if (window.GMS && typeof window.GMS.sync === "function") window.GMS.sync();
+    });
   })();
   </script>
-  <script src="app.js"></script>
 </body>
 </html>
