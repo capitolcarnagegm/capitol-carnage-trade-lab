@@ -1,17 +1,20 @@
-// Pride Cap Engine — dead money + 5-year move projections (gmslocker.com)
-// Bylaw model (adjust when exact clause differs):
-// - Current salary cap: $1404
-// - Cap inflates ~5%/yr for projection
-// - Contract years on Fantrax = remaining years including this season
-// - Cut before March 1 window: dead = remaining salary after this year (years-1)*salary
-// - Cut after / mid-season style: dead = full remaining years * salary (accelerated)
-// - Dead hits the year of the cut (not spread) unless BYLAW_SPREAD is true
+// Pride Cap Engine — Article IX exact dead money + 5-year projections
+// Bylaws (Article IX §6):
+//   Dropped player:
+//     A. Current year: 100% of salary still hits the cap
+//     B. Following year ONLY (no year-3+ dead):
+//        2 yrs remaining → 40% of salary
+//        3 yrs remaining → 60%
+//        4 yrs remaining → 80%
+//        5 yrs remaining → 85% (rookie 5-yr extension only)
+// Example: $20 × 3 yrs left → Year1 $20, Year2 $12, Year3 $0
+// Cap: starts 1100, +5% each March 1 → current ~1404
+// Player salaries: +20% each year while under contract (Art X §9)
 (function () {
   var MY_TEAM = "Capitol Carnage";
   var CAP_NOW = 1404;
   var CAP_INFLATION = 0.05;
-  var BYLAW_SPREAD = false; // set true if dead is prorated across remaining years
-  var MARCH1_SOFT = true;   // soft cuts leave current-year salary as paid, residual as dead
+  var SALARY_INFLATION = 0.20;
 
   function esc(s) {
     return String(s || "").replace(/[&<>"']/g, function (c) {
@@ -28,51 +31,62 @@
 
   function yearsLeft(a) {
     var y = Number(a.years || 0);
-    return y > 0 ? y : 1;
+    return y > 0 ? Math.min(5, y) : 1;
   }
 
-  function salary(a) {
+  function baseSalary(a) {
     return Number(a.salary || 0);
   }
 
-  // Remaining obligation if kept for full contract
-  function remainingObligation(a) {
-    return salary(a) * yearsLeft(a);
-  }
-
-  // Dead money if cut now (March 1 soft window assumed for planning)
-  function deadOnCut(a, mode) {
-    mode = mode || (MARCH1_SOFT ? "march1" : "full");
-    var sal = salary(a);
-    var yrs = yearsLeft(a);
-    if (mode === "march1") {
-      // This year already budgeted / paid → dead is residual years
-      return Math.max(0, sal * Math.max(0, yrs - 1));
-    }
-    // Full acceleration of remaining contract
-    return sal * yrs;
+  // Salary in future year offset if kept (20% annual raise)
+  function salaryInYear(a, yearOffset) {
+    var s = baseSalary(a);
+    for (var i = 0; i < yearOffset; i++) s = s * (1 + SALARY_INFLATION);
+    return Math.round(s * 100) / 100;
   }
 
   function capForYear(offset) {
     return Math.round(CAP_NOW * Math.pow(1 + CAP_INFLATION, offset) * 10) / 10;
   }
 
-  // Baseline 5-year projection if roster unchanged (contracts roll off)
+  // Dead money schedule for a cut (Article IX §6)
+  // yearsRemaining = contract years left at moment of cut (includes current)
+  function deadSchedule(salary, yearsRemaining) {
+    var y = Math.max(1, Number(yearsRemaining) || 1);
+    var sal = Number(salary) || 0;
+    var cur = sal; // 100% current year
+    var next = 0;
+    if (y >= 5) next = sal * 0.85;
+    else if (y === 4) next = sal * 0.80;
+    else if (y === 3) next = sal * 0.60;
+    else if (y === 2) next = sal * 0.40;
+    // y === 1 → next year 0
+    return {
+      year0: Math.round(cur * 100) / 100,
+      year1: Math.round(next * 100) / 100,
+      year2: 0,
+      year3: 0,
+      year4: 0
+    };
+  }
+
+  function deadOnCut(a) {
+    return deadSchedule(baseSalary(a), yearsLeft(a));
+  }
+
   function baselineProjection() {
     var players = myPlayers();
     var years = [];
     for (var y = 0; y < 5; y++) {
-      var active = 0;
-      var count = 0;
+      var active = 0, count = 0;
       players.forEach(function (a) {
         if (yearsLeft(a) > y) {
-          active += salary(a);
+          active += salaryInYear(a, y);
           count++;
         }
       });
       var cap = capForYear(y);
       years.push({
-        year: 2026 + y,
         label: y === 0 ? "2026 (now)" : String(2026 + y),
         active: Math.round(active * 10) / 10,
         dead: 0,
@@ -85,8 +99,7 @@
     return years;
   }
 
-  // Project after cutting a set of player ids (fantrax or asset id)
-  function projectCuts(cutIds, mode) {
+  function projectCuts(cutIds) {
     cutIds = cutIds || [];
     var set = {};
     cutIds.forEach(function (id) { set[String(id)] = true; });
@@ -98,31 +111,20 @@
         var id = String(a.fantraxId || a.id);
         var isCut = set[id] || set[String(a.id)];
         if (isCut) {
-          if (y === 0) {
-            // Dead hits year of cut
-            var d = deadOnCut(a, mode);
-            if (BYLAW_SPREAD) {
-              var residualYrs = Math.max(1, yearsLeft(a) - (MARCH1_SOFT ? 1 : 0));
-              dead += d / residualYrs;
-            } else {
-              dead += d;
-            }
-          } else if (BYLAW_SPREAD) {
-            var residualYrs2 = Math.max(1, yearsLeft(a) - (MARCH1_SOFT ? 1 : 0));
-            if (y < residualYrs2) dead += deadOnCut(a, mode) / residualYrs2;
-          }
-          // cut players do not count as active in any year
+          var sch = deadOnCut(a);
+          if (y === 0) dead += sch.year0;
+          else if (y === 1) dead += sch.year1;
+          // years 2–4: no further dead per bylaws
           return;
         }
         if (yearsLeft(a) > y) {
-          active += salary(a);
+          active += salaryInYear(a, y);
           count++;
         }
       });
       var cap = capForYear(y);
       var total = active + dead;
       years.push({
-        year: 2026 + y,
         label: y === 0 ? "2026 (now)" : String(2026 + y),
         active: Math.round(active * 10) / 10,
         dead: Math.round(dead * 10) / 10,
@@ -135,7 +137,6 @@
     return years;
   }
 
-  // Trade: give away players (and their future salary), receive players (and theirs)
   function projectTrade(giveIds, getAssets) {
     giveIds = giveIds || [];
     getAssets = getAssets || [];
@@ -150,14 +151,14 @@
     for (var y = 0; y < 5; y++) {
       var active = 0, count = 0;
       roster.forEach(function (a) {
-        if (yearsLeft(a) > y) {
-          active += salary(a);
+        var yrs = yearsLeft(a);
+        if (yrs > y) {
+          active += salaryInYear(a, y);
           count++;
         }
       });
       var cap = capForYear(y);
       years.push({
-        year: 2026 + y,
         label: y === 0 ? "2026 (now)" : String(2026 + y),
         active: Math.round(active * 10) / 10,
         dead: 0,
@@ -173,11 +174,12 @@
   window.PrideCap = {
     CAP_NOW: CAP_NOW,
     deadOnCut: deadOnCut,
+    deadSchedule: deadSchedule,
     baselineProjection: baselineProjection,
     projectCuts: projectCuts,
     projectTrade: projectTrade,
-    remainingObligation: remainingObligation,
-    myPlayers: myPlayers
+    myPlayers: myPlayers,
+    salaryInYear: salaryInYear
   };
 
   function ensureView() {
@@ -203,12 +205,12 @@
 
   function renderTable(rows, title) {
     return '<div class="card" style="margin-top:12px"><div class="sectionhead"><h2>' + esc(title) + '</h2></div>' +
-      '<div class="tableWrap"><table><thead><tr><th>Year</th><th>Active</th><th>Dead</th><th>Total</th><th>Cap</th><th>Space</th><th>Players</th></tr></thead><tbody>' +
+      '<div class="tableWrap"><table><thead><tr><th>Year</th><th>Active</th><th>Dead</th><th>Total</th><th>Cap</th><th>Space</th><th>#</th></tr></thead><tbody>' +
       rows.map(function (r) {
-        var spaceClass = r.space >= 0 ? "good" : "bad";
+        var sc = r.space >= 0 ? "good" : "bad";
         return '<tr><td><b>' + esc(r.label) + '</b></td><td>$' + r.active.toFixed(1) +
           '</td><td>$' + r.dead.toFixed(1) + '</td><td><b>$' + r.total.toFixed(1) +
-          '</b></td><td>$' + r.cap.toFixed(1) + '</td><td class="' + spaceClass + '">$' +
+          '</b></td><td>$' + r.cap.toFixed(1) + '</td><td class="' + sc + '">$' +
           r.space.toFixed(1) + '</td><td>' + r.players + '</td></tr>';
       }).join('') +
       '</tbody></table></div></div>';
@@ -219,47 +221,46 @@
     var root = document.getElementById("caproom");
     if (!root) return;
     var players = myPlayers().slice().sort(function (a, b) {
-      return deadOnCut(b) - deadOnCut(a);
+      return deadOnCut(b).year0 + deadOnCut(b).year1 - (deadOnCut(a).year0 + deadOnCut(a).year1);
     });
     var base = baselineProjection();
-    var cutProj = projectCuts(window.__capCutIds, "march1");
-
+    var cutProj = projectCuts(window.__capCutIds);
     var cutSet = {};
     (window.__capCutIds || []).forEach(function (id) { cutSet[String(id)] = true; });
 
     var rows = players.map(function (a) {
       var id = String(a.fantraxId || a.id);
       var on = !!cutSet[id];
+      var sch = deadOnCut(a);
       return '<tr style="' + (on ? 'background:rgba(180,40,40,0.2)' : '') + '">' +
         '<td><input type="checkbox" ' + (on ? 'checked' : '') +
         ' onchange="window.prideCapToggleCut(\'' + id.replace(/'/g, "\\'") + '\')"></td>' +
         '<td><b>' + esc(a.name) + '</b></td><td>' + esc(a.pos || '') +
-        '</td><td>$' + salary(a).toFixed(1) + '</td><td>' + yearsLeft(a) +
-        '</td><td>$' + remainingObligation(a).toFixed(1) +
-        '</td><td><b>$' + deadOnCut(a, "march1").toFixed(1) + '</b></td></tr>';
+        '</td><td>$' + baseSalary(a).toFixed(1) + '</td><td>' + yearsLeft(a) +
+        '</td><td>$' + sch.year0.toFixed(1) + '</td><td>$' + sch.year1.toFixed(1) + '</td></tr>';
     }).join('');
 
     root.innerHTML =
       '<div class="card">' +
-      '<div class="sectionhead"><h2>Cap Room &amp; Dead Money</h2><span class="pill">5-YEAR</span></div>' +
-      '<div class="notice"><b>Pride model:</b> Cap starts $' + CAP_NOW +
-      ', +5%/yr for planning. March 1-style cut → dead = residual years × salary (this year not double-counted). ' +
-      'Check players to simulate cuts. Exact bylaw % can be tightened if your clause differs.</div>' +
+      '<div class="sectionhead"><h2>Cap Room &amp; Dead Money</h2><span class="pill">ARTICLE IX</span></div>' +
+      '<div class="notice"><b>Pride Bylaws Article IX §6 (exact):</b> Drop → <b>100%</b> of salary hits <b>this year</b>. ' +
+      'If 2+ years left, <b>only next year</b> takes a second hit: 2yr=40%, 3yr=60%, 4yr=80%, 5yr=85% (rookie ext). ' +
+      'No dead in year 3+. Cap +5% each March 1. Kept players +20% salary each year.</div>' +
       '<div class="grid4" style="margin-top:10px">' +
       '<div class="metric"><b>$' + base[0].active.toFixed(1) + '</b><span>Active now</span></div>' +
       '<div class="metric"><b>$' + base[0].space.toFixed(1) + '</b><span>Space now</span></div>' +
-      '<div class="metric"><b>$' + cutProj[0].dead.toFixed(1) + '</b><span>Dead if cuts</span></div>' +
+      '<div class="metric"><b>$' + cutProj[0].dead.toFixed(1) + '</b><span>Dead this year (cuts)</span></div>' +
       '<div class="metric"><b>$' + cutProj[0].space.toFixed(1) + '</b><span>Space after cuts</span></div>' +
       '</div></div>' +
 
-      renderTable(base, "Baseline — keep everyone (contracts roll off)") +
-      renderTable(cutProj, "After selected cuts (March 1 dead model)") +
+      renderTable(base, "Baseline — keep everyone (+20% raises, contracts roll off)") +
+      renderTable(cutProj, "After selected cuts (Article IX dead)") +
 
       '<div class="card" style="margin-top:12px">' +
       '<div class="sectionhead"><h2>Simulate cuts</h2><span class="pill">' +
       (window.__capCutIds.length) + ' selected</span></div>' +
       '<div class="actions"><button type="button" class="secondary" onclick="window.__capCutIds=[];window.renderCapRoom()">CLEAR CUTS</button></div>' +
-      '<div class="tableWrap" style="margin-top:8px"><table><thead><tr><th></th><th>Player</th><th>Pos</th><th>Sal</th><th>Yrs</th><th>Remain $</th><th>Dead if cut</th></tr></thead><tbody>' +
+      '<div class="tableWrap" style="margin-top:8px"><table><thead><tr><th></th><th>Player</th><th>Pos</th><th>Sal</th><th>Yrs</th><th>Dead Y1</th><th>Dead Y2</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan=7>No roster — refresh Fantrax on Teams first</td></tr>') +
       '</tbody></table></div></div>';
   };
