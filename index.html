@@ -250,9 +250,9 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 </head>
 <body>
 <div class="app">
-<header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Pride LG engine • SF • TEP • sack-premium IDP • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button type="button" class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button type="button" id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav><div id="buildHealth" class="small" style="padding:6px 12px;border-bottom:1px solid #302815">Build v6.2 · AI GM loading…</div></header>
+<header class="topbar"><div class="toprow"><div class="brand"><h1>GM's Locker</h1><p id="subline">Pride LG engine • SF • TEP • sack-premium IDP • cap/contracts • dynamic asset pricing</p></div><div class="actions"><button type="button" class="secondary" onclick="exportData()">Backup</button><label class="btn secondary">Restore<input hidden type="file" id="restoreFile" accept="application/json" onchange="importData(this.files[0])"></label><button type="button" id="installBtn" hidden>Install</button></div></div><nav class="nav" id="nav"></nav><div id="buildHealth" class="small" style="padding:6px 12px;border-bottom:1px solid #302815">Build v6.3 · AI GM loading…</div></header>
 
-<section id="dashboard" class="view"></section>
+<section id="dashboard" class="view active"><div class="card"><h2>Opening GM's Locker…</h2><div class="small">Loading your locally saved league data.</div></div></section>
 <section id="myroster" class="view"></section>
 <section id="transactions" class="view"></section>
 <section id="integrity" class="view"></section>
@@ -270,9 +270,8 @@ input:focus,select:focus,textarea:focus{outline:1px solid #d4af37!important;bord
 <section id="settings" class="view"></section>
 <div class="footer">Local-first PWA. Your league edits remain on this device; only the curated context needed for an AI GM question is sent through the encrypted Cloudflare gateway.</div>
 </div>
-<datalist id="assetList"></datalist>
 <script>
-const APP_VERSION='6.2.0-ai-gm';
+const APP_VERSION='6.3.0-performance';
 const AI_GATEWAY_URL='https://gms-locker-ai.robinharvey001.workers.dev';
 const AI_MESSAGES_KEY='gmslocker_ai_messages_v1';
 const AI_PROVIDER_KEY='gmslocker_ai_provider_v1';
@@ -2556,14 +2555,25 @@ function renderSettings(){let c=db.config;settings.innerHTML=`<div class="osGrid
       <div class="field"><label>Field</label><select id="manualCorrField"><option value="roster">Roster</option><option value="salary">Salary</option><option value="years">Contract years</option><option value="proj">Projection</option><option value="market">Market value</option><option value="role">Role score</option><option value="risk">Risk score</option></select></div>
       <div class="field"><label>Correct value</label><input id="manualCorrValue" placeholder="New value"></div>
     </div><div class="actions"><button type="button" onclick="applyManualCorrection()">APPLY CORRECTION</button></div></div><div style="height:12px"></div><div class="grid"><div class="card"><h2>League Rules</h2><div class="grid3"><div class="field"><label>League name</label><input value="${c.leagueName}" onchange="cset('leagueName',this.value)"></div><div class="field"><label>Your franchise</label><input value="${c.teamName}" onchange="cset('teamName',this.value)"></div><div class="field"><label>Teams</label><input type="number" value="${c.teams}" onchange="cset('teams',Number(this.value))"></div><div class="field"><label>Salary cap</label><input type="number" value="${c.salaryCap}" onchange="cset('salaryCap',Number(this.value))"></div><div class="field"><label>B- threshold</label><input type="number" value="${c.threshold}" onchange="cset('threshold',Number(this.value))"></div><div class="field"><label>Prongs required</label><input type="number" value="${c.requiredProngs}" onchange="cset('requiredProngs',Number(this.value))"></div></div>${['superflex','tep','idp','sackPremium'].map(k=>`<label class="gate"><span>${k==='tep'?'TE Premium':k==='idp'?'IDP':k==='sackPremium'?'Sack Premium':'Superflex'}</span><input style="width:auto" type="checkbox" ${c[k]?'checked':''} onchange="cset('${k}',this.checked)"></label>`).join('')}</div><div class="card"><h2>Replacement-Level Points</h2><div class="grid4">${Object.keys(c.replacement).map(k=>`<div class="field"><label>${k}</label><input type="number" value="${c.replacement[k]}" onchange="db.config.replacement['${k}']=Number(this.value);persist()"></div>`).join('')}</div><p class="small">Replacement level is critical. It converts raw projections into points above replacement so scarce positions are valued correctly for your league.</p></div></div><div class="grid" style="margin-top:12px"><div class="card"><h2>Value Engine Weights</h2>${Object.keys(c.weights).map(k=>`<div class="field"><label>${k} (${Math.round(c.weights[k]*100)}%)</label><input type="range" min="0" max="30" value="${c.weights[k]*100}" oninput="db.config.weights['${k}']=Number(this.value)/100;this.previousElementSibling.textContent='${k} ('+this.value+'%)';persist()"></div>`).join('')}</div><div class="card"><h2>Data Controls</h2><button type="button" class="secondary" onclick="exportData()">Export Full Backup</button> <button type="button" class="secondary" onclick="downloadCSV()">Export Market CSV</button><hr style="border-color:#263753"><button type="button" class="danger" onclick="resetAll()">Reset App Database</button><p class="small">Reset returns to the bundled seed database and erases local edits/history from this device.</p><p class="small">App version ${APP_VERSION}</p></div></div>`}
-function cset(k,v){db.config[k]=v;persist();document.getElementById('subline').textContent=`${db.config.leagueName} engine • ${db.config.superflex?'SF • ':''}${db.config.tep?'TEP • ':''}${db.config.sackPremium?'sack-premium IDP • ':''}cap/contracts • dynamic asset pricing`}
+function updateSubline(){document.getElementById('subline').textContent=`${db.config.leagueName} engine • ${db.config.superflex?'SF • ':''}${db.config.tep?'TEP • ':''}${db.config.sackPremium?'sack-premium IDP • ':''}cap/contracts • dynamic asset pricing`}
+function cset(k,v){db.config[k]=v;persist();updateSubline()}
 function exportData(){let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`capitol-carnage-gm-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
 function importData(file){if(!file)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.assets||!x.config)throw Error('Invalid backup');db=x;persist();renderAssetList();showView('dashboard');alert('Backup restored.')}catch(e){alert('Could not restore: '+e.message)}};r.readAsText(file)}
 function downloadCSV(){let cols=['name','type','pos','roster','market','adp','ecr','proj','age','role','trend','risk','liquidity','salary','years'];let rows=[cols.join(','),...db.assets.map(a=>cols.map(k=>JSON.stringify(a[k]??'')).join(','))];let b=new Blob([rows.join('\n')],{type:'text/csv'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ccgm-market-board.csv';a.click();URL.revokeObjectURL(a.href)}
 function resetAll(){if(confirm('Erase local app data and return to seed database?')){localStorage.removeItem('ccgm_db');db=loadDB();renderAssetList();showView('dashboard')}}
-function renderAssetList(){document.getElementById('assetList').innerHTML=db.assets.map(a=>`<option value="${a.name}">`).join('')}
+// Legacy callers keep this hook, but no current control uses the old global datalist.
+function renderAssetList(){}
 let deferredPrompt;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn.hidden=false});installBtn.onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;installBtn.hidden=true}};
-if('serviceWorker' in navigator)navigator.serviceWorker.register('service-worker.js');
+
+function registerServiceWorker(){
+  navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}).catch(()=>{});
+}
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    if('requestIdleCallback' in window)requestIdleCallback(registerServiceWorker,{timeout:2500});
+    else setTimeout(registerServiceWorker,500);
+  },{once:true});
+}
 
 async function autoRefreshMFL(){
   try{
@@ -2578,28 +2588,37 @@ async function autoRefreshMFL(){
   }catch(e){console.warn('Background MFL refresh skipped',e)}
 }
 
-ensureMFLDefaults();persist();nav();renderAssetList();cset('leagueName',db.config.leagueName);let initial=localStorage.getItem('ccgm_view')||'dashboard';showView(initial);setTimeout(autoRefreshMFL,800);
+function scheduleBackgroundRefresh(){
+  const run=()=>{
+    if('requestIdleCallback' in window)requestIdleCallback(()=>autoRefreshMFL(),{timeout:6000});
+    else setTimeout(autoRefreshMFL,2500);
+  };
+  if(document.readyState==='complete')run();
+  else window.addEventListener('load',run,{once:true});
+}
+
+ensureMFLDefaults();
+nav();
+updateSubline();
+const initial=localStorage.getItem('ccgm_view')||'dashboard';
+document.querySelectorAll('#nav button').forEach(button=>button.classList.toggle('active',button.dataset.view===initial));
+requestAnimationFrame(()=>setTimeout(()=>showView(initial),0));
+scheduleBackgroundRefresh();
 
 function interactionHealth(msg='READY'){
   const el=document.getElementById('buildHealth');
-  if(el)el.innerHTML=`<b>GM's Locker v6.2</b> · AI GM: <span class="good">${msg}</span>`;
+  if(el)el.innerHTML=`<b>GM's Locker v6.3</b> · AI GM: <span class="good">${msg}</span>`;
 }
 window.addEventListener('error',e=>{
   const el=document.getElementById('buildHealth');
-  if(el)el.innerHTML=`<b>GM's Locker v6.2</b> · <span class="bad">JS ERROR:</span> ${String(e.message||'unknown error')}`;
+  if(el)el.innerHTML=`<b>GM's Locker v6.3</b> · <span class="bad">JS ERROR:</span> ${String(e.message||'unknown error')}`;
 });
 window.addEventListener('unhandledrejection',e=>{
   const el=document.getElementById('buildHealth');
-  if(el)el.innerHTML=`<b>GM's Locker v6.2</b> · <span class="bad">PROMISE ERROR:</span> ${String(e.reason?.message||e.reason||'unknown error')}`;
+  if(el)el.innerHTML=`<b>GM's Locker v6.3</b> · <span class="bad">PROMISE ERROR:</span> ${String(e.reason?.message||e.reason||'unknown error')}`;
 });
 window.addEventListener('load',()=>interactionHealth('READY'));
 window.addEventListener('load',()=>setTimeout(showPrivacyLockIfNeeded,50));
-
-
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(r=>r.update())).catch(()=>{});
-  if('caches' in window)caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('gmslocker-')&&k!=='gmslocker-v6-2-assets').map(k=>caches.delete(k)))).catch(()=>{});
-}
 
 </script>
 </body>
