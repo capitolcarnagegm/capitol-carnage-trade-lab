@@ -8,6 +8,8 @@
   <meta name="description" content="War Room for Fantrax dynasty. Simulate moves. Execute in your league.">
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%23050505' width='64' height='64' rx='12'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' font-family='system-ui' font-weight='800' fill='%23d4af37'%3EGM%3C/text%3E%3C/svg%3E">
+  <script src="gms-header.js"></script>
+  <script src="pv-corner.js"></script>
 </head>
 <body>
   <div class="top-banner">
@@ -60,15 +62,13 @@
 
   <script>
   (function () {
-    function setLogo(id, path) {
-      fetch(path, { cache: "force-cache" }).then(function (r) { return r.text(); }).then(function (b64) {
-        var el = document.getElementById(id);
-        if (el) el.src = "data:image/jpeg;base64," + b64.replace(/\s/g, "");
-      }).catch(function () {});
+    function apply(id, b64) {
+      var el = document.getElementById(id);
+      if (el && b64) el.src = "data:image/jpeg;base64," + b64;
     }
-    setLogo("bannerImg", "gms-header.b64");
-    setLogo("brandImg", "gms-header.b64");
-    setLogo("pvImg", "pv-corner.b64");
+    apply("bannerImg", window.__GMS_LOGO_B64);
+    apply("brandImg", window.__GMS_LOGO_B64);
+    apply("pvImg", window.__PV_LOGO_B64);
   })();
   </script>
   <script src="app.js"></script>
