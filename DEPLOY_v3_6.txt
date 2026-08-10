@@ -1,0 +1,18 @@
+GM'S LOCKER v3.6 — WAR ROOM ACTION CENTER + CAP FIX
+
+WAR ROOM:
+- Suggested Free Agents from Edge Finder
+- Potential Trade Targets based on YOUR roster needs and opponent roster depth
+- Pick market anomalies
+- Recent value movement
+- Missing-projection warning
+
+CAP FIX:
+- First priority: exact franchise cap-room field from MFL, when exposed.
+- Preserve full raw MFL franchise object instead of discarding cap-related fields.
+- Second: derive from MFL franchise cap limit minus synced salaries.
+- Third: manual exact remaining-cap override.
+- If data is missing, app says so instead of pretending an estimate is exact.
+- Edge Finder and FA bid-pressure calculations use the same corrected cap snapshot.
+
+Upload/overwrite contents into the existing GitHub repository.

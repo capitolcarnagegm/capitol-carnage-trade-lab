@@ -1,0 +1,13 @@
+GM'S LOCKER v3.9 — TRANSACTION MANAGER
+
+NEW:
+- Dedicated Transactions page
+- Manual transaction moves an asset OFF current roster and ONTO destination roster
+- Supports trade, waiver claim, FA signing, cut, roster correction, pick transfer
+- Optional salary and contract-year update
+- Manual trade can move one asset each direction in one action
+- Transaction log records every manual move
+- Player/pick ownership source becomes Manual Transaction
+- My Roster and War Room have quick action buttons to open Transaction Manager
+
+This solves stale MFL ownership such as a player remaining on the prior franchise after a trade.

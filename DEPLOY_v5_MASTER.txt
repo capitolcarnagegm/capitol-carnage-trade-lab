@@ -1,0 +1,13 @@
+GM'S LOCKER v5 MASTER PROTOTYPE
+
+Includes:
+War Room, My Roster, Transactions, transaction screenshot import, Integrity Layer,
+Edge Finder, Trade Lab + trade screenshot import, Free Agency + Blind Bid Lab,
+FA screenshot correction, Draft & Picks + live pick slot/value forecast,
+League Analyzer, Team Analyzer, MFL Sync, roster screenshot correction,
+manual overrides, 0–100 scoring, cap overrides, source authority reconciliation.
+
+Source authority:
+Manual Override > Screenshot/Transaction > MFL > Model Defaults.
+
+Fantrax intentionally NOT integrated yet.

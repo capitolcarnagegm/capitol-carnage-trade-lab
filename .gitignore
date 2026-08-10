@@ -1,0 +1,12 @@
+node_modules/
+multi-ai-worker/node_modules/
+multi-ai-worker/.wrangler/
+.dev.vars
+multi-ai-worker/.dev.vars
+multi-ai-worker/wrangler.jsonc
+
+# Private league exports and generated database imports must never be committed.
+data/pride-dynasty*.json
+data/*fantrax*.json
+private/
+*private-import*.sql
