@@ -1,42 +1,69 @@
-const CACHE='gmslocker-v6-2-assets';
-const STATIC=['./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE='gmslocker-v6-3-shell';
+const APP_SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(
-    caches.keys()
-      .then(keys=>Promise.all(keys.filter(k=>k.startsWith('gmslocker-')&&k!==CACHE).map(k=>caches.delete(k))))
-      .then(()=>caches.open(CACHE).then(c=>c.addAll(STATIC)))
+    caches.open(CACHE)
+      .then(cache=>cache.addAll(APP_SHELL))
       .then(()=>self.skipWaiting())
   );
 });
 
 self.addEventListener('activate',event=>{
   event.waitUntil(
-    caches.keys()
-      .then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
+    Promise.all([
+      caches.keys().then(keys=>Promise.all(
+        keys.filter(key=>key.startsWith('gmslocker-')&&key!==CACHE).map(key=>caches.delete(key))
+      )),
+      self.registration.navigationPreload?.enable()
+    ])
       .then(()=>self.clients.claim())
   );
 });
 
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET')return;
+  const url=new URL(event.request.url);
 
-  // NEVER cache HTML/navigation during prototype development.
+  // Provider, MFL and AI requests should travel directly to their origins.
+  if(url.origin!==self.location.origin)return;
+
   if(event.request.mode==='navigate' || event.request.destination==='document'){
-    event.respondWith(fetch(event.request,{cache:'no-store'}));
+    const refresh=(async()=>{
+      try{
+        const preloaded=await event.preloadResponse;
+        const response=preloaded||await fetch(event.request,{cache:'no-cache'});
+        if(response?.ok){
+          const cache=await caches.open(CACHE);
+          await cache.put('./index.html',response.clone());
+          await cache.put('./',response.clone());
+        }
+        return response;
+      }catch(error){
+        return null;
+      }
+    })();
+
+    event.waitUntil(refresh.then(()=>undefined));
+    event.respondWith((async()=>{
+      const cached=await caches.match('./index.html');
+      if(cached)return cached;
+      const response=await refresh;
+      return response||new Response('GM\'s Locker is offline. Reconnect and try again.',{
+        status:503,
+        headers:{'Content-Type':'text/plain; charset=utf-8'}
+      });
+    })());
     return;
   }
 
-  // Network first for JS/manifest; static icons can fall back to cache.
   event.respondWith(
-    fetch(event.request,{cache:'no-store'})
-      .then(response=>{
-        if(STATIC.some(x=>event.request.url.endsWith(x.replace('./','')))){
-          const copy=response.clone();
-          caches.open(CACHE).then(c=>c.put(event.request,copy));
-        }
-        return response;
-      })
-      .catch(()=>caches.match(event.request))
+    caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
+      if(response?.ok){
+        const copy=response.clone();
+        event.waitUntil(caches.open(CACHE).then(cache=>cache.put(event.request,copy)));
+      }
+      return response;
+    }))
   );
 });
