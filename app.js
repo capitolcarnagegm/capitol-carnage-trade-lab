@@ -9,7 +9,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.2.0";
+  var VERSION = "1.3.0";
   var API_BASE = "https://api.gmslocker.com";
 
   var TIER = localStorage.getItem("gms_tier") || "free";
@@ -18,7 +18,8 @@
   var state = {
     teams: {}, players: {}, standings: [], picks: [], matchups: null,
     asOf: null, loading: false, error: null, selectedTeam: MY_TEAM,
-    cutIds: [], chat: JSON.parse(localStorage.getItem("gms_chat") || "[]")
+    cutIds: [], chat: JSON.parse(localStorage.getItem("gms_chat") || "[]"),
+    tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: []
   };
 
   var BYLAWS = {
@@ -122,7 +123,9 @@
         id: item.id, name: meta.name,
         pos: String(item.position || meta.pos || "").toUpperCase(),
         nfl: meta.nfl, salary: Number(item.salary || 0), years: years,
-        status: item.status || "ACTIVE", team: teamName
+        status: item.status || "ACTIVE", team: teamName,
+        projectedPoints: item.projectedPoints || item.projection || item.projectedScore,
+        score: item.score || item.points || item.fantasyPoints
       };
     });
   }
@@ -148,11 +151,47 @@
   }
 
   function allLeaguePlayers() {
-    var players = [];
-    Object.keys(state.teams).forEach(function (tid) {
-      players = players.concat(teamPlayers(state.teams[tid].name));
+    var out = [];
+    allTeamNames().forEach(function (name) { out = out.concat(teamPlayers(name)); });
+    return out.concat(freeAgentsApprox());
+  }
+
+  function projectedPoints(p) {
+    var raw = Number(p.projectedPoints || p.projection || p.projectedScore || 0);
+    if (raw > 0) return Math.round(raw * 10) / 10;
+    var base = { QB: 18, RB: 10, WR: 10, TE: 8, LB: 8, DL: 6, DE: 6, DT: 5, DB: 6, CB: 5, S: 6, EDGE: 7 }[p.pos] || 5;
+    var market = Math.min(8, Math.log(Math.max(1, Number(p.salary || 1))) * 1.25);
+    var penalty = /INJURED|IR|OUT|SUSPEND/i.test(p.status) ? base * 0.8 : /MINORS|TAXI/i.test(p.status) ? 3 : 0;
+    return Math.max(0, Math.round((base + market - penalty) * 10) / 10);
+  }
+
+  function currentProduction(p) {
+    var raw = Number(p.score || p.points || p.fantasyPoints || 0);
+    return raw > 0 ? Math.round(raw * 10) / 10 : Math.max(0, Math.round(projectedPoints(p) * (/ACTIVE/i.test(p.status) ? 0.92 : 0.65) * 10) / 10);
+  }
+
+  function opponentName() {
+    var matchups = (state.matchups && state.matchups.matchups) || [];
+    for (var i = 0; i < matchups.length; i++) {
+      if (matchups[i].home && matchups[i].home.teamName === MY_TEAM) return matchups[i].away.teamName;
+      if (matchups[i].away && matchups[i].away.teamName === MY_TEAM) return matchups[i].home.teamName;
+    }
+    return "Opponent not loaded";
+  }
+
+  function topPlayers(teamName, count) {
+    return teamPlayers(teamName).slice().sort(function (a, b) { return projectedPoints(b) - projectedPoints(a); }).slice(0, count || 5);
+  }
+
+  function optimizedLineup() {
+    var slots = { QB: 1, RB: 2, WR: 3, TE: 1, DL: 2, LB: 2, DB: 2 };
+    var mine = teamPlayers(MY_TEAM).filter(function (p) { return !/OUT|INJURED_RESERVE|SUSPEND/i.test(p.status); });
+    var lineup = [];
+    Object.keys(slots).forEach(function (pos) {
+      lineup = lineup.concat(mine.filter(function (p) { return p.pos === pos || (pos === "DL" && /DE|DT|EDGE/.test(p.pos)) || (pos === "DB" && /CB|S/.test(p.pos)); })
+        .sort(function (a, b) { return (projectedPoints(b) * .65 + currentProduction(b) * .35) - (projectedPoints(a) * .65 + currentProduction(a) * .35); }).slice(0, slots[pos]));
     });
-    return players.concat(freeAgentsApprox());
+    return lineup;
   }
 
   function deadSchedule(salary, yearsRemaining) {
@@ -207,7 +246,6 @@
 
   function bhsSignal(p) {
     var score = 50, reasons = [];
-    if (p.team === "Free Agent") { score += 15; reasons.push("available without a trade"); }
     if (p.years >= 3 && p.salary < 30) { score += 15; reasons.push("cheap long control"); }
     if (p.years <= 1 && p.salary > 80) { score -= 20; reasons.push("expensive expiring deal"); }
     if (p.years >= 2 && p.salary > 120) { score -= 10; reasons.push("heavy cap commitment"); }
@@ -274,6 +312,9 @@
       .forEach(function (p) {
         actions.push({ type: "HOLD", cls: "upgrade", title: "Protect " + p.name + " ($" + p.salary.toFixed(1) + " x " + p.years + " yrs)", why: "Cost-controlled depth. Keep unless a win-now trade is overwhelming.", grade: "B" });
       });
+    freeAgentsApprox().sort(function (a, b) { return projectedPoints(b) - projectedPoints(a); }).slice(0, Math.max(0, 5 - actions.length)).forEach(function (p) {
+      actions.push({ type: "SCOUT", cls: "upgrade", title: "Check availability: " + p.name, why: p.pos + " depth with an estimated " + projectedPoints(p).toFixed(1) + " points; compare him to your lowest producer before bidding.", grade: "B" });
+    });
     var coach = COACHES[COACH] || COACHES.process;
     actions.push({ type: "COUNCIL", cls: "", title: coach.name + " lens active", why: coach.lens, grade: health.grade });
     return actions.slice(0, TIER === "paid" ? 10 : 5);
@@ -300,6 +341,16 @@
       html += '<h3>' + esc(a.title) + '</h3>';
       html += '<div class="why">' + esc(a.why) + '</div></div>';
     });
+    var watch = freeAgentsApprox().sort(function (a, b) { return projectedPoints(b) - projectedPoints(a); }).slice(0, 5);
+    var opp = opponentName();
+    var threats = topPlayers(opp, 5);
+    html += '<div class="card"><div class="sectionhead"><h2>5 Players to Watch</h2><span class="pill">LEAGUE RADAR</span></div>';
+    watch.forEach(function (p) { html += '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + ' · ' + p.nfl) + '</span></span><b>' + projectedPoints(p).toFixed(1) + ' proj</b></div>'; });
+    if (!watch.length) html += '<div class="muted">Refresh to load the player pool.</div>';
+    html += '</div><div class="card"><div class="sectionhead"><h2>Next Opponent: ' + esc(opp) + '</h2><span class="pill">TOP THREATS</span></div>';
+    threats.forEach(function (p) { html += '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + ' · ' + p.status) + '</span></span><b>' + projectedPoints(p).toFixed(1) + ' proj</b></div>'; });
+    if (!threats.length) html += '<div class="muted">Matchup or opponent roster is not available yet.</div>';
+    html += '</div>';
     return html;
   }
 
@@ -312,13 +363,19 @@
     html += '<div class="metric"><b>$' + health.salary.toFixed(1) + '</b><span>Salary</span></div>';
     html += '<div class="metric"><b>$' + health.space.toFixed(1) + '</b><span>Space</span></div>';
     html += '<div class="metric"><b>' + health.grade + '</b><span>Grade</span></div></div></div>';
+    var lineup = optimizedLineup();
+    html += '<div class="card"><div class="sectionhead"><h2>Weekly Roster Optimizer</h2><span class="pill">VS ' + esc(opponentName()) + '</span></div><div class="notice">Recommended starters balance 65% projected points and 35% current production, while excluding players listed out, suspended, or on injured reserve.</div>';
+    html += '<div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Status</th><th>Projected</th><th>Production</th></tr></thead><tbody>';
+    lineup.forEach(function (p) { html += '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.pos) + '</td><td>' + esc(p.status) + '</td><td>' + projectedPoints(p).toFixed(1) + '</td><td>' + currentProduction(p).toFixed(1) + '</td></tr>'; });
+    if (!lineup.length) html += '<tr><td colspan="5">Refresh to build the lineup.</td></tr>';
+    html += '</tbody></table></div></div>';
     html += '<div class="card"><div class="sectionhead"><h2>Roster</h2><span class="pill">' + players.length + '</span></div>';
-    html += '<div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Status</th><th>Sal</th><th>Yrs</th><th>B/H/S</th></tr></thead><tbody>';
+    html += '<div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Status</th><th>Sal</th><th>Yrs</th><th>Proj</th><th>B/H/S</th></tr></thead><tbody>';
     players.sort(function (a, b) { return b.salary - a.salary; }).forEach(function (p) {
       var sig = bhsSignal(p);
-      html += '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.pos) + '</td><td>' + esc(p.status) + '</td><td>$' + p.salary.toFixed(1) + '</td><td>' + p.years + '</td><td><span class="bhs ' + sig.label.toLowerCase() + '">' + sig.label + '</span></td></tr>';
+      html += '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.pos) + '</td><td>' + esc(p.status) + '</td><td>$' + p.salary.toFixed(1) + '</td><td>' + p.years + '</td><td>' + projectedPoints(p).toFixed(1) + '</td><td><span class="bhs ' + sig.label.toLowerCase() + '">' + sig.label + '</span></td></tr>';
     });
-    if (!players.length) html += '<tr><td colspan="6">No players - Refresh Fantrax</td></tr>';
+    if (!players.length) html += '<tr><td colspan="7">No players - Refresh Fantrax</td></tr>';
     html += '</tbody></table></div></div>';
     return html;
   }
@@ -329,7 +386,7 @@
     if (names.indexOf(sel) < 0 && names.length) sel = names[0];
     var players = teamPlayers(sel);
     var health = rosterHealth(sel);
-    var html = '<div class="card"><div class="sectionhead"><h2>League Teams</h2><span class="pill">' + names.length + ' TEAMS</span></div>';
+    var html = '<div class="card"><div class="sectionhead"><h2>League Teams</h2><span class="pill">' + names.length + ' TEAMS</span></div><div class="notice">Select a team to open its full roster.</div>';
     html += '<div class="field"><label>Team</label><select onchange="GMS.selectTeam(this.value)">';
     names.forEach(function (n) {
       html += '<option value="' + esc(n) + '"' + (n === sel ? " selected" : "") + '>' + esc(n) + (n === MY_TEAM ? " (YOU)" : "") + '</option>';
@@ -341,11 +398,11 @@
     html += '<div class="metric"><b>$' + health.space.toFixed(1) + '</b><span>Space</span></div>';
     html += '<div class="metric"><b>' + health.grade + '</b><span>Grade</span></div></div></div>';
     html += '<div class="card"><div class="sectionhead"><h2>' + esc(sel) + ' Roster</h2></div>';
-    html += '<div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Status</th><th>Sal</th><th>Yrs</th></tr></thead><tbody>';
+    html += '<div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Status</th><th>Salary</th><th>Years left</th><th>Projected pts</th></tr></thead><tbody>';
     players.sort(function (a, b) { return b.salary - a.salary; }).forEach(function (p) {
-      html += '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.pos) + '</td><td>' + esc(p.status) + '</td><td>$' + p.salary.toFixed(1) + '</td><td>' + p.years + '</td></tr>';
+      html += '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.pos) + '</td><td>' + esc(p.status) + '</td><td>$' + p.salary.toFixed(1) + '</td><td>' + p.years + '</td><td>' + projectedPoints(p).toFixed(1) + '</td></tr>';
     });
-    if (!players.length) html += '<tr><td colspan="5">Empty - Refresh Fantrax</td></tr>';
+    if (!players.length) html += '<tr><td colspan="6">Empty - Refresh Fantrax</td></tr>';
     html += '</tbody></table></div></div>';
     return html;
   }
@@ -388,48 +445,51 @@
   }
 
   function viewBHS() {
-    var rosteredCount = Object.keys(state.teams).reduce(function (total, tid) {
-      return total + (state.teams[tid].items || []).length;
-    }, 0);
-    var freeAgentCount = freeAgentsApprox().length;
     var players = allLeaguePlayers();
-    var html = '<div class="card"><div class="sectionhead"><h2>Buy / Hold / Sell</h2><span class="pill">ALL ' + players.length + ' PLAYERS</span></div>';
-    html += '<div class="notice">Every rostered player and every available free agent. ' + rosteredCount + ' rostered · ' + freeAgentCount + ' free agents. Signals use contract length, salary, availability, and status.</div></div>';
-    html += '<div class="card"><div class="tableWrap"><table><thead><tr><th>Signal</th><th>Player</th><th>Pos</th><th>Owner</th><th>Sal</th><th>Yrs</th><th>Why</th></tr></thead><tbody>';
+    var html = '<div class="card"><div class="sectionhead"><h2>Buy / Hold / Sell</h2><span class="pill">ALL PLAYERS</span></div>';
+    html += '<div class="notice">Signals use contract length, salary, and status.</div></div>';
+    html += '<div class="card"><div class="tableWrap"><table><thead><tr><th>Signal</th><th>Player</th><th>Owner</th><th>Pos</th><th>Proj</th><th>Sal</th><th>Yrs</th><th>Why</th></tr></thead><tbody>';
     players.map(function (p) { return { p: p, s: bhsSignal(p) }; })
-      .sort(function (a, b) {
-        if (a.s.score !== b.s.score) return a.s.score - b.s.score;
-        return a.p.name.localeCompare(b.p.name);
-      })
+      .sort(function (a, b) { return a.s.score - b.s.score; })
       .forEach(function (row) {
-        html += '<tr><td><span class="bhs ' + row.s.label.toLowerCase() + '">' + row.s.label + '</span></td><td><b>' + esc(row.p.name) + '</b></td><td>' + esc(row.p.pos) + '</td><td>' + esc(row.p.team) + '</td><td>' + (row.p.team === "Free Agent" ? "—" : "$" + row.p.salary.toFixed(1)) + '</td><td>' + (row.p.team === "Free Agent" ? "—" : row.p.years) + '</td><td class="muted">' + esc(row.s.reasons.join("; ") || "Neutral") + '</td></tr>';
+        html += '<tr><td><span class="bhs ' + row.s.label.toLowerCase() + '">' + row.s.label + '</span></td><td><b>' + esc(row.p.name) + '</b></td><td>' + esc(row.p.team) + '</td><td>' + esc(row.p.pos) + '</td><td>' + projectedPoints(row.p).toFixed(1) + '</td><td>$' + row.p.salary.toFixed(1) + '</td><td>' + row.p.years + '</td><td class="muted">' + esc(row.s.reasons.join("; ") || "Neutral") + '</td></tr>';
       });
-    if (!players.length) html += '<tr><td colspan="7">Refresh Fantrax to load the full league player pool</td></tr>';
     html += '</tbody></table></div></div>';
     return html;
   }
 
   function viewWaivers() {
-    var fa = freeAgentsApprox().sort(function (a, b) {
-      if (a.pos !== b.pos) return a.pos.localeCompare(b.pos);
-      return a.name.localeCompare(b.name);
-    });
-    var html = '<div class="card"><div class="sectionhead"><h2>Free Agents</h2><span class="pill">' + fa.length + ' AVAILABLE</span></div>';
-    html += '<div class="notice">Full Fantrax free-agent pool: every unrostered player returned by the league sync.</div></div>';
-    html += '<div class="card"><div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>NFL</th></tr></thead><tbody>';
+    var fa = freeAgentsApprox().filter(function (p) {
+      return /QB|RB|WR|TE|LB|DL|DB|DE|DT|CB|S|EDGE/.test(p.pos);
+    }).sort(function (a, b) { return projectedPoints(b) - projectedPoints(a); });
+    var html = '<div class="card"><div class="sectionhead"><h2>Waivers</h2><span class="pill">AVAILABLE</span></div>';
+    html += '<div class="notice">Full available player pool, ranked by estimated weekly fit. Projections are estimates until Fantrax supplies live scoring projections.</div></div>';
+    html += '<div class="card"><div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Projected pts</th><th>Why he fits</th><th>Breakout?</th></tr></thead><tbody>';
     fa.forEach(function (p) {
-      html += '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.pos) + '</td><td>' + esc(p.nfl) + '</td></tr>';
+      var need = teamPlayers(MY_TEAM).filter(function (m) { return m.pos === p.pos; }).length;
+      var reason = need < 3 ? "Fills a thin " + p.pos + " room and costs no trade asset." : "Adds competition and injury insurance at " + p.pos + ".";
+      var breakout = projectedPoints(p) >= 14 ? "Yes — starter-level ceiling" : projectedPoints(p) >= 10 ? "Possible — monitor role" : "Unlikely now — depth stash";
+      html += '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.pos) + '</td><td>' + esc(p.nfl) + '</td><td>' + projectedPoints(p).toFixed(1) + '</td><td>' + esc(reason) + '</td><td>' + esc(breakout) + '</td></tr>';
     });
-    if (!fa.length) html += '<tr><td colspan="3">Sync Fantrax to load player pool</td></tr>';
+    if (!fa.length) html += '<tr><td colspan="6">Sync Fantrax to load player pool</td></tr>';
     html += '</tbody></table></div></div>';
     return html;
   }
 
   function viewTrade() {
-    var html = '<div class="card"><div class="sectionhead"><h2>Trade Lab</h2><span class="pill">ADVISE ONLY</span></div>';
-    html += '<div class="notice"><b>Simulate here. Execute in Fantrax.</b></div>';
-    html += '<div class="field"><label>Your side</label><input type="text" id="tradeGive" placeholder="Player A, Player B"></div>';
-    html += '<div class="field"><label>Their side</label><input type="text" id="tradeGet" placeholder="Player C"></div>';
+    var names = allTeamNames();
+    if (!state.tradeTeamB || state.tradeTeamB === state.tradeTeamA) state.tradeTeamB = names.filter(function (n) { return n !== state.tradeTeamA; })[0] || "";
+    function side(team, side) {
+      var h = '<div class="card"><div class="field"><label>' + (side === "A" ? "Team giving" : "Other team") + '</label><select onchange="GMS.tradeTeam(\'' + side + '\',this.value)">';
+      names.forEach(function (n) { h += '<option value="' + esc(n) + '"' + (n === team ? " selected" : "") + '>' + esc(n) + '</option>'; });
+      h += '</select></div><h3>Players and picks</h3>';
+      teamPlayers(team).sort(function (a, b) { return projectedPoints(b) - projectedPoints(a); }).forEach(function (p) { var key = "P:" + p.id; var on = state["trade" + side].indexOf(key) >= 0; h += '<label class="gate"><span><input type="checkbox" ' + (on ? "checked" : "") + ' onchange="GMS.tradeAsset(\'' + side + '\',\'' + esc(key) + '\')"> <b>' + esc(p.name) + '</b> <span class="small">' + esc(p.pos) + ' · $' + p.salary.toFixed(1) + ' · ' + projectedPoints(p).toFixed(1) + ' proj</span></span></label>'; });
+      var teamObj = teamByName(team);
+      (state.picks || []).filter(function (p) { return teamObj && p.currentOwnerTeamId === teamObj.id; }).forEach(function (p, i) { var key = "D:" + p.year + ":" + p.round + ":" + i; var on = state["trade" + side].indexOf(key) >= 0; h += '<label class="gate"><span><input type="checkbox" ' + (on ? "checked" : "") + ' onchange="GMS.tradeAsset(\'' + side + '\',\'' + esc(key) + '\')"> <b>' + esc(p.year + ' Round ' + p.round + ' pick') + '</b></span></label>'; });
+      return h + '</div>';
+    }
+    var html = '<div class="card"><div class="sectionhead"><h2>Trade Lab</h2><span class="pill">PLAYERS + PICKS</span></div><div class="notice"><b>Choose both teams, then select any combination of players and draft picks.</b> Simulate here; execute in Fantrax.</div></div>';
+    html += '<div class="grid2">' + side(state.tradeTeamA, "A") + side(state.tradeTeamB, "B") + '</div><div class="card">';
     html += '<div class="actions"><button class="primary" onclick="GMS.evalTrade()">Evaluate trade</button></div>';
     html += '<div id="tradeResult" style="margin-top:12px"></div></div>';
     return html;
@@ -461,7 +521,7 @@
 
   function viewChat() {
     var html = '<div class="card"><div class="sectionhead"><h2>GM Chat</h2><span class="pill">SESSION</span></div>';
-    html += '<div class="notice">Powered by Google Gemini. Your chat, roster, league settings, and coaching preferences personalize its advice.</div>';
+    html += '<div class="notice">Gemini-powered GM assistant. Remembers this conversation on this device so it can learn your preferences.</div>';
     html += '<div class="chat-box"><div class="chat-log" id="chatLog">';
     if (!state.chat.length) html += '<div class="chat-msg ai"><b>GM:</b> Sync Fantrax, then ask about cuts, trades, or cap.</div>';
     else state.chat.forEach(function (m) {
@@ -551,6 +611,15 @@
     sync: syncFantrax,
     show: show,
     selectTeam: function (n) { state.selectedTeam = n; render(); },
+    tradeTeam: function (side, name) {
+      state[side === "A" ? "tradeTeamA" : "tradeTeamB"] = name;
+      state[side === "A" ? "tradeA" : "tradeB"] = [];
+      render();
+    },
+    tradeAsset: function (side, key) {
+      var list = state[side === "A" ? "tradeA" : "tradeB"];
+      var i = list.indexOf(key); if (i >= 0) list.splice(i, 1); else list.push(key);
+    },
     toggleCut: function (id) {
       var i = state.cutIds.indexOf(id);
       if (i >= 0) state.cutIds.splice(i, 1); else state.cutIds.push(id);
@@ -570,10 +639,15 @@
     evalTrade: function () {
       var el = document.getElementById("tradeResult");
       if (!el) return;
-      var give = (document.getElementById("tradeGive") || {}).value || "";
-      var get = (document.getElementById("tradeGet") || {}).value || "";
-      el.innerHTML = '<div class="notice"><b>Prototype evaluation</b><br>Give: ' + esc(give || "-") +
-        '<br>Get: ' + esc(get || "-") + '<br><br>Info only - complete in Fantrax.</div>';
+      function value(side, team) {
+        return state["trade" + side].reduce(function (sum, key) {
+          if (key.indexOf("P:") === 0) { var p = teamPlayers(team).filter(function (x) { return x.id === key.slice(2); })[0]; return sum + (p ? projectedPoints(p) * 5 + p.years * 4 - p.salary * .05 : 0); }
+          var bits = key.split(":"); return sum + Math.max(10, 70 - (Number(bits[1]) - 2026) * 8 - Number(bits[2]) * 10);
+        }, 0);
+      }
+      var a = value("A", state.tradeTeamA), b = value("B", state.tradeTeamB), diff = b - a;
+      var verdict = Math.abs(diff) < 12 ? "Balanced framework" : diff > 0 ? state.tradeTeamA + " receives more estimated value" : state.tradeTeamB + " receives more estimated value";
+      el.innerHTML = '<div class="notice"><b>' + esc(verdict) + '</b><br>' + esc(state.tradeTeamA) + ': ' + state.tradeA.length + ' assets · value ' + a.toFixed(0) + '<br>' + esc(state.tradeTeamB) + ': ' + state.tradeB.length + ' assets · value ' + b.toFixed(0) + '<br><br>Ask GM Chat for a deeper cap, roster, and dynasty analysis before accepting.</div>';
     },
     loadNews: async function () {
       var el = document.getElementById("newsList");
@@ -596,33 +670,35 @@
     sendChat: async function () {
       var input = document.getElementById("chatInput");
       if (!input || !input.value.trim()) return;
-      var userText = input.value.trim();
+      var text = input.value.trim();
       input.value = "";
-      state.chat.push({ role: "user", text: userText });
-      state.chat.push({ role: "ai", text: "Thinking...", pending: true });
+      state.chat.push({ role: "user", text: text });
+      try { localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); } catch (e) {}
       render();
       try {
         var roster = teamPlayers(MY_TEAM).map(function (p) {
-          return { name: p.name, position: p.pos, nflTeam: p.nfl, salary: p.salary, years: p.years, status: p.status };
+          return { name: p.name, position: p.pos, salary: p.salary, years: p.years, status: p.status, projectedPoints: projectedPoints(p), currentProduction: currentProduction(p) };
         });
         var response = await fetch(API_BASE + "/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message: userText,
-            history: state.chat.filter(function (m) { return !m.pending; }).slice(-30),
+            message: text,
+            history: state.chat.slice(0, -1).slice(-60),
             coach: COACHES[COACH] || COACHES.process,
             league: BYLAWS,
-            team: { name: MY_TEAM, salaryCap: CAP_NOW, roster: roster, health: rosterHealth(MY_TEAM) }
+            team: { name: MY_TEAM, roster: roster, health: rosterHealth(MY_TEAM), opponent: opponentName() },
+            leagueTeams: allTeamNames(),
+            preferences: localStorage.getItem("gms_preferences") || ""
           })
         });
         var data = await response.json();
-        if (!response.ok) throw new Error(data.error || ("Chat HTTP " + response.status));
-        state.chat[state.chat.length - 1] = { role: "ai", text: data.reply };
-      } catch (err) {
-        state.chat[state.chat.length - 1] = { role: "ai", text: "Gemini chat is unavailable: " + String(err.message || err) };
+        if (!response.ok) throw new Error(data.error || "Chat request failed");
+        state.chat.push({ role: "ai", text: data.reply || "I couldn't form a response." });
+      } catch (e) {
+        state.chat.push({ role: "ai", text: "Chat is not connected yet: " + String(e.message || e) });
       }
-      try { localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); } catch (err) {}
+      try { localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); } catch (e) {}
       render();
     }
   };
