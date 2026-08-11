@@ -10,7 +10,7 @@
 
   function proxyBase() {
     var configured = String(window.GMS_FANTRAX_PROXY || "").trim();
-    return configured || (window.location.origin + "/api/fantrax");
+    return configured || "https://api.gmslocker.com/";
   }
 
   window.fetch = function (input, init) {
