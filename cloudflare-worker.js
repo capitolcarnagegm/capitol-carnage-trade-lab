@@ -73,7 +73,13 @@ async function authenticatedUser(request, env) {
   return row ? { tokenHash, env, user: { id: row.user_id, email: row.email, displayName: row.display_name || "" } } : null;
 }
 async function logout(request, env, auth) { if (request.method !== "POST") return json({ error: "Method not allowed" }, 405); await env.DB.prepare("UPDATE user_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE token_hash=?").bind(auth.tokenHash).run(); return json({ ok: true }); }
-function extractLeagueId(value) { const raw = String(value || "").trim(); const query = raw.match(/[?&]leagueId=([A-Za-z0-9]+)/i); return (query ? query[1] : raw).replace(/[^A-Za-z0-9]/g, "").slice(0, 64); }
+function extractLeagueId(value) {
+  const raw = String(value || "").trim();
+  const query = raw.match(/[?&]leagueId=([A-Za-z0-9]+)/i);
+  const path = raw.match(/\/fantasy\/league\/([A-Za-z0-9]+)/i) || raw.match(/\/league\/([A-Za-z0-9]+)/i);
+  const candidate = query?.[1] || path?.[1] || raw;
+  return /^[A-Za-z0-9]{6,64}$/.test(candidate) ? candidate : "";
+}
 async function inspectLeague(request, env) { const body = await readJson(request); const leagueId = extractLeagueId(body?.league); if (!leagueId) return json({ error: "Enter a Fantrax league ID or link" }, 400); try { const [rosters, info] = await Promise.all([fantrax("getTeamRosters", leagueId), fantrax("getLeagueInfo", leagueId)]); return json({ leagueId, leagueName: info?.leagueName || info?.name || "Fantrax League", teams: Object.keys(rosters?.rosters || {}).map((id) => ({ id, name: rosters.rosters[id].teamName || id })) }); } catch (error) { return json({ error: "Fantrax league could not be read", detail: String(error?.message || error) }, 400); } }
 async function handleAccountLeagues(request, env, auth) { if (request.method !== "GET") return json({ error: "Method not allowed" }, 405); const result = await env.DB.prepare("SELECT id,fantrax_league_id AS leagueId,league_name AS leagueName,team_id AS teamId,team_name AS teamName,settings_json AS settings FROM user_leagues WHERE user_id=? ORDER BY updated_at DESC").bind(auth.user.id).all(); return json({ leagues: (result.results || []).map((row) => ({ ...row, settings: JSON.parse(row.settings || "{}") })) }); }
 async function handleAccountLeague(request, env, auth) {
