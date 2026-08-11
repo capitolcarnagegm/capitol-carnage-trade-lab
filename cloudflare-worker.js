@@ -38,7 +38,7 @@ function bearerToken(request) { const match = String(request.headers.get("Author
 async function readJson(request) { try { return await request.json(); } catch (_) { return null; } }
 async function requestLoginCode(request, env) {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  if (!env.DB || !env.RESEND_API_KEY) return json({ error: "Account email service is not configured" }, 503);
+  if (!env.DB) return json({ error: "Account database is not configured" }, 503);\n  if (!env.RESEND_API_KEY) return json({ error: "Account email service is not configured" }, 503);
   const body = await readJson(request); const email = normalizeEmail(body?.email);
   if (!validEmail(email)) return json({ error: "Enter a valid email address" }, 400);
   const recent = await env.DB.prepare("SELECT COUNT(*) AS total FROM login_codes WHERE email=? AND created_at>datetime('now','-10 minutes')").bind(email).first();
