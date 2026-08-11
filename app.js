@@ -9,7 +9,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.4.0";
+  var VERSION = "1.5.0";
   var API_BASE = "https://api.gmslocker.com";
 
   var TIER = localStorage.getItem("gms_tier") || "free";
@@ -521,7 +521,7 @@
 
   function viewChat() {
     var html = '<div class="card"><div class="sectionhead"><h2>GM Chat</h2><span class="pill">SESSION</span></div>';
-    html += '<div class="notice">Your Gemini-powered personal assistant and fantasy GM. Ask about your league, restaurants, travel, or everyday questions. It remembers this conversation and your preferences on this device.</div>';
+    html += '<div class="notice">Your Llama-powered personal assistant and fantasy GM. Ask about your league, restaurants, travel, or everyday questions. It remembers this conversation and your preferences on this device.</div>';
     html += '<div class="chat-box"><div class="chat-log" id="chatLog">';
     if (!state.chat.length) html += '<div class="chat-msg ai"><b>GM:</b> Sync Fantrax, then ask about cuts, trades, or cap.</div>';
     else state.chat.forEach(function (m) {
