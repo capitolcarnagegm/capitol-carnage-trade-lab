@@ -39,7 +39,9 @@ async function handleChat(request,env) {
     try{parsed=JSON.parse(raw);}catch(_){
       const replyMatch=raw.match(/(?:^|\n)\s*reply\s*=\s*"([\s\S]*?)"\s*(?:\n|$)/i);
       const preferencesMatch=raw.match(/(?:^|\n)\s*preferences\s*=\s*"([\s\S]*?)"\s*(?:\n|$)/i);
-      parsed={reply:replyMatch?replyMatch[1].replace(/\\n/g,"\n").replace(/\\"/g,'"'):raw,preferences:preferencesMatch?preferencesMatch[1]:String(input.preferences||"")};
+      const preferencesLine=raw.match(/(?:^|\n)\s*preferences\s*:\s*([^\n]*)/i);
+      const cleanReply=raw.replace(/(?:^|\n)\s*preferences\s*:\s*[^\n]*/i,"").trim();
+      parsed={reply:replyMatch?replyMatch[1].replace(/\\n/g,"\n").replace(/\\"/g,'"'):cleanReply,preferences:preferencesMatch?preferencesMatch[1]:preferencesLine?preferencesLine[1].trim():String(input.preferences||"")};
     }
     let reply=String(parsed.reply||"").trim();
     if(!reply)return json({error:"Llama returned no answer"},502);
