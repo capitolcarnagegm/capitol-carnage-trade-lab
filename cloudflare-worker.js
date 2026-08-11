@@ -10,8 +10,9 @@ const CONTROL_KEYS = new Set(["payment_required", "checkout", "onboarding", "lea
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
+    try {
+      const url = new URL(request.url);
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
     if (url.pathname === "/auth/register") return registerAccount(request, env);
     if (url.pathname === "/auth/login") return loginWithPassword(request, env);
     const auth = await authenticatedUser(request, env);
@@ -34,7 +35,11 @@ export default {
     if (url.pathname === "/current-games") return auth ? handleCurrentGames(request, url) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/news") return auth ? handleNews(request) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/waiver-context") return auth ? handleWaiverContext(request, url) : json({ error: "Sign in required" }, 401);
-    return auth ? handleFantrax(request, url, auth) : json({ error: "Sign in required" }, 401);
+      return auth ? handleFantrax(request, url, auth) : json({ error: "Sign in required" }, 401);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "worker_request_failed", error: String(error?.message || error) }));
+      return json({ error: "The request could not be completed. Please try again." }, 500);
+    }
   }
 };
 
@@ -52,8 +57,12 @@ function bearerToken(request) { const match = String(request.headers.get("Author
 async function readJson(request) { try { return await request.json(); } catch (_) { return null; } }
 async function passwordHash(password, saltHex) {
   const salt = Uint8Array.from(String(saltHex).match(/.{2}/g) || [], (byte) => parseInt(byte, 16));
-  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  return bytesToHex(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 210000 }, material, 256));
+  const encoder = new TextEncoder();
+  const firstMaterial = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const firstPass = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 100000 }, firstMaterial, 256);
+  const secondMaterial = await crypto.subtle.importKey("raw", firstPass, "PBKDF2", false, ["deriveBits"]);
+  const secondSalt = await crypto.subtle.digest("SHA-256", new Uint8Array([...salt, ...encoder.encode("gmslocker-password-v2")]));
+  return bytesToHex(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: secondSalt, iterations: 100000 }, secondMaterial, 256));
 }
 function safeEqual(left, right) {
   if (left.length !== right.length) return false;
