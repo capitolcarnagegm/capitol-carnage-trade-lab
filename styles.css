@@ -280,6 +280,16 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 .action-type { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gold); margin-bottom: 4px; }
 .action h3 { margin: 0 0 6px; font-size: 15px; }
 .action .why { font-size: 13px; color: var(--muted); margin: 6px 0; }
+.hidden-gems { border-color: rgba(212,175,55,0.55); }
+.gem-card { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+.gem-card:last-child { border-bottom: 0; padding-bottom: 0; }
+.gem-rank { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--gold-dim); border-radius: 50%; color: var(--gold2); font-weight: 800; background: rgba(212,175,55,0.08); }
+.gem-body h3 { margin: 0; color: var(--text); font-size: 15px; }
+.gem-body p { margin: 7px 0 0; font-size: 13px; }
+.gem-bid { min-width: 95px; text-align: right; }
+.gem-bid b { display: block; color: var(--gold2); }
+.gem-bid span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+@media (max-width: 520px) { .gem-card { grid-template-columns: 28px minmax(0, 1fr); gap: 8px; } .gem-rank { width: 26px; height: 26px; font-size: 12px; } .gem-bid { text-align: left; margin-top: 6px; } }
 .grade {
   display: inline-block; min-width: 28px; text-align: center;
   padding: 2px 6px; border-radius: 6px; font-weight: 700; font-size: 12px;
@@ -318,6 +328,11 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 .bhs.buy { background: rgba(62,207,142,0.2); color: var(--good); }
 .bhs.hold { background: rgba(232,184,74,0.2); color: var(--warn); }
 .bhs.sell { background: rgba(232,93,93,0.2); color: var(--bad); }
+.start-call { display: inline-block; min-width: 68px; padding: 4px 7px; border-radius: 5px; text-align: center; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+.start-call.start { background: rgba(62,207,142,.18); color: var(--good); }
+.start-call.sit { background: rgba(232,93,93,.18); color: var(--bad); }
+.start-call.flex-call { background: rgba(232,184,74,.18); color: var(--warn); }
+.startsit-table td:last-child { min-width: 280px; white-space: normal; }
 
 .power-list { display: grid; gap: 12px; }
 .power-card {
