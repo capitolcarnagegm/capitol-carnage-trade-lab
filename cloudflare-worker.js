@@ -5,6 +5,7 @@ const SEASON_PROJ = "PROJECTION_0_23l_SEASON";
 const WEEKLY_PROJ = "PROJECTION_0_23l_EVENT_PROJECTED_WEEKLY";
 const LAST_SEASON = "SEASON_23j_YEAR_TO_DATE";
 const OWNER_EMAIL = "gmslocker@gmail.com";
+const LOGIN_FROM = "GMS Locker <login@login.gmslocker.com>";
 const CONTROL_KEYS = new Set(["payment_required", "checkout", "onboarding", "league_data", "ai_analysis", "waivers", "news", "current_games"]);
 
 export default {
@@ -45,6 +46,7 @@ function bytesToHex(bytes) { return Array.from(new Uint8Array(bytes)).map((b) =>
 async function sha256(value) { return bytesToHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(value)))); }
 function randomToken(bytes = 32) { const value = new Uint8Array(bytes); crypto.getRandomValues(value); return btoa(String.fromCharCode(...value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
 function randomHex(bytes = 16) { const value = new Uint8Array(bytes); crypto.getRandomValues(value); return bytesToHex(value); }
+function randomCode() { const value = new Uint32Array(1); crypto.getRandomValues(value); return String(value[0] % 1000000).padStart(6, "0"); }
 function bearerToken(request) { const match = String(request.headers.get("Authorization") || "").match(/^Bearer\s+([A-Za-z0-9_-]{32,})$/); return match ? match[1] : ""; }
 
 async function readJson(request) { try { return await request.json(); } catch (_) { return null; } }
@@ -70,8 +72,38 @@ async function registerAccount(request, env) {
   if (!validUsername(username)) return json({ error: "Username must be 3–30 letters, numbers, or underscores" }, 400);
   if (!validEmail(email)) return json({ error: "Enter a valid email address" }, 400);
   if (password.length < 10 || password.length > 128) return json({ error: "Password must be 10–128 characters" }, 400);
-  const existing = await env.DB.prepare("SELECT id FROM users WHERE username=? OR email=?").bind(username, email).first();
-  if (existing) return json({ error: "That username or email is already in use" }, 409);
+  const [usernameOwner, emailOwner] = await Promise.all([
+    env.DB.prepare("SELECT id FROM users WHERE username=?").bind(username).first(),
+    env.DB.prepare("SELECT id,email,display_name,username,password_hash,password_salt FROM users WHERE email=?").bind(email).first()
+  ]);
+  if (usernameOwner && usernameOwner.id !== emailOwner?.id) return json({ error: "That username is already in use" }, 409);
+  if (emailOwner?.password_hash || emailOwner?.password_salt || emailOwner?.username) return json({ error: "That email already has an account. Sign in with its username." }, 409);
+  if (emailOwner) {
+    const code = String(body?.code || "").replace(/\D/g, "").slice(0, 6);
+    if (!code) {
+      if (!env.RESEND_API_KEY) return json({ error: "Email verification is temporarily unavailable" }, 503);
+      const recent = await env.DB.prepare("SELECT COUNT(*) AS total FROM login_codes WHERE email=? AND created_at>datetime('now','-15 minutes')").bind(email).first();
+      if (Number(recent?.total || 0) >= 3) return json({ error: "Too many verification codes requested. Wait 15 minutes and try again." }, 429);
+      const verificationCode = randomCode();
+      const codeHash = await sha256(email + ":" + verificationCode);
+      await env.DB.prepare("INSERT INTO login_codes (id,email,code_hash,expires_at) VALUES (?,?,?,datetime('now','+10 minutes'))").bind(crypto.randomUUID(), email, codeHash).run();
+      const delivery = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ from: LOGIN_FROM, to: [email], subject: "Your GMS Locker verification code", text: "Your GMS Locker verification code is " + verificationCode + ". It expires in 10 minutes." }) });
+      if (!delivery.ok) return json({ error: "The verification email could not be sent. Try again." }, 502);
+      return json({ error: "This email has an earlier GMS Locker account. Enter the six-digit code we emailed you to keep its leagues and add your username and password.", code: "LEGACY_VERIFICATION_REQUIRED" }, 409);
+    }
+    const verification = await env.DB.prepare("SELECT id,code_hash,attempts FROM login_codes WHERE email=? AND consumed_at IS NULL AND expires_at>CURRENT_TIMESTAMP ORDER BY created_at DESC LIMIT 1").bind(email).first();
+    if (!verification || Number(verification.attempts || 0) >= 5) return json({ error: "That verification code is invalid or expired. Request a new code." }, 400);
+    const suppliedHash = await sha256(email + ":" + code);
+    if (!safeEqual(suppliedHash, verification.code_hash)) {
+      await env.DB.prepare("UPDATE login_codes SET attempts=attempts+1 WHERE id=?").bind(verification.id).run();
+      return json({ error: "That verification code is incorrect" }, 400);
+    }
+    const salt = randomHex(); const hash = await passwordHash(password, salt);
+    const claimed = await env.DB.prepare("UPDATE users SET username=?,password_hash=?,password_salt=? WHERE id=? AND username IS NULL AND password_hash IS NULL AND password_salt IS NULL").bind(username, hash, salt, emailOwner.id).run();
+    if (Number(claimed?.meta?.changes || 0) !== 1) return json({ error: "This account was already upgraded. Sign in with its username." }, 409);
+    await env.DB.prepare("UPDATE login_codes SET consumed_at=CURRENT_TIMESTAMP WHERE id=?").bind(verification.id).run();
+    return createSession(env, { ...emailOwner, username });
+  }
   const salt = randomHex(); const hash = await passwordHash(password, salt);
   const user = { id: crypto.randomUUID(), username, email, display_name: "" };
   await env.DB.prepare("INSERT INTO users (id,email,username,password_hash,password_salt) VALUES (?,?,?,?,?)").bind(user.id, email, username, hash, salt).run();
