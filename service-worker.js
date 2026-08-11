@@ -1,5 +1,5 @@
-const CACHE='gmslocker-v6-1-assets';
-const STATIC=['./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE='gmslocker-v1-1-1-assets';
+const STATIC=['./manifest.webmanifest','./icon-192.png','./icon-512.png','./gmslocker-logo.png','./pinvault-collectibles-logo.png'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(

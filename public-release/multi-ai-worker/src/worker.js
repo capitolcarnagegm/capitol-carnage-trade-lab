@@ -405,6 +405,9 @@ async function login(request, env, origin) {
 }
 
 async function authenticate(request, env, ctx) {
+  if (!env.GMSLOCKER_ACCESS_TOKEN) {
+    return { tokenHash: null, expiresAt: null, openAccess: true };
+  }
   const db = requireDatabase(env);
   const authorization = request.headers.get("Authorization") || "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
@@ -417,6 +420,7 @@ async function authenticate(request, env, ctx) {
 }
 
 async function logout(env, session) {
+  if (!session?.tokenHash) return;
   const db = requireDatabase(env);
   await db.prepare("UPDATE app_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE token_hash = ?").bind(session.tokenHash).run();
 }
@@ -717,11 +721,10 @@ async function fetchHandler(request, env, ctx) {
   if (url.pathname === "/" || url.pathname === "/health") {
     return json({
       ok: true,
-      service: "GM's Locker Private AI Gateway",
+      service: "GMS Locker AI Gateway",
       providers: {
         gemini: Boolean(env.GEMINI_API_KEY),
-        llama: Boolean(env.AI),
-        grok: "manual-only"
+        llama: Boolean(env.AI)
       },
       privateData: Boolean(env.DB),
       accessConfigured: Boolean(env.GMSLOCKER_ACCESS_TOKEN),

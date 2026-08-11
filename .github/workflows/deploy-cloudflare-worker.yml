@@ -17,11 +17,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Deploy Cloudflare Worker
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
           command: deploy
+
+      - name: Verify live Fantrax response
+        run: >-
+          node -e 'fetch("https://gmslocker-fantrax-proxy.robinharvey001.workers.dev/?endpoint=getLeagueInfo&leagueId=astbqxhwmk4b6bg9")
+          .then(async response => ({ response, body: await response.json() }))
+          .then(({ response, body }) => { if (!response.ok || body.leagueName !== "Pride Dynasty") throw new Error(`Fantrax smoke test failed (HTTP ${response.status})`); console.log(`Verified ${body.leagueName} ${body.seasonYear}`); })
+          .catch(error => { console.error(error); process.exit(1); })'
