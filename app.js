@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.18";
+  var VERSION = "1.6.20";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -344,8 +344,27 @@
     });
   }
 
+  function lineupLiveAnalysis(preview, optimized) {
+    var currentIds = {}, optimizedIds = {}, currentPlayers = [], optimizedPlayers = [];
+    preview.lineup.forEach(function (row) { if (row.player) { currentIds[row.player.id] = true; currentPlayers.push(row.player); } });
+    optimized.lineup.forEach(function (row) { if (row.player) { optimizedIds[row.player.id] = true; optimizedPlayers.push(row.player); } });
+    var shouldStart = optimizedPlayers.filter(function (p) { return !currentIds[p.id]; }).sort(function (a, b) { return (expectedScore(b) || 0) - (expectedScore(a) || 0); });
+    var shouldSit = currentPlayers.filter(function (p) { return !optimizedIds[p.id]; }).sort(function (a, b) { return (expectedScore(a) || 0) - (expectedScore(b) || 0); });
+    var changes = shouldStart.map(function (incoming) {
+      var outgoingIndex = shouldSit.findIndex(function (outgoing) {
+        return preview.lineup.some(function (row) { return row.player && row.player.id === outgoing.id && eligibleForSlot(incoming, row); });
+      });
+      var outgoing = outgoingIndex >= 0 ? shouldSit.splice(outgoingIndex, 1)[0] : null;
+      return { incoming: incoming, outgoing: outgoing, gain: outgoing ? (expectedScore(incoming) || 0) - (expectedScore(outgoing) || 0) : expectedScore(incoming) || 0 };
+    });
+    var highest = currentPlayers.slice().sort(function (a, b) { return (expectedScore(b) || 0) - (expectedScore(a) || 0); })[0] || null;
+    var lowest = currentPlayers.slice().sort(function (a, b) { return (expectedScore(a) || 0) - (expectedScore(b) || 0); })[0] || null;
+    return { changes: changes, highest: highest, lowest: lowest };
+  }
+
   function warRoomLineupControls() {
     var preview = lineupPreview(), optimized = optimize(MY_TEAM), roster = teamPlayers(MY_TEAM), activeIds = lineupDraftIds();
+    var analysis = lineupLiveAnalysis(preview, optimized);
     var filled = preview.lineup.filter(function (row) { return row.player; }).length, open = preview.lineup.length - filled, delta = preview.total - optimized.total;
     var verdict = open ? "INCOMPLETE LINEUP" : delta >= -0.05 ? "BEST PROJECTED LINEUP" : Math.abs(delta) <= 10 ? "PLAYABLE — POINTS LEFT ON BENCH" : "CHANGE RECOMMENDED";
     var verdictClass = !open && delta >= -0.05 ? "good" : "bad";
@@ -357,7 +376,17 @@
       choices.forEach(function (p) { html += '<option value="' + esc(p.id) + '"' + (row.player && row.player.id === p.id ? ' selected' : '') + '>' + esc(p.name + ' · ' + p.pos + ' · ' + pts(expectedScore(p)) + ' pts') + '</option>'; });
       html += '</select></label>';
     });
-    html += '</div><div class="lineup-live-evaluation"><span class="pill ' + verdictClass + '">LIVE EVALUATION</span><b>' + esc(verdict) + '</b><span>' + filled + ' of ' + preview.lineup.length + ' starter spots filled' + (open ? ' · fill ' + open + ' open spot' + (open === 1 ? '' : 's') : delta < -0.05 ? ' · current lineup projects ' + pts(Math.abs(delta)) + ' points below the best legal lineup' : ' · no higher legal projected lineup is available') + '.</span></div>';
+    html += '</div><div class="lineup-live-evaluation"><span class="pill ' + verdictClass + '">LIVE EVALUATION</span><b>' + esc(verdict) + '</b><span>' + filled + ' of ' + preview.lineup.length + ' starter spots filled' + (open ? ' · fill ' + open + ' open spot' + (open === 1 ? '' : 's') : delta < -0.05 ? ' · current lineup projects ' + pts(Math.abs(delta)) + ' points below the best legal lineup' : ' · no higher legal projected lineup is available') + '.</span>';
+    if (analysis.changes.length) {
+      html += '<div class="lineup-analysis-details"><b>Recommended changes for this exact lineup</b>';
+      analysis.changes.forEach(function (change) {
+        html += '<span>Start <b>' + esc(change.incoming.name) + '</b> (' + pts(expectedScore(change.incoming)) + ')' + (change.outgoing ? ' over <b>' + esc(change.outgoing.name) + '</b> (' + pts(expectedScore(change.outgoing)) + ')' : ' in an open eligible spot') + ' · ' + (change.gain >= 0 ? '+' : '') + pts(change.gain) + ' projected points</span>';
+      });
+      html += '</div>';
+    } else if (!open && analysis.highest) {
+      html += '<div class="lineup-analysis-details"><b>This exact lineup matches the best legal projection.</b><span>Highest selected projection: ' + esc(analysis.highest.name) + ' at ' + pts(expectedScore(analysis.highest)) + ' points' + (analysis.lowest ? ' · lowest selected projection: ' + esc(analysis.lowest.name) + ' at ' + pts(expectedScore(analysis.lowest)) + ' points' : '') + '.</span></div>';
+    }
+    html += '</div>';
     return html + '<p class="muted">This is a private lineup simulation. Fantrax is read-only and is never changed. Weekly points use Fantrax when present, then the existing season/prior-production fallback used throughout GMS Locker.</p></div>';
   }
 
