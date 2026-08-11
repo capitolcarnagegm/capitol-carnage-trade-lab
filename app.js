@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.12";
+  var VERSION = "1.6.13";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -59,7 +59,7 @@
 
   var state = {
     teams: {}, players: {}, standings: [], picks: [], matchups: {}, leagueInfo: {}, teamData: {}, freeAgentData: {}, news: [], games: [], gamesAsOf: null, gamesError: null, gamesLoading: false, gameSeasonType: 2,
-    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
+    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, selectedWaiverId: "", waiverAnalysisId: "", waiverAnalysisLoading: false, waiverContext: {}, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
     chat: safeJson(localStorage.getItem("gms_chat"), []), tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: []
   };
 
@@ -200,10 +200,11 @@
   function allRosteredPlayers() { var out = []; allTeamNames().forEach(function (name) { out = out.concat(teamPlayers(name)); }); return out; }
   function freeAgents() {
     var season = state.freeAgentData.season || {}, weekly = state.freeAgentData.weekly || {}, performance = state.freeAgentData.performance || {};
-    var ids = Object.keys(season);
+    var seen = {}, ids = [];
+    Object.keys(season).concat(Object.keys(weekly), Object.keys(performance)).forEach(function (id) { if (!seen[id]) { seen[id] = true; ids.push(id); } });
     return ids.map(function (id) {
       var s = season[id] || {}, w = weekly[id] || {}, p = performance[id] || {}, meta = state.players[id] || {};
-      return { id: id, name: s.name || w.name || playerName(id), pos: primaryPos(s.position || meta.position), nfl: s.nflTeam || meta.team || "", salary: 0, years: 0, status: "FA", team: "Free Agent", age: s.age, seasonProjection: s.fpts, weeklyProjection: w.ppg, performance: p.fpts, performancePpg: p.ppg, opponent: w.opponent || "", injury: w.injury || s.injury || "", rosteredPct: s.rosteredPct, rosterTrend: s.rosterTrend };
+      return { id: id, name: s.name || w.name || p.name || playerName(id), pos: primaryPos(s.position || w.position || p.position || meta.position), nfl: s.nflTeam || w.nflTeam || p.nflTeam || meta.team || "", salary: 0, years: 0, status: "FA", team: "Free Agent", age: s.age != null ? s.age : p.age, seasonProjection: s.fpts, weeklyProjection: w.fpts != null ? w.fpts : w.ppg, performance: p.fpts, performancePpg: p.ppg, opponent: w.opponent || s.opponent || "", injury: w.injury || s.injury || p.injury || "", rosteredPct: s.rosteredPct != null ? s.rosteredPct : p.rosteredPct, rosterTrend: s.rosterTrend != null ? s.rosterTrend : p.rosterTrend };
     }).filter(function (p) { return p.name && p.pos !== "?" && !/^(OL|K|LS)$/.test(p.pos); });
   }
 
@@ -543,6 +544,35 @@
     return { verdict: verdict, reason: reason, maxBid: maxBid, bidBasis: "Capped by " + comparable.name + " (" + money(comparable.salary) + ") and current room" };
   }
 
+  function waiverFitEvaluation(p) {
+    if (!p) return [];
+    var roster = teamPlayers(MY_TEAM), same = roster.filter(function (x) { return x.pos === p.pos; });
+    var comparable = same.filter(function (x) { return expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
+    var weakest = comparable[0] || null, playerExpected = expectedScore(p), weakestExpected = weakest && expectedScore(weakest);
+    var needs = teamNeeds(MY_TEAM), advice = waiverAdvice(p), cap = capProjection(MY_TEAM, []);
+    var eligibleSlots = BYLAWS.starters.filter(function (slot) { return slot.accept.indexOf(p.pos) >= 0; }).map(function (slot) { return slot.slot; });
+    function answer(question, text, facts) { return { question: question, answer: text, facts: facts.filter(Boolean) }; }
+    var healthy = !unavailable(p), hasNeed = (needs[p.pos] || 0) > 0;
+    var improvesDepth = playerExpected != null && weakestExpected != null && playerExpected > weakestExpected;
+    var projectionSupports = projection(p) != null || seasonProjection(p) != null;
+    var productionSupports = production(p) != null && (!weakest || production(weakest) == null || production(p) > production(weakest));
+    var marketSupports = (p.rosterTrend != null && p.rosterTrend > 0) || (p.rosteredPct != null && p.rosteredPct >= 25);
+    var overallHelps = healthy && (hasNeed || improvesDepth) && (projectionSupports || productionSupports);
+    var context = state.waiverContext[p.id] || {};
+    var espnFact = context.espn && context.espn[0] ? "ESPN: " + context.espn[0].headline : "ESPN: no current player-specific report changes the Fantrax verdict";
+    var nflFact = context.nfl ? "NFL.com: " + context.nfl.headline : "NFL.com: no verified player-profile fact changes the Fantrax verdict";
+    function call(helps, why) { return (helps ? "Helps your team. " : "Does not help your team. ") + why; }
+    return [
+      answer("1. Can he help the active roster now?", call(healthy, healthy ? "He is in the live Fantrax free-agent pool with no unusable roster designation." : "His current Fantrax injury or roster designation prevents immediate use."), ["Fantrax status: " + (p.status || "FA"), p.injury ? "Injury/status: " + p.injury : "Fantrax returned no injury designation"]),
+      answer("2. Does his position fill a roster need?", call(hasNeed, hasNeed ? "The current full roster produces a " + p.pos + " need under the Pride lineup and depth rules." : "The current full roster does not produce an open " + p.pos + " need."), [same.length + " " + p.pos + " players currently rostered", eligibleSlots.length ? "Eligible Pride slots: " + eligibleSlots.join(", ") : "Fantrax returned no eligible Pride starter slot"]),
+      answer("3. Does he improve same-position depth?", call(improvesDepth, playerExpected == null ? "Fantrax returned no weekly projection, season projection, or prior FP/G to show an improvement." : !weakest ? "No Capitol Carnage player at this position has a comparable Fantrax expectation, so an improvement is not supported." : improvesDepth ? "His Fantrax expectation is " + pts(playerExpected - weakestExpected) + " points higher than " + weakest.name + "." : "His Fantrax expectation is " + pts(weakestExpected - playerExpected) + " points below " + weakest.name + "."), [playerExpected == null ? "No player expectation returned" : p.name + " expectation: " + pts(playerExpected), weakest ? weakest.name + " expectation: " + pts(weakestExpected) : "No roster comparator returned"]),
+      answer("4. Do his projections support adding him?", call(projectionSupports && (hasNeed || improvesDepth), !projectionSupports ? "Fantrax returned no weekly or season projection to support the move." : (hasNeed || improvesDepth) ? "His returned projection supports a documented position need or depth upgrade." : "Fantrax projects him, but the projection does not solve a detected need or beat current depth."), [projection(p) == null ? "No weekly projection returned" : "Weekly projection: " + pts(projection(p)), seasonProjection(p) == null ? "No season projection returned" : "Season projection: " + pts(seasonProjection(p)), p.opponent ? "Opponent: " + p.opponent : "No opponent returned"]),
+      answer("5. Does prior production support adding him?", call(productionSupports, production(p) == null ? "Fantrax returned no prior FP/G to support the move." : productionSupports ? "His " + pts(production(p)) + " prior FP/G beats the available same-position production comparator or no lower comparator was returned." : "His " + pts(production(p)) + " prior FP/G does not beat the same-position comparator."), [production(p) == null ? "No prior FP/G returned" : "Prior FP/G: " + pts(production(p)), p.age == null ? "No age returned" : "Age: " + p.age]),
+      answer("6. Does live market evidence support the move?", call(marketSupports, marketSupports ? "Fantrax shows positive acquisition movement or at least 25% roster exposure." : "Fantrax shows neither positive acquisition movement nor at least 25% roster exposure."), [p.rosteredPct == null ? "No roster percentage returned" : "Rostered: " + p.rosteredPct.toFixed(0) + "%", p.rosterTrend == null ? "No roster trend returned" : "Roster trend: " + (p.rosterTrend > 0 ? "+" : "") + p.rosterTrend.toFixed(0) + "%"]),
+      answer("7. Final decision: will he help Capitol Carnage?", call(overallHelps, overallHelps ? advice.reason + " Maximum bid: " + (advice.maxBid == null ? "$0 because Fantrax returned no defensible salary comparable." : money(advice.maxBid) + ".") : "The live evidence does not show both a roster/depth benefit and supporting projection or production. Do not spend a blind bid on him."), [advice.bidBasis, "Current calculated cap room: " + money(cap.currentRoom), espnFact, nflFact])
+    ];
+  }
+
   function hiddenGems() {
     var pool = freeAgents().filter(function (p) {
       return !unavailable(p) && expectedScore(p) != null && (num(p.rosteredPct) != null || num(p.rosterTrend) != null);
@@ -688,12 +718,23 @@
 
   function viewWaivers() {
     var needs = teamNeeds(MY_TEAM);
+    var everyPlayer = freeAgents().slice().sort(function (a, b) { return a.name.localeCompare(b.name) || a.pos.localeCompare(b.pos); });
+    if (state.selectedWaiverId && !everyPlayer.some(function (p) { return p.id === state.selectedWaiverId; })) { state.selectedWaiverId = ""; state.waiverAnalysisId = ""; }
+    var selectedPlayer = everyPlayer.filter(function (p) { return p.id === state.selectedWaiverId; })[0] || null;
+    var analyzedPlayer = everyPlayer.filter(function (p) { return p.id === state.waiverAnalysisId; })[0] || null;
     var list = freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { var needA = needs[a.pos] || 0, needB = needs[b.pos] || 0; return (needB * 10 + expectedScore(b)) - (needA * 10 + expectedScore(a)); }).slice(0, 150);
     var positionOrder = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
     var grouped = {};
     list.forEach(function (p) { (grouped[p.pos] || (grouped[p.pos] = [])).push(p); });
     Object.keys(grouped).forEach(function (pos) { if (positionOrder.indexOf(pos) < 0) positionOrder.push(pos); });
-    var html = '<div class="card"><div class="sectionhead"><h2>Waivers / Free Agency by Position</h2><button class="primary" onclick="GMS.sync()">Refresh free agents</button></div><div class="notice">Players are grouped by their primary Fantrax position and ranked within that position using live Fantrax expectation plus Capitol Carnage roster need. Pickup advice compares each player with your same-position depth. The blind-bid maximum uses the salary of the closest live projected, same-position rostered player and never exceeds current cap room; it shows unavailable when no Fantrax comparable exists.</div><div class="actions">';
+    var html = '<div class="card waiver-analyzer"><div class="sectionhead"><div><h2>7-Question Player Fit Analyzer</h2><span class="small muted">Every player in the live Fantrax free-agent pool</span></div><span class="pill">' + everyPlayer.length + ' AVAILABLE</span></div><div class="notice">Choose any available player. Each answer makes a firm helps/does-not-help decision and cites the live Fantrax or Pride roster fact behind it. A missing field counts as no supporting evidence; no value is invented.</div><div class="waiver-analyzer-controls"><div class="field"><label for="waiverPlayerSelect">Available player</label><select id="waiverPlayerSelect" onchange="GMS.selectWaiverPlayer(this.value)"><option value="">Select a player…</option>' + everyPlayer.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === state.selectedWaiverId ? ' selected' : '') + '>' + esc(p.name + ' — ' + p.pos + (p.nfl ? ' · ' + p.nfl : '')) + '</option>'; }).join('') + '</select></div><button class="primary" onclick="GMS.analyzeWaiverPlayer()"' + (!selectedPlayer ? ' disabled' : '') + '>Analyze</button></div>';
+    if (state.waiverAnalysisLoading) html += '<div class="loading">Checking Fantrax, ESPN, and NFL.com evidence…</div>';
+    if (analyzedPlayer && !state.waiverAnalysisLoading) {
+      html += '<div class="waiver-analysis"><div class="sectionhead"><div><h3>' + esc(analyzedPlayer.name) + '</h3><span class="small muted">' + esc(analyzedPlayer.pos + (analyzedPlayer.nfl ? ' · ' + analyzedPlayer.nfl : '')) + '</span></div><span class="pill">7 ANSWERS</span></div>';
+      waiverFitEvaluation(analyzedPlayer).forEach(function (item) { html += '<article class="waiver-question"><h3>' + esc(item.question) + '</h3><p>' + esc(item.answer) + '</p><ul>' + item.facts.map(function (fact) { return '<li>' + esc(fact) + '</li>'; }).join('') + '</ul></article>'; });
+      html += '</div>';
+    }
+    html += '</div><div class="card"><div class="sectionhead"><h2>Waivers / Free Agency by Position</h2><button class="primary" onclick="GMS.sync()">Refresh free agents</button></div><div class="notice">Players are grouped by their primary Fantrax position and ranked within that position using live Fantrax expectation plus Capitol Carnage roster need. Pickup advice compares each player with your same-position depth. The blind-bid maximum uses the salary of the closest live projected, same-position rostered player and never exceeds current cap room; it shows unavailable when no Fantrax comparable exists.</div><div class="actions">';
     positionOrder.forEach(function (pos) { if (grouped[pos] && grouped[pos].length) html += '<a class="secondary" href="#free-agents-' + esc(pos.toLowerCase()) + '">' + esc(pos) + ' (' + grouped[pos].length + ')</a>'; });
     html += '</div></div>';
     positionOrder.forEach(function (pos) {
@@ -843,7 +884,18 @@
     depth: function (teamName) { return depthMetrics(teamName || MY_TEAM); },
     power: function (teamName) { return leaguePowerGrades()[teamName || MY_TEAM]; },
     cap: function (teamName, cutIds) { return capProjection(teamName || MY_TEAM, cutIds || []); },
-    gems: hiddenGems, weeklyRisk: weeklyRisk,
+    gems: hiddenGems, weeklyRisk: weeklyRisk, waiverFit: waiverFitEvaluation, waiverPlayers: freeAgents,
+    selectWaiverPlayer: function (id) { state.selectedWaiverId = id || ""; state.waiverAnalysisId = ""; render(); },
+    analyzeWaiverPlayer: async function () {
+      if (!state.selectedWaiverId) return;
+      var player = freeAgents().filter(function (p) { return p.id === state.selectedWaiverId; })[0];
+      state.waiverAnalysisId = state.selectedWaiverId; state.waiverAnalysisLoading = true; render();
+      if (player) try {
+        var response = await fetch(API_BASE + "/waiver-context?name=" + encodeURIComponent(player.name) + "&team=" + encodeURIComponent(player.nfl || ""), { cache: "no-store", headers: { Accept: "application/json" } });
+        state.waiverContext[player.id] = response.ok ? await response.json() : {};
+      } catch (_) { state.waiverContext[player.id] = {}; }
+      state.waiverAnalysisLoading = false; render();
+    },
     applyOptimizedLineup: function () { state.selectedLineupIndex = null; saveLineupDraft(optimizedLineupIds()); render(); },
     resetLineupPreview: function () { state.lineupDraft = null; state.selectedLineupIndex = null; localStorage.removeItem("gms_lineup_preview"); render(); },
     selectActive: function (index) { state.selectedLineupIndex = state.selectedLineupIndex === index ? null : index; render(); },
