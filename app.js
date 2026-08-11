@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.6";
+  var VERSION = "1.6.8";
   var API_BASE = "https://api.gmslocker.com";
   var COACH = localStorage.getItem("gms_coach") || "process";
 
@@ -133,6 +133,30 @@
   function seasonProjection(p) { return num(p.seasonProjection); }
   function production(p) { return num(p.performancePpg) != null ? num(p.performancePpg) : (num(p.performance) != null ? num(p.performance) / 17 : null); }
   function expectedScore(p) { var weekly = projection(p), season = seasonProjection(p), perf = production(p); if (weekly != null) return weekly; if (season != null) return season / 17; return perf; }
+
+  function weeklyRisk(p) {
+    var weekly = projection(p), prior = production(p);
+    if (weekly == null) return null;
+    var peers = allRosteredPlayers().concat(freeAgents()).filter(function (x) { return x.pos === p.pos && projection(x) != null; });
+    var positionScore = percentile(weekly, peers.map(projection));
+    if (positionScore == null) return null;
+    var change = prior == null || prior === 0 ? null : clamp((weekly / prior - 1) * 100, -50, 50);
+    var availability = unavailable(p) ? 0 : (p.injury ? 45 : 100);
+    var boomParts = [{ value: positionScore, weight: 0.55 }, { value: availability, weight: 0.20 }];
+    var bustParts = [{ value: 100 - positionScore, weight: 0.45 }, { value: 100 - availability, weight: 0.20 }];
+    if (change != null) {
+      boomParts.push({ value: clamp(50 + change, 0, 100), weight: 0.25 });
+      bustParts.push({ value: clamp(50 - change, 0, 100), weight: 0.35 });
+    }
+    function weighted(parts) { var weight = parts.reduce(function (sum, part) { return sum + part.weight; }, 0); return parts.reduce(function (sum, part) { return sum + part.value * part.weight; }, 0) / weight; }
+    var boom = weighted(boomParts), bust = weighted(bustParts);
+    var verdict = unavailable(p) ? "SIT" : boom >= bust + 15 ? "START" : bust >= boom + 15 ? "SIT" : "FLEX CALL";
+    var facts = [pts(weekly) + " Fantrax weekly projection", Math.round(positionScore) + "th percentile among live " + p.pos + " options"];
+    if (prior != null) facts.push(pts(prior) + " prior FP/G");
+    if (p.opponent) facts.push("vs " + p.opponent);
+    if (p.injury) facts.push(p.injury);
+    return { boom: boom, bust: bust, ratio: bust > 0 ? boom / bust : null, verdict: verdict, facts: facts };
+  }
 
   function optimize(teamName) {
     var pool = teamPlayers(teamName).filter(function (p) { return !unavailable(p) && expectedScore(p) != null; });
@@ -378,9 +402,48 @@
     var comparables = allRosteredPlayers().filter(function (x) { return x.pos === p.pos && expectedScore(x) != null && x.salary > 0; }).sort(function (a, b) { return Math.abs(expectedScore(a) - score) - Math.abs(expectedScore(b) - score); });
     var comparable = comparables[0] || null;
     if (!comparable) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: "No salaried Fantrax comparable available" };
-    var room = capOutlook(MY_TEAM, []).currentRoom;
+    var room = capProjection(MY_TEAM, []).currentRoom;
     var maxBid = verdict === "PASS" ? 0 : Math.max(0, Math.min(room, comparable.salary));
     return { verdict: verdict, reason: reason, maxBid: maxBid, bidBasis: "Capped by " + comparable.name + " (" + money(comparable.salary) + ") and current room" };
+  }
+
+  function hiddenGems() {
+    var pool = freeAgents().filter(function (p) {
+      return !unavailable(p) && expectedScore(p) != null && (num(p.rosteredPct) != null || num(p.rosterTrend) != null);
+    });
+    var needs = teamNeeds(MY_TEAM);
+    var byPosition = {};
+    pool.forEach(function (p) { (byPosition[p.pos] || (byPosition[p.pos] = [])).push(p); });
+    var candidates = pool.map(function (p) {
+      var same = byPosition[p.pos] || [];
+      var components = [
+        { name: "expectation", score: percentile(expectedScore(p), same.map(expectedScore)), weight: 0.4 },
+        { name: "prior production", score: percentile(production(p), same.map(production)), weight: 0.2 },
+        { name: "low roster rate", score: percentile(num(p.rosteredPct) == null ? null : -num(p.rosteredPct), same.map(function (x) { return num(x.rosteredPct) == null ? null : -num(x.rosteredPct); })), weight: 0.15 },
+        { name: "roster trend", score: percentile(num(p.rosterTrend), same.map(function (x) { return num(x.rosterTrend); })), weight: 0.15 },
+        { name: "age", score: percentile(num(p.age) == null ? null : -num(p.age), same.map(function (x) { return num(x.age) == null ? null : -num(x.age); })), weight: 0.1 }
+      ].filter(function (component) { return component.score != null; });
+      var weight = components.reduce(function (sum, component) { return sum + component.weight; }, 0);
+      var evidenceScore = weight ? components.reduce(function (sum, component) { return sum + component.score * component.weight; }, 0) / weight : null;
+      var projectionRank = percentile(expectedScore(p), same.map(expectedScore));
+      var overlooked = num(p.rosteredPct) != null ? num(p.rosteredPct) <= 50 : num(p.rosterTrend) > 0;
+      var qualifies = evidenceScore != null && projectionRank != null && projectionRank >= 60 && overlooked;
+      var fitBonus = needs[p.pos] ? 5 : 0;
+      var advice = waiverAdvice(p);
+      var facts = [];
+      facts.push(pts(expectedScore(p)) + " expected points, " + Math.round(projectionRank) + "th percentile among available " + p.pos + "s");
+      if (production(p) != null) facts.push(pts(production(p)) + " prior FP/G");
+      if (num(p.rosteredPct) != null) facts.push(num(p.rosteredPct).toFixed(0) + "% rostered");
+      if (num(p.rosterTrend) != null) facts.push((num(p.rosterTrend) > 0 ? "+" : "") + num(p.rosterTrend).toFixed(0) + "% Fantrax trend");
+      if (num(p.age) != null) facts.push("age " + num(p.age));
+      if (needs[p.pos]) facts.push("fills a Capitol Carnage " + p.pos + " need");
+      else {
+        var mine = teamPlayers(MY_TEAM).filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
+        if (mine[0]) facts.push((expectedScore(p) >= expectedScore(mine[0]) ? "projects above " : "adds competition behind ") + mine[0].name);
+      }
+      return { player: p, score: evidenceScore == null ? null : evidenceScore + fitBonus, evidenceScore: evidenceScore, projectionRank: projectionRank, qualifies: qualifies, facts: facts, advice: advice };
+    }).filter(function (gem) { return gem.qualifies; });
+    return candidates.sort(function (a, b) { return b.score - a.score || expectedScore(b.player) - expectedScore(a.player); }).slice(0, 10);
   }
 
   function keyNews() {
@@ -391,13 +454,38 @@
 
   function viewWar() {
     var grades = leagueGrades(), mine = grades[MY_TEAM] || {}, opp = opponentName(), myOpt = optimize(MY_TEAM), oppOpt = optimize(opp);
-    var fas = freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 5);
+    var gems = hiddenGems();
     var threats = teamPlayers(opp).filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 5);
     var html = '<div class="card"><div class="sectionhead"><h2>What should I do today?</h2><span class="pill">FANTRAX LIVE</span></div><div class="notice"><b>Full-roster rule:</b> the roster grade covers every player. Only the current-week Game Day edge below compares best legal starters. Every reason is tied to current Fantrax evidence; unavailable data is never replaced or invented.</div><div class="actions"><button class="primary" onclick="GMS.sync()">Refresh analysis</button><button class="secondary" onclick="GMS.news()">Refresh news</button></div></div>';
     html += '<div class="grid4"><div class="metric"><b>' + esc(mine.grade || "N/A") + '</b><span>Live roster grade</span></div><div class="metric"><b>' + pts(myOpt.total) + '</b><span>Expected lineup</span></div><div class="metric"><b>' + pts(oppOpt.total) + '</b><span>' + esc(opp) + '</span></div><div class="metric"><b class="' + (myOpt.total >= oppOpt.total ? "good" : "bad") + '">' + (myOpt.total >= oppOpt.total ? "+" : "") + pts(myOpt.total - oppOpt.total) + '</b><span>Current-week edge</span></div></div>';
-    html += '<div class="grid2"><div class="card"><h2>5 players to watch</h2>' + fas.map(function (p) { return '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(waiverReason(p)) + '</span></span><b>' + pts(expectedScore(p)) + '</b></div>'; }).join("") + '</div><div class="card"><h2>Opponent threats</h2>' + threats.map(function (p) { return '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + " · " + (p.injury || "No Fantrax injury flag")) + '</span></span><b>' + pts(expectedScore(p)) + '</b></div>'; }).join("") + '</div></div>';
+    html += '<div class="card hidden-gems"><div class="sectionhead"><div><h2>Top 10 Hidden Gems in Free Agency</h2><span class="small muted">Live Fantrax value targets for Capitol Carnage</span></div><span class="pill">BUY WATCHLIST</span></div><div class="notice">Up to 10 players are shown. A hidden gem must rank at or above the 60th projection percentile among available players at his position and also be overlooked (50% rostered or less, or rising when roster percentage is unavailable). Ranking then uses Fantrax expectation 40%, prior production 20%, low roster rate 15%, trend 15%, and age 10%, reweighted when fields are missing, with a small roster-need tiebreaker.</div>';
+    if (!gems.length) html += '<div class="muted">No free agent currently clears the live hidden-gem evidence rules.</div>';
+    gems.forEach(function (gem, index) { var p = gem.player, bid = gem.advice.maxBid == null ? "unavailable" : money(gem.advice.maxBid); html += '<div class="gem-card"><div class="gem-rank">' + (index + 1) + '</div><div class="gem-body"><div class="sectionhead"><div><h3>' + esc(p.name) + ' <span class="teamBadge">' + esc(p.pos) + '</span></h3><span class="small">' + esc(p.nfl || "NFL team unavailable") + (p.injury ? ' · ' + esc(p.injury) : '') + '</span></div><div class="gem-bid"><b>' + bid + '</b><span>Max blind bid</span></div></div><p><b>Why buy:</b> ' + esc(gem.facts.join("; ")) + '.</p><p class="muted">Evidence score ' + gem.evidenceScore.toFixed(1) + ' · ' + esc(gem.advice.bidBasis) + '</p></div></div>'; });
+    html += '</div><div class="card"><h2>Opponent threats</h2>' + threats.map(function (p) { return '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + " · " + (p.injury || "No Fantrax injury flag")) + '</span></span><b>' + pts(expectedScore(p)) + '</b></div>'; }).join("") + '</div>';
     html += '<div class="card"><div class="sectionhead"><h2>Key news brief</h2><span class="pill">ESPN</span></div>' + keyNews().map(newsRow).join("") + (!state.news.length ? '<div class="muted">News is loading. Tap Refresh news.</div>' : "") + '</div>';
     return html;
+  }
+
+  function viewStartSit() {
+    var players = teamPlayers(MY_TEAM), opt = optimize(MY_TEAM), starterIds = {};
+    opt.lineup.forEach(function (row) { if (row.player) starterIds[row.player.id] = true; });
+    var ordered = players.slice().sort(function (a, b) {
+      var aStart = starterIds[a.id] ? 1 : 0, bStart = starterIds[b.id] ? 1 : 0;
+      return bStart - aStart || (projection(b) == null ? -1 : projection(b)) - (projection(a) == null ? -1 : projection(a));
+    });
+    var html = '<div class="card"><div class="sectionhead"><div><h2>Weekly Start / Sit</h2><span class="small">Capitol Carnage · best legal Pride Dynasty lineup</span></div><div class="actions"><span class="pill">FANTRAX LIVE</span><button class="primary" onclick="GMS.sync()">Refresh week</button></div></div><div class="notice"><b>GMS Boom/Bust Ratio:</b> The weekly model weighs Fantrax projection, positional startability, prior production, and injury availability. It is an explainable decision index—not a claimed probability. A 2.0× ratio means the measured boom index is twice the bust index.</div></div>';
+    html += '<div class="grid4"><div class="metric"><b>' + opt.lineup.filter(function (row) { return row.player; }).length + '</b><span>Projected starters</span></div><div class="metric"><b>' + pts(opt.total) + '</b><span>Starter projection</span></div><div class="metric"><b>' + ordered.filter(function (p) { return !starterIds[p.id] && !unavailable(p); }).length + '</b><span>Playable bench</span></div><div class="metric"><b>' + ordered.filter(unavailable).length + '</b><span>Unavailable</span></div></div>';
+    html += '<div class="card"><div class="tableWrap"><table class="startsit-table"><thead><tr><th>Call</th><th>Player</th><th>Role</th><th>Opp</th><th>Week</th><th>Boom</th><th>Bust</th><th>Ratio</th><th>Why</th></tr></thead><tbody>';
+    ordered.forEach(function (p) {
+      var risk = weeklyRisk(p), role = starterIds[p.id] ? "PROJECTED STARTER" : (taxi(p) ? "TAXI" : unavailable(p) ? "UNAVAILABLE" : "BENCH");
+      if (!risk) {
+        html += '<tr><td><span class="bhs hold">UNAVAILABLE</span></td><td><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos) + '</span></td><td>' + role + '</td><td>' + esc(p.opponent || "—") + '</td><td>—</td><td colspan="3">unavailable</td><td>Fantrax weekly projection unavailable; no ratio calculated.</td></tr>';
+        return;
+      }
+      var call = starterIds[p.id] && risk.verdict === "FLEX CALL" ? "START" : risk.verdict;
+      html += '<tr><td><span class="start-call ' + call.toLowerCase().replace(/\s/g, "-") + '">' + esc(call) + '</span></td><td><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + (p.nfl ? " · " + p.nfl : "")) + '</span></td><td>' + role + '</td><td>' + esc(p.opponent || "—") + '</td><td>' + pts(projection(p)) + '</td><td><b class="good">' + risk.boom.toFixed(0) + '</b></td><td><b class="bad">' + risk.bust.toFixed(0) + '</b></td><td><b>' + (risk.ratio == null ? "unavailable" : risk.ratio.toFixed(2) + "×") + '</b></td><td>' + esc(risk.facts.join(" · ")) + '</td></tr>';
+    });
+    return html + '</tbody></table></div><p class="muted">The optimizer selects the highest live expected legal lineup and excludes OUT/IR players. Opponent is displayed from Fantrax but is not scored as favorable or unfavorable unless a live matchup-strength field is available.</p></div>';
   }
 
   function viewTeam() {
@@ -570,7 +658,7 @@
     var root = document.getElementById("main"); if (!root) return;
     var view = localStorage.getItem("gms_view") || "war";
     if (view === "analysts") { view = "rankings"; localStorage.setItem("gms_view", view); }
-    var views = { war: viewWar, team: viewTeam, teams: viewTeams, cap: viewCap, bhs: viewBhs, waivers: viewWaivers, trade: viewTrade, rankings: viewRankings, picks: viewPicks, news: viewNews, chat: viewChat, contact: viewContact, settings: viewSettings };
+    var views = { war: viewWar, team: viewTeam, startsit: viewStartSit, teams: viewTeams, cap: viewCap, bhs: viewBhs, waivers: viewWaivers, trade: viewTrade, rankings: viewRankings, picks: viewPicks, news: viewNews, chat: viewChat, contact: viewContact, settings: viewSettings };
     document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); });
     var asof = document.getElementById("asof"); if (asof) asof.innerHTML = state.loading ? "<b>Refreshing Fantrax…</b>" : state.asOf ? "Updated <b>" + esc(new Date(state.asOf).toLocaleTimeString()) + "</b>" : "Not synced";
     if (state.loading && !Object.keys(state.teams).length) { root.innerHTML = '<div class="loading">Loading live Fantrax projections, performance, rosters, and cap penalties…</div>'; return; }
@@ -586,6 +674,7 @@
     depth: function (teamName) { return depthMetrics(teamName || MY_TEAM); },
     power: function (teamName) { return leaguePowerGrades()[teamName || MY_TEAM]; },
     cap: function (teamName, cutIds) { return capProjection(teamName || MY_TEAM, cutIds || []); },
+    gems: hiddenGems, weeklyRisk: weeklyRisk,
     show: function (view) { localStorage.setItem("gms_view", view); render(); },
     selectTeam: function (name) { state.selectedTeam = name; render(); },
     toggleCut: function (id) { var i = state.cutIds.indexOf(id); if (i >= 0) state.cutIds.splice(i, 1); else state.cutIds.push(id); render(); },
