@@ -1,0 +1,37 @@
+name: Deploy Llama and Gemini Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public-release/multi-ai-worker/src/**"
+      - "public-release/multi-ai-worker/migrations/**"
+      - "public-release/multi-ai-worker/wrangler.jsonc"
+      - ".github/workflows/deploy-ai-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Deploy Llama and Gemini Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: "public-release/multi-ai-worker"
+          wranglerVersion: "4"
+          command: deploy --config wrangler.jsonc --keep-vars
+
+      - name: Verify AI gateway health
+        run: >-
+          node -e 'fetch("https://gms-locker-ai.robinharvey001.workers.dev/health")
+          .then(async response => ({ response, body: await response.json() }))
+          .then(({ response, body }) => { if (!response.ok || !body.providers?.llama || !body.providers?.gemini || body.accessConfigured) throw new Error(`AI gateway smoke test failed (HTTP ${response.status})`); console.log(`Verified ${body.service}`); })
+          .catch(error => { console.error(error); process.exit(1); })'

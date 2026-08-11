@@ -3,6 +3,6 @@ main = "cloudflare-worker.js"
 compatibility_date = "2026-08-10"
 workers_dev = true
 
-routes = [
-  { pattern = "gmslocker.com/api/fantrax*", zone_name = "gmslocker.com" }
-]
+[observability]
+enabled = true
+head_sampling_rate = 1

@@ -78,9 +78,10 @@ test("health reports configured bindings without exposing secret values", async 
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
+  assert.equal(body.service, "GMS Locker AI Gateway");
   assert.equal(body.providers.gemini, true);
   assert.equal(body.providers.llama, true);
-  assert.equal(body.providers.grok, "manual-only");
+  assert.equal("grok" in body.providers, false);
   assert.equal(body.privateData, true);
   assert.equal(JSON.stringify(body).includes("test-only"), false);
   assert.equal(JSON.stringify(body).includes("test-private-access-code"), false);
@@ -106,14 +107,30 @@ test("preflight allows the authorization header", async () => {
   assert.match(response.headers.get("Access-Control-Allow-Headers"), /Authorization/);
 });
 
-test("private routes require a bearer session", async () => {
+test("routes require a bearer session when an access code is configured", async () => {
   const response = await worker.fetch(new Request("https://worker.example/league-data", {
     headers: { Origin: allowedOrigin }
-  }), { DB: new FakeDB() }, ctx);
+  }), { DB: new FakeDB(), GMSLOCKER_ACCESS_TOKEN: "configured-private-code" }, ctx);
   const body = await response.json();
 
   assert.equal(response.status, 401);
   assert.equal(body.error, "Sign in required");
+});
+
+test("routes stay open when no access code is configured", async () => {
+  const db = new FakeDB();
+  db.sports = [{
+    kind: "scores",
+    payload_json: JSON.stringify({ events: [] }),
+    synced_at: "2026-08-10T00:00:00Z"
+  }];
+  const response = await worker.fetch(new Request("https://worker.example/sports/live", {
+    headers: { Origin: allowedOrigin }
+  }), { DB: db }, ctx);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
 });
 
 test("chat rejects an unknown provider before calling an external API", async () => {

@@ -1,309 +1,230 @@
-import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
-import test from 'node:test';
-import vm from 'node:vm';
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import vm from "node:vm";
 
-const htmlPath = new URL('../index.html', import.meta.url);
-const workerPath = new URL('../multi-ai-worker/src/worker.js', import.meta.url);
-const configPath = new URL('../multi-ai-worker/wrangler.example.jsonc', import.meta.url);
-const serviceWorkerPath = new URL('../service-worker.js', import.meta.url);
-const legacyWorkerPath = new URL('../cloudflare-worker/src/worker.js', import.meta.url);
+const root = new URL("../", import.meta.url);
+const file = name => new URL(name, root);
 
-function appContext(fetchImpl = async () => { throw new Error('unexpected fetch'); }) {
+async function loadAppForTest() {
+  const source = await readFile(file("app.js"), "utf8");
+  const storage = new Map();
   const elements = new Map();
   const element = id => {
     if (!elements.has(id)) {
       elements.set(id, {
         id,
-        value: '',
-        innerHTML: '',
-        textContent: '',
-        style: {},
-        scrollTop: 0,
-        scrollHeight: 0,
-        hidden: false,
-        disabled: false,
-        classList: {add() {}, remove() {}, toggle() {}, contains() { return false; }},
-        addEventListener() {},
-        setAttribute() {},
-        focus() {},
-        select() {},
-        remove() {},
+        value: "",
+        innerHTML: "",
+        textContent: "",
+        classList: { toggle() {} },
+        addEventListener() {}
       });
     }
     return elements.get(id);
   };
-  const storage = new Map();
   const context = {
     console,
-    document: {
-      readyState: 'loading',
-      body: {appendChild() {}, classList: {toggle() {}, contains() { return false; }}},
-      createElement: () => element('created'),
-      getElementById: element,
-      querySelectorAll: () => [],
-      addEventListener() {},
-      execCommand: () => true,
-    },
+    __GMS_TEST__: true,
     localStorage: {
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, String(value)),
-      removeItem: key => storage.delete(key),
+      removeItem: key => storage.delete(key)
     },
-    navigator: {},
-    installBtn: element('installBtn'),
-    requestAnimationFrame() {},
-    requestIdleCallback() {},
-    setTimeout(callback) { if (callback) callback(); },
-    clearTimeout() {},
-    setInterval() {},
-    alert() {},
-    confirm: () => true,
-    prompt: () => null,
-    fetch: fetchImpl,
-    Headers,
+    document: {
+      getElementById: element,
+      querySelectorAll: () => [],
+      addEventListener() {}
+    },
+    fetch: async () => { throw new Error("unexpected fetch"); },
     URL,
-    Blob,
-    FormData,
-    FileReader: class {},
-    location: {reload() {}},
+    Headers,
+    Request,
+    Response,
+    Date,
+    JSON,
+    Math,
+    Promise,
+    Object,
+    Array,
+    String,
+    Number,
+    Boolean,
+    RegExp
   };
   context.window = context;
-  context.addEventListener = () => {};
-  return {context, elements, storage};
+  vm.createContext(context);
+  vm.runInContext(source, context, { filename: "app.js" });
+  return { context, storage, testApi: context.GMS.__test };
 }
 
-async function loadApp(fetchImpl) {
-  const html = await readFile(htmlPath, 'utf8');
-  const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
-  const app = appContext(fetchImpl);
-  vm.createContext(app.context);
-  vm.runInContext(script, app.context);
-  return {...app, html};
+function fantraxFixture() {
+  return [
+    {
+      period: 1,
+      rosters: {
+        nsf1b7esmk4b6bgd: {
+          teamName: "Capitol Carnage",
+          salaryCap: 1403.9,
+          rosterItems: [
+            { id: "p1", position: "QB", salary: 48, status: "ACTIVE", contract: { smallId: "3" } }
+          ]
+        },
+        partner1: {
+          teamName: "Agent Smith",
+          salaryCap: 1403.9,
+          rosterItems: [
+            { id: "p2", position: "WR", salary: 31, status: "ACTIVE", contract: { smallId: "2" } }
+          ]
+        }
+      }
+    },
+    {
+      p1: { name: "Alpha, Ace", position: "QB", team: "IND" },
+      p2: { name: "Beta, Bob", position: "WR", team: "DET" },
+      ignored: 7
+    },
+    {
+      standings: [
+        { teamId: "partner1", teamName: "Agent Smith", rank: 2 },
+        { teamId: "nsf1b7esmk4b6bgd", teamName: "Capitol Carnage", rank: 1 }
+      ]
+    },
+    {
+      futureDraftPicks: [
+        { currentOwnerTeamId: "nsf1b7esmk4b6bgd", originalOwnerTeamId: "nsf1b7esmk4b6bgd", year: 2027, round: 1 },
+        { currentOwnerTeamId: "partner1", originalOwnerTeamId: "partner1", year: 2027, round: 2 }
+      ]
+    },
+    { period: 1, matchups: [{ home: { teamId: "partner1" }, away: { teamId: "nsf1b7esmk4b6bgd" } }] },
+    {
+      leagueName: "Pride Dynasty",
+      seasonYear: 2026,
+      rosterInfo: { maxTotalPlayers: 37 },
+      playerInfo: { p1: { eligiblePos: "QB,SFX" } }
+    }
+  ];
 }
 
-test('the public app contains no raw Fantrax dataset path or league identifier', async () => {
-  const [html, config, legacyWorker] = await Promise.all([
-    readFile(htmlPath, 'utf8'),
-    readFile(configPath, 'utf8'),
-    readFile(legacyWorkerPath, 'utf8'),
+test("the public shell exposes every GMS Locker tool and loads the live transport first", async () => {
+  const [html, app, proxy] = await Promise.all([
+    readFile(file("index.html"), "utf8"),
+    readFile(file("app.js"), "utf8"),
+    readFile(file("fantrax-proxy.js"), "utf8")
   ]);
-  assert.doesNotMatch(html, /FANTRAX_DATASET_URL|data\/pride-dynasty/);
-  assert.doesNotMatch(`${html}\n${config}`, /leagueId=[A-Za-z0-9]{8,}/);
-  assert.match(html, /const configuredTeamName=String\(db\.config\.teamName/);
-  assert.doesNotMatch(html, /franchises\.find\(f=>\/[A-Za-z ]+\/i\.test\(f\.name\)\)/);
-  assert.match(html, /a\.download=`gmslocker-backup-/);
-  assert.doesNotMatch(config, /"FANTRAX_LEAGUE_ID"\s*:/);
-  assert.match(html, /const seedAssets=\[\];/);
-  assert.doesNotMatch(legacyWorker, /const LEAGUE_ID\s*=/);
-  assert.match(legacyWorker, /env\.MFL_LEAGUE_ID/);
-  assert.match(legacyWorker, /BRIDGE_ACCESS_TOKEN/);
-  assert.match(legacyWorker, /constantTimeEqual/);
-  assert.match(legacyWorker, /readBoundedResponseText/);
-  assert.match(html, /apiFetch\('\/league-data'\)/);
-  assert.match(html, /SESSION_TOKEN_KEY='gmslocker_private_session_v1'/);
+
+  assert.match(html, /GMS Locker — GM Sports Assistant/);
+  assert.equal([...html.matchAll(/data-view="[^"]+"/g)].length, 13);
+  assert.ok(html.indexOf('src="fantrax-proxy.js?v=') < html.indexOf('src="app.js?v='));
+  assert.match(html, /src="gmslocker-logo\.png"/);
+  assert.match(html, /src="pinvault-collectibles-logo\.png"/);
+  assert.match(html, /id="gmChatLauncher"/);
+  assert.match(app, /openChat: openChat/);
+  assert.match(proxy, /gmslocker-fantrax-proxy\.robinharvey001\.workers\.dev/);
+  assert.match(app, /gms-locker-ai\.robinharvey001\.workers\.dev/);
+  assert.match(app, /Cloudflare Llama/);
+  assert.match(app, /Gemini/);
+  assert.doesNotMatch(app, /Prototype evaluation|api\.openai\.com|Claude|Grok/i);
+  assert.doesNotMatch(html, /access code|password|sign in required/i);
 });
 
-test('the Worker protects private data and AI routes with bearer sessions', async () => {
-  const worker = await readFile(workerPath, 'utf8');
-  assert.match(worker, /url\.pathname === "\/auth\/login"/);
-  assert.match(worker, /url\.pathname === "\/league-data"/);
-  assert.match(worker, /const session = await authenticate/);
-  assert.match(worker, /GMSLOCKER_ACCESS_TOKEN/);
-  assert.doesNotMatch(worker, /api\.openai\.com|api\.x\.ai|OPENAI_API_KEY|XAI_API_KEY/);
+test("real Fantrax payloads normalize into rosters, players, standings, picks, matchups, and rules", async () => {
+  const { testApi } = await loadAppForTest();
+  const snapshot = testApi.normalizeFantrax(fantraxFixture());
+
+  assert.equal(Object.keys(snapshot.teams).length, 2);
+  assert.equal(snapshot.teams.nsf1b7esmk4b6bgd.items[0].salary, 48);
+  assert.equal(snapshot.players.p1.name, "Alpha, Ace");
+  assert.equal(snapshot.standings[0].teamName, "Capitol Carnage");
+  assert.equal(snapshot.picks.length, 2);
+  assert.equal(snapshot.matchups.matchups.length, 1);
+  assert.equal(snapshot.leagueInfo.leagueName, "Pride Dynasty");
+  assert.equal("playerInfo" in snapshot.leagueInfo, false);
 });
 
-test('Llama is private by default while Gemini is consented public-context only', async () => {
-  const [html, worker, config] = await Promise.all([
-    readFile(htmlPath, 'utf8'),
-    readFile(workerPath, 'utf8'),
-    readFile(configPath, 'utf8'),
-  ]);
-  assert.match(html, /<option value="gemini"/);
-  assert.match(html, /<option value="llama"/);
-  assert.doesNotMatch(html, /<option value="council"/);
-  assert.match(html, /buildGeminiPublicContext/);
-  assert.match(html, /ensureGeminiConsent/);
-  assert.match(html, /copyForManualGrok/);
-  assert.match(worker, /body\.geminiConsent !== true/);
-  assert.match(worker, /publicGeminiContext/);
-  assert.doesNotMatch(worker, /new Set\(\["gemini", "llama", "council"\]\)/);
-  assert.match(worker, /store: false/);
-  assert.match(worker, /gemini-3\.5-flash-lite/);
-  assert.match(config, /@cf\/meta\/llama-4-scout-17b-16e-instruct/);
-  assert.match(config, /"binding": "AI"/);
+test("Trade Lab grades synced assets and rejects the wrong roster owner", async () => {
+  const { testApi } = await loadAppForTest();
+  testApi.applyFantraxSnapshot(testApi.normalizeFantrax(fantraxFixture()));
+
+  const valid = testApi.scoreTrade("Ace Alpha, 2027 1st", "Bob Beta, 2027 2nd", "Agent Smith");
+  assert.deepEqual(Array.from(valid.errors), []);
+  assert.equal(valid.give.length, 2);
+  assert.equal(valid.get.length, 2);
+  assert.equal(valid.partner, "Agent Smith");
+  assert.match(valid.grade, /^(A|B\+|B|C|D|F)$/);
+  assert.ok(Number.isFinite(valid.salaryDelta));
+
+  const invalid = testApi.scoreTrade("Bob Beta", "Ace Alpha", "Agent Smith");
+  assert.match(invalid.errors.join(" "), /rostered by Agent Smith, not Capitol Carnage/);
 });
 
-test('the Gemini side conversation keeps separate local history, personalization, and authorization', async () => {
-  let request;
-  const {context, storage} = await loadApp(async (url, options) => {
-    request = {url, options, body: JSON.parse(options.body)};
-    return {ok: true, status: 200, json: async () => ({ok: true, answer: {text: 'Gemini reply', model: 'test-gemini'}})};
-  });
-  storage.set('gmslocker_private_session_v1', 's'.repeat(43));
-  storage.set('gmslocker_private_session_expiry_v1', new Date(Date.now() + 86400000).toISOString());
-  storage.set('gmslocker_gemini_profile_v1', 'Call me Rob and keep answers direct.');
-  context.document.getElementById('sideChatInput').value = 'Audit my wide receivers.';
-  await vm.runInContext('sendSideChatMessage()', context);
-
-  assert.equal(request.body.provider, 'gemini');
-  assert.equal(request.body.conversationId, 'public-gemini-side-chat');
-  assert.equal(request.body.geminiConsent, true);
-  assert.equal(request.body.memory.personalization, 'Call me Rob and keep answers direct.');
-  assert.equal('myTeam' in request.body.context, false);
-  assert.match(request.body.context.privacyBoundary, /No league identity/);
-  assert.equal(new Headers(request.options.headers).get('Authorization'), `Bearer ${'s'.repeat(43)}`);
-  assert.equal(storage.has('gmslocker_ai_messages_v1'), false);
-  const saved = JSON.parse(storage.get('gmslocker_gemini_messages_v2'));
-  assert.deepEqual(saved.map(message => message.role), ['user', 'assistant']);
-});
-
-test('Fantrax live rosters update API-owned fields but preserve manual ownership', async () => {
-  const {context} = await loadApp();
-  context.__payload = {
-    configured: true,
-    syncedAt: '2026-08-09T12:00:00Z',
-    snapshots: {
-      rosters: {
-        rosters: {
-          team1: {teamName: 'Test Franchise', rosterItems: [{id: 'p1', position: 'ACTIVE', status: 'ACTIVE'}, {id: 'p2', position: 'RESERVE', status: 'RESERVE'}]},
-        },
-      },
-      standings: {standings: []},
-      matchups: {matchups: []},
-    },
-  };
-  const result = vm.runInContext(`(()=>{
-    db={config:clone(DEFAULT_CONFIG),assets:[
-      {id:'a',fantraxId:'p1',name:'One',type:'PLAYER',source:FANTRAX_SOURCE,sources:{roster:FANTRAX_SOURCE}},
-      {id:'b',fantraxId:'p2',name:'Two',type:'PLAYER',roster:'Manual Team',source:'Manual Override',sources:{roster:'Manual Override'}},
-      {id:'c',fantraxId:'p3',name:'Three',type:'PLAYER',roster:'Old Team',source:FANTRAX_SOURCE,sources:{roster:FANTRAX_SOURCE}}
-    ],mfl:{}};
-    const summary=applyFantraxLive(__payload);
-    return {summary,teamCount:db.config.teams,liveMeta:db.fantraxLiveMeta,assets:db.assets.map(a=>({id:a.id,roster:a.roster,status:a.status}))};
-  })()`, context);
-
-  assert.equal(result.summary.players, 2);
-  assert.equal(result.teamCount, 1);
-  assert.equal(result.liveMeta.rosteredCount, 2);
-  assert.equal(result.assets.find(asset => asset.id === 'a').roster, 'Test Franchise');
-  assert.equal(result.assets.find(asset => asset.id === 'b').roster, 'Manual Team');
-  assert.equal(result.assets.find(asset => asset.id === 'c').roster, 'FREE AGENT');
-});
-
-test('Fantrax live player pool adds missing free agents and imports status tags and rules', async () => {
-  const {context} = await loadApp();
-  context.__payload = {
-    configured: true,
-    syncedAt: '2026-08-09T12:00:00Z',
-    snapshots: {
-      league: {
-        leagueName: 'Test League',
-        playerInfo: {
-          p1: {eligiblePos: 'QB, Flex', status: 'IR'},
-          p4: {eligiblePos: 'WR, Flex', status: ''},
-        },
-        draftSettings: {draftType: 'SLOW'},
-        rosterInfo: {maxTotalPlayers: 50},
-        poolSettings: {playerSourceType: 'NFL'},
-        scoringSystem: {type: 'POINTS'},
-      },
-      players: {
-        p1: {name: 'One Updated', fantraxId: 'p1', position: 'QB', team: 'IND'},
-        p4: {name: 'Four', fantraxId: 'p4', position: 'WR', team: 'DET'},
-      },
-      rosters: {
-        rosters: {
-          team1: {teamName: 'Test Franchise', rosterItems: [{id: 'p1', position: 'ACTIVE', status: 'ACTIVE'}]},
-        },
-      },
-    },
+test("the Fantrax Worker enforces endpoint, league, and browser-origin boundaries", async () => {
+  const source = await readFile(file("cloudflare-worker.js"), "utf8");
+  const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
+  const { default: worker } = await import(moduleUrl);
+  const originalFetch = globalThis.fetch;
+  let upstreamUrl = "";
+  let upstreamCalls = 0;
+  globalThis.fetch = async url => {
+    upstreamCalls += 1;
+    upstreamUrl = String(url);
+    return new Response(JSON.stringify({ leagueName: "Pride Dynasty" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
   };
 
-  const result = vm.runInContext(`(()=>{
-    db={config:clone(DEFAULT_CONFIG),assets:[
-      {id:'a',fantraxId:'p1',name:'Old Name',type:'PLAYER',source:FANTRAX_SOURCE,sources:{name:FANTRAX_SOURCE,roster:FANTRAX_SOURCE}}
-    ],mfl:{}};
-    const summary=applyFantraxLive(__payload);
-    const added=db.assets.find(asset=>asset.fantraxId==='p4');
-    const updated=db.assets.find(asset=>asset.fantraxId==='p1');
-    return {
-      summary,
-      added:{name:added.name,pos:added.pos,nfl:added.nfl,roster:added.roster,inPool:added.inFantraxPool},
-      updated:{name:updated.name,tags:updated.fantraxTags,eligiblePositions:updated.eligiblePositions},
-      rules:db.fantraxRules,
-      leagueName:db.config.leagueName
-    };
-  })()`, context);
+  try {
+    const allowed = await worker.fetch(new Request("https://worker.example/?endpoint=getLeagueInfo&leagueId=astbqxhwmk4b6bg9", {
+      headers: { Origin: "https://gmslocker.com" }
+    }));
+    assert.equal(allowed.status, 200);
+    assert.match(upstreamUrl, /fantrax\.com\/fxea\/general\/getLeagueInfo/);
+    assert.equal(allowed.headers.get("Access-Control-Allow-Origin"), "https://gmslocker.com");
 
-  assert.equal(result.summary.pool, 2);
-  assert.equal(result.added.name, 'Four');
-  assert.equal(result.added.roster, 'FREE AGENT');
-  assert.equal(result.added.inPool, true);
-  assert.equal(result.updated.name, 'One Updated');
-  assert.equal(result.updated.tags.includes('IR'), true);
-  assert.equal(result.updated.eligiblePositions, 'QB, Flex');
-  assert.equal(result.leagueName, 'Test League');
-  assert.equal(result.rules.rosterInfo.maxTotalPlayers, 50);
-  assert.equal(result.rules.scoringSystem.type, 'POINTS');
+    const wrongLeague = await worker.fetch(new Request("https://worker.example/?endpoint=getStandings&leagueId=wrong", {
+      headers: { Origin: "https://gmslocker.com" }
+    }));
+    assert.equal(wrongLeague.status, 400);
+
+    const wrongEndpoint = await worker.fetch(new Request("https://worker.example/?endpoint=getDraftResults&leagueId=astbqxhwmk4b6bg9", {
+      headers: { Origin: "https://gmslocker.com" }
+    }));
+    assert.equal(wrongEndpoint.status, 400);
+
+    const wrongOrigin = await worker.fetch(new Request("https://worker.example/?endpoint=getLeagueInfo&leagueId=astbqxhwmk4b6bg9", {
+      headers: { Origin: "https://example.com" }
+    }));
+    assert.equal(wrongOrigin.status, 403);
+    assert.equal(upstreamCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
-test('private contract notes become visible tag and holdout flags', async () => {
-  const {context} = await loadApp();
-  const flags = vm.runInContext(`({
-    holdout:contractFlags({contractNote:'Contract holdout'}),
-    tag:contractFlags({contractNote:'Franchise tag'}),
-    rookie:contractFlags({contractNote:'Rookie contract'})
-  })`, context);
-
-  assert.equal(flags.holdout.includes('HOLDOUT'), true);
-  assert.equal(flags.tag.includes('FRANCHISE TAG'), true);
-  assert.equal(flags.rookie.includes('ROOKIE CONTRACT'), true);
-});
-
-test('manual trades audit and persist without referencing undefined transaction variables', async () => {
-  const {context, storage} = await loadApp();
-  context.document.getElementById('txGiveAsset').value = 'give';
-  context.document.getElementById('txRecvAsset').value = 'receive';
-  context.document.getElementById('txTeamA').value = 'Team A';
-  context.document.getElementById('txTeamB').value = 'Team B';
-  vm.runInContext(`
-    db={config:clone(DEFAULT_CONFIG),assets:[
-      {id:'give',name:'Give Player',type:'PLAYER',roster:'Team A',source:'Manual'},
-      {id:'receive',name:'Receive Player',type:'PLAYER',roster:'Team B',source:'Manual'}
-    ],mfl:{},history:[],savedTrades:[],savedFA:[]};
-    renderAssetList=()=>{};renderTransactions=()=>{};
-  `, context);
-
-  assert.doesNotThrow(() => vm.runInContext('addTradePair()', context));
-  const saved = JSON.parse(storage.get('ccgm_db'));
-  assert.equal(saved.assets.find(asset => asset.id === 'give').roster, 'Team B');
-  assert.equal(saved.assets.find(asset => asset.id === 'receive').roster, 'Team A');
-  assert.equal(saved.manualTransactions.length, 2);
-  assert.equal(saved.audit[0].action, 'MANUAL TRADE');
-});
-
-test('live NFL routes and private cron cadence are present', async () => {
-  const [html, worker, config] = await Promise.all([
-    readFile(htmlPath, 'utf8'),
-    readFile(workerPath, 'utf8'),
-    readFile(configPath, 'utf8'),
+test("both GitHub Actions deploy to workers.dev and run production smoke tests", async () => {
+  const [proxyWorkflow, aiWorkflow, proxyConfig, aiConfigText, aiWorker] = await Promise.all([
+    readFile(file(".github/workflows/deploy-cloudflare-worker.yml"), "utf8"),
+    readFile(file(".github/workflows/deploy-ai-worker.yml"), "utf8"),
+    readFile(file("wrangler.toml"), "utf8"),
+    readFile(file("public-release/multi-ai-worker/wrangler.jsonc"), "utf8"),
+    readFile(file("public-release/multi-ai-worker/src/worker.js"), "utf8")
   ]);
-  assert.match(html, /id="livecenter"/);
-  assert.match(html, /Verified Holdout Watch/);
-  assert.match(html, /Authenticated Fantrax League Data/);
-  assert.match(html, /draftPicks:fantraxLiveSnapshots\.draftPicks/);
-  assert.doesNotMatch(html, /JSON\.stringify\(db\.fantraxRules\|\|\{\},null,2\)\.slice/);
-  assert.match(worker, /url\.pathname === "\/sports\/live"/);
-  assert.match(worker, /site\.api\.espn\.com\/apis\/site\/v2\/sports\/football\/nfl\/scoreboard/);
-  assert.match(config, /"\*\/5 \* \* \* \*"/);
-  assert.match(config, /"2,17,32,47 \* \* \* \*"/);
-});
+  const aiConfig = JSON.parse(aiConfigText);
 
-test('the service worker caches only the public shell', async () => {
-  const serviceWorker = await readFile(serviceWorkerPath, 'utf8');
-  assert.match(serviceWorker, /gmslocker-v6-7-personal-gemini/);
-  assert.doesNotMatch(serviceWorker, /league-data|gm-chat|fantrax/);
-  assert.match(serviceWorker, /preloaded\|\|await fetch\(event\.request,\{cache:'no-cache'\}\)/);
-  assert.doesNotMatch(serviceWorker, /if\(cached\)return cached/);
+  assert.doesNotMatch(proxyConfig, /^routes\s*=|zone_name/m);
+  assert.match(proxyConfig, /workers_dev\s*=\s*true/);
+  assert.match(proxyWorkflow, /cloudflare\/wrangler-action@v4/);
+  assert.match(proxyWorkflow, /Verify live Fantrax response/);
+  assert.match(aiWorkflow, /deploy --config wrangler\.jsonc --keep-vars/);
+  assert.match(aiWorkflow, /Verify AI gateway health/);
+  assert.equal(aiConfig.name, "gms-locker-ai");
+  assert.equal(aiConfig.ai.binding, "AI");
+  assert.equal(aiConfig.vars.LLAMA_MODEL, "@cf/meta/llama-4-scout-17b-16e-instruct");
+  assert.equal(aiConfig.vars.GEMINI_MODEL, "gemini-3.5-flash-lite");
+  assert.equal("GMSLOCKER_ACCESS_TOKEN" in aiConfig.vars, false);
+  assert.match(aiWorker, /new Set\(\["gemini", "llama"\]\)/);
+  assert.match(aiWorker, /if \(!env\.GMSLOCKER_ACCESS_TOKEN\)/);
+  assert.match(aiWorker, /publicGeminiContext/);
+  assert.doesNotMatch(aiWorker, /api\.openai\.com|api\.anthropic\.com|api\.x\.ai/);
 });

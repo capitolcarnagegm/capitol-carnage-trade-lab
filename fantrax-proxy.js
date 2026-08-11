@@ -1,16 +1,17 @@
 /* GMS Locker Fantrax transport.
- * Production default: same-origin /api/fantrax?endpoint=...
- * Set window.GMS_FANTRAX_PROXY before app.js to use a standalone Worker URL.
+ * Production default: the deployed standalone Cloudflare Worker.
+ * Set window.GMS_FANTRAX_PROXY before app.js to override the Worker URL.
  */
 (function () {
   "use strict";
 
   var originalFetch = window.fetch.bind(window);
   var FANTRAX_PREFIX = "https://www.fantrax.com/fxea/general/";
+  var WORKERS_DEV_PROXY = "https://gmslocker-fantrax-proxy.robinharvey001.workers.dev/";
 
   function proxyBase() {
     var configured = String(window.GMS_FANTRAX_PROXY || "").trim();
-    return configured || (window.location.origin + "/api/fantrax");
+    return configured || WORKERS_DEV_PROXY;
   }
 
   window.fetch = function (input, init) {

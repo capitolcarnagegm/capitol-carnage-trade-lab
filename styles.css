@@ -36,10 +36,11 @@ a:hover { text-decoration: underline; }
   padding: 14px 12px 10px;
 }
 .top-banner .banner-logo {
-  max-width: min(560px, 94vw);
+  max-width: min(760px, 96vw);
   width: 100%;
   height: auto;
   display: block;
+  border-radius: 12px;
 }
 
 .site-header {
@@ -56,7 +57,7 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 .brand-logo {
-  height: 42px;
+  height: 62px;
   width: auto;
   border-radius: 6px;
   object-fit: contain;
@@ -87,8 +88,8 @@ a:hover { text-decoration: underline; }
 }
 .pv-top:hover { border-color: var(--gold); }
 .pv-top-logo {
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
   object-fit: cover;
   border-radius: 6px;
   flex-shrink: 0;
@@ -153,9 +154,11 @@ a:hover { text-decoration: underline; }
   margin-bottom: 10px;
 }
 .notice b { color: var(--gold2); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-@media (max-width: 720px) { .grid3, .grid4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 720px) { .grid2, .grid3, .grid4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
 @media (max-width: 420px) { .grid3, .grid4 { grid-template-columns: 1fr; } }
 .metric {
   background: var(--bg3);
@@ -185,6 +188,7 @@ button.secondary {
   border: 1px solid var(--gold-dim); border-radius: 8px;
   padding: 9px 12px; cursor: pointer; font-size: 13px;
 }
+button:disabled { cursor: wait; opacity: 0.65; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 select, input[type="text"] {
   width: 100%; background: var(--bg3); border: 1px solid var(--border);
@@ -211,9 +215,9 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
   padding: 2px 6px; border-radius: 6px; font-weight: 700; font-size: 12px;
   background: rgba(212,175,55,0.15); color: var(--gold2);
 }
-.chat-box { display: flex; flex-direction: column; gap: 8px; max-height: 420px; }
+.chat-box { display: flex; flex-direction: column; gap: 10px; min-height: 360px; }
 .chat-log {
-  flex: 1; overflow-y: auto; max-height: 320px;
+  flex: 1; overflow-y: auto; min-height: 240px; max-height: 440px;
   border: 1px solid var(--border); border-radius: 8px;
   padding: 10px; background: var(--bg2); font-size: 14px;
 }
@@ -222,6 +226,45 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 .chat-msg.ai b { color: var(--good); }
 .chat-input-row { display: flex; gap: 8px; }
 .chat-input-row input { flex: 1; }
+.gm-chat-launcher {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--gold2);
+  border-radius: 999px;
+  padding: 9px 14px 9px 9px;
+  color: #0a0a0a;
+  background: linear-gradient(135deg, var(--gold2), var(--gold));
+  box-shadow: 0 10px 30px rgba(0,0,0,0.55), 0 0 20px rgba(212,175,55,0.22);
+  font-weight: 800;
+  cursor: pointer;
+}
+.gm-chat-launcher:hover { filter: brightness(1.08); }
+.gm-chat-launcher-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--gold2);
+  background: #080808;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+.contact-sponsor {
+  display: block;
+  max-width: 520px;
+  margin: 0 auto 16px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+.contact-sponsor img { display: block; width: 100%; height: auto; }
 .site-footer {
   border-top: 1px solid var(--border);
   padding: 18px 16px 28px; text-align: center;
@@ -284,6 +327,9 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 @media (max-width: 480px) {
   .top-banner { padding: 10px 8px 6px; }
   .brand-title { font-size: 0.95rem; }
-  .brand-logo { height: 34px; }
-  .pv-top-logo { width: 40px; height: 40px; }
+  .brand-logo { height: 46px; }
+  .pv-top-logo { width: 48px; height: 48px; }
+  .chat-input-row { flex-direction: column; }
+  .chat-input-row button { width: 100%; }
+  .gm-chat-launcher { right: 12px; bottom: 12px; }
 }

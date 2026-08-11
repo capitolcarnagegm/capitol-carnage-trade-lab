@@ -6,17 +6,17 @@
   <meta name="theme-color" content="#050505">
   <title>GMS Locker — GM Sports Assistant</title>
   <meta name="description" content="Fantasy football GM sports assistant for rosters, cap, waivers, trades, picks and league analysis.">
-  <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%23050505' width='64' height='64' rx='12'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' font-family='system-ui' font-weight='800' fill='%23d4af37'%3EGMS%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css?v=1.1.1">
+  <link rel="icon" type="image/png" href="gmslocker-logo.png">
 </head>
 <body>
   <div class="top-banner">
-    <img id="bannerImg" src="gmslocker-logo.svg" alt="GMS Locker — GM Sports Assistant" class="banner-logo">
+    <img id="bannerImg" src="gmslocker-logo.png" alt="GMS Locker — GM Sports Assistant" class="banner-logo">
   </div>
 
   <header class="site-header">
     <div class="brand">
-      <img id="brandImg" src="gmslocker-logo.svg" alt="GMS Locker" class="brand-logo">
+      <img id="brandImg" src="gmslocker-logo.png" alt="GMS Locker" class="brand-logo">
       <div class="brand-text">
         <div class="brand-title">GMS Locker</div>
         <div class="brand-sub">GM SPORTS ASSISTANT · PRIDE DYNASTY · FANTRAX</div>
@@ -26,7 +26,7 @@
       <div class="asof" id="asof">Connecting…</div>
       <button type="button" class="secondary" id="syncBtn" title="Refresh Fantrax league data">Refresh</button>
       <a class="pv-top" href="https://www.ebay.com/str/pinvaultcollectibles" target="_blank" rel="noopener" title="Pin Vault Collectibles eBay Store">
-        <img id="pvImg" src="pinvault-collectibles-logo.svg" alt="Pin Vault Collectibles" class="pv-top-logo">
+        <img id="pvImg" src="pinvault-collectibles-logo.png" alt="Pin Vault Collectibles" class="pv-top-logo">
         <span class="pv-top-label">eBay Store →</span>
       </a>
     </div>
@@ -48,6 +48,11 @@
     <button type="button" data-view="settings">Settings</button>
   </nav>
 
+  <button type="button" class="gm-chat-launcher" id="gmChatLauncher" onclick="if(window.GMS)GMS.openChat()" aria-label="Open GM Chat">
+    <span class="gm-chat-launcher-mark" aria-hidden="true">GM</span>
+    <span>GM Chat</span>
+  </button>
+
   <main class="main" id="main">
     <div class="loading">Loading GMS Locker…</div>
   </main>
@@ -62,8 +67,8 @@
     </div>
   </footer>
 
-  <script src="fantrax-proxy.js"></script>
-  <script src="app.js"></script>
+  <script src="fantrax-proxy.js?v=1.1.1"></script>
+  <script src="app.js?v=1.1.1"></script>
   <script>
   (function () {
     var btn = document.getElementById("syncBtn");

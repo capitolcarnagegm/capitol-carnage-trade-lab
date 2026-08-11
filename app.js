@@ -9,15 +9,29 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.0.3";
+  var VERSION = "1.1.1";
+  var AI_GATEWAY = "https://gms-locker-ai.robinharvey001.workers.dev";
 
   var TIER = localStorage.getItem("gms_tier") || "free";
   var COACH = localStorage.getItem("gms_coach") || "process";
+  var CHAT_PROVIDER = localStorage.getItem("gms_chat_provider") === "gemini" ? "gemini" : "llama";
+  var GEMINI_CONSENT = localStorage.getItem("gms_gemini_consent") === "true";
+
+  function loadSavedChat() {
+    try {
+      var saved = JSON.parse(localStorage.getItem("gms_chat") || "[]");
+      return Array.isArray(saved) ? saved.slice(-40) : [];
+    } catch (e) {
+      return [];
+    }
+  }
 
   var state = {
     teams: {}, players: {}, standings: [], picks: [], matchups: null,
     asOf: null, loading: false, error: null, selectedTeam: MY_TEAM,
-    cutIds: [], chat: JSON.parse(localStorage.getItem("gms_chat") || "[]")
+    cutIds: [], chat: loadSavedChat(), chatBusy: false, chatError: null,
+    trade: null, tradePartner: localStorage.getItem("gms_trade_partner") || "",
+    tradeAiBusy: false, tradeAiText: "", tradeAiError: null
   };
 
   var BYLAWS = {
@@ -36,6 +50,104 @@
     aggressive: { name: "Aggressive", lens: "Win-now, thin bench, swing for spikes." },
     builder: { name: "Builder", lens: "Dynasty, picks, young cost-controlled talent." }
   };
+
+  function objectOrEmpty(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  }
+
+  function normalizeFantrax(parts) {
+    var rosterPayload = objectOrEmpty(parts[0]);
+    var rosterMap = objectOrEmpty(rosterPayload.rosters || rosterPayload);
+    var rawPlayers = objectOrEmpty(parts[1]);
+    var rawStandings = parts[2];
+    var draftPayload = objectOrEmpty(parts[3]);
+    var matchupPayload = objectOrEmpty(parts[4]);
+    var rawLeagueInfo = objectOrEmpty(parts[5]);
+    var teams = {};
+    var players = {};
+
+    Object.keys(rosterMap).forEach(function (teamId) {
+      var team = objectOrEmpty(rosterMap[teamId]);
+      teams[teamId] = {
+        id: teamId,
+        name: String(team.teamName || team.name || teamId),
+        items: Array.isArray(team.rosterItems) ? team.rosterItems.filter(function (item) {
+          return item && item.id;
+        }) : [],
+        salaryCap: Number(team.salaryCap || CAP_NOW)
+      };
+    });
+
+    Object.keys(rawPlayers).forEach(function (playerId) {
+      var player = rawPlayers[playerId];
+      if (player && typeof player === "object" && player.name) players[playerId] = player;
+    });
+
+    var standings = Array.isArray(rawStandings)
+      ? rawStandings.slice()
+      : (Array.isArray(objectOrEmpty(rawStandings).standings) ? rawStandings.standings.slice() : []);
+    standings.sort(function (a, b) { return Number(a.rank || 999) - Number(b.rank || 999); });
+
+    var picks = Array.isArray(draftPayload.futureDraftPicks)
+      ? draftPayload.futureDraftPicks.filter(function (pick) {
+        return pick && Number(pick.year) && Number(pick.round);
+      }) : [];
+
+    var matchups = {
+      period: matchupPayload.period == null ? null : matchupPayload.period,
+      matchups: Array.isArray(matchupPayload.matchups) ? matchupPayload.matchups : []
+    };
+
+    var leagueInfo = {};
+    Object.keys(rawLeagueInfo).forEach(function (key) {
+      if (key !== "playerInfo") leagueInfo[key] = rawLeagueInfo[key];
+    });
+
+    return {
+      teams: teams,
+      players: players,
+      standings: standings,
+      picks: picks,
+      matchups: matchups,
+      leagueInfo: leagueInfo,
+      asOf: new Date().toISOString()
+    };
+  }
+
+  function applyFantraxSnapshot(snapshot) {
+    state.teams = objectOrEmpty(snapshot.teams);
+    state.players = objectOrEmpty(snapshot.players);
+    state.standings = Array.isArray(snapshot.standings) ? snapshot.standings : [];
+    state.picks = Array.isArray(snapshot.picks) ? snapshot.picks : [];
+    state.matchups = objectOrEmpty(snapshot.matchups);
+    state.leagueInfo = objectOrEmpty(snapshot.leagueInfo);
+    state.asOf = snapshot.asOf || new Date().toISOString();
+  }
+
+  function saveFantraxSnapshot() {
+    try {
+      localStorage.setItem("gms_fantrax_snapshot_v1", JSON.stringify({
+        teams: state.teams,
+        players: state.players,
+        standings: state.standings,
+        picks: state.picks,
+        matchups: state.matchups,
+        leagueInfo: state.leagueInfo,
+        asOf: state.asOf
+      }));
+    } catch (e) {}
+  }
+
+  function restoreFantraxSnapshot() {
+    try {
+      var snapshot = JSON.parse(localStorage.getItem("gms_fantrax_snapshot_v1") || "null");
+      if (!snapshot || !Object.keys(objectOrEmpty(snapshot.teams)).length) return false;
+      applyFantraxSnapshot(snapshot);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
   async function fx(endpoint, extra) {
     var url = "https://www.fantrax.com/fxea/general/" + endpoint +
@@ -58,21 +170,8 @@
         fx("getMatchupScores").catch(function () { return {}; }),
         fx("getLeagueInfo").catch(function () { return {}; })
       ]);
-      var rosterMap = (parts[0] || {}).rosters || {};
-      state.players = parts[1] || {};
-      state.standings = Array.isArray(parts[2]) ? parts[2] : [];
-      state.picks = (parts[3] || {}).futureDraftPicks || [];
-      state.matchups = parts[4] || null;
-      state.leagueInfo = parts[5] || {};
-      state.teams = {};
-      Object.keys(rosterMap).forEach(function (tid) {
-        var t = rosterMap[tid];
-        state.teams[tid] = {
-          id: tid, name: t.teamName || tid,
-          items: t.rosterItems || [], salaryCap: t.salaryCap || CAP_NOW
-        };
-      });
-      state.asOf = new Date().toISOString();
+      applyFantraxSnapshot(normalizeFantrax(parts));
+      saveFantraxSnapshot();
       state.loading = false;
       try { localStorage.setItem("gms_last_sync", state.asOf); } catch (e) {}
     } catch (e) {
@@ -81,7 +180,9 @@
       if (/Failed to fetch|NetworkError|CORS|blocked/i.test(msg)) {
         msg = "Fantrax blocked browser request (CORS). Need a proxy worker for live rosters. UI still works offline.";
       }
-      state.error = msg;
+      state.error = Object.keys(state.teams).length
+        ? ("Live refresh failed; showing the last saved Fantrax sync. " + msg)
+        : msg;
     }
     render();
   }
@@ -128,6 +229,242 @@
 
   function allTeamNames() {
     return Object.keys(state.teams).map(function (id) { return state.teams[id].name; }).sort();
+  }
+
+  function allRosterPlayers() {
+    var players = [];
+    allTeamNames().forEach(function (teamName) {
+      players = players.concat(teamPlayers(teamName));
+    });
+    return players;
+  }
+
+  function compactPlayer(player) {
+    return {
+      id: player.id,
+      name: player.name,
+      position: player.pos,
+      nflTeam: player.nfl,
+      salary: Math.round(player.salary * 100) / 100,
+      contractYears: player.years,
+      rosterStatus: player.status
+    };
+  }
+
+  function aiLeagueContext() {
+    var league = state.leagueInfo || {};
+    var teams = Object.keys(state.teams).map(function (teamId) {
+      var team = state.teams[teamId];
+      var players = teamPlayers(team.name);
+      var spent = players.reduce(function (sum, player) { return sum + player.salary; }, 0);
+      return {
+        id: teamId,
+        name: team.name,
+        salaryCap: Number(team.salaryCap || CAP_NOW),
+        salaryUsed: Math.round(spent * 100) / 100,
+        capSpace: Math.round((Number(team.salaryCap || CAP_NOW) - spent) * 100) / 100,
+        roster: players.map(compactPlayer)
+      };
+    });
+    return {
+      asOf: state.asOf,
+      source: "Live Fantrax league astbqxhwmk4b6bg9",
+      league: {
+        id: LEAGUE_ID,
+        name: league.leagueName || BYLAWS.name,
+        season: league.seasonYear || 2026,
+        ppr: league.ppr,
+        draftType: league.draftType,
+        draftSettings: league.draftSettings || null,
+        rosterRules: league.rosterInfo || null,
+        scoringFormat: "Superflex, TE premium, offense plus IDP with sack premium"
+      },
+      bylaws: BYLAWS,
+      franchise: { id: MY_TEAM_ID, name: MY_TEAM, coach: COACHES[COACH] || COACHES.process },
+      teams: teams,
+      standings: state.standings || [],
+      futureDraftPicks: state.picks || [],
+      currentMatchups: state.matchups || null
+    };
+  }
+
+  function providerLabel(provider) {
+    return provider === "gemini" ? "Gemini" : "Cloudflare Llama";
+  }
+
+  async function requestGM(messages, provider) {
+    var selected = provider === "gemini" ? "gemini" : "llama";
+    if (selected === "gemini" && !GEMINI_CONSENT) {
+      throw new Error("Check the Gemini consent box before sending a prompt to Gemini.");
+    }
+    var coach = COACHES[COACH] || COACHES.process;
+    var response = await fetch(AI_GATEWAY + "/gm-chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: selected,
+        geminiConsent: selected === "gemini" && GEMINI_CONSENT,
+        messages: (messages || []).slice(-16),
+        context: selected === "gemini" ? { asOf: state.asOf, nflLive: null } : aiLeagueContext(),
+        memory: {
+          personalization: (selected === "gemini" ? "GM style: " : "Capitol Carnage GM style: ") + coach.name + ". " + coach.lens
+        }
+      })
+    });
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(data.error || (providerLabel(selected) + " request failed (HTTP " + response.status + ")"));
+    if (!data.answer || !data.answer.text) throw new Error(providerLabel(selected) + " returned no answer.");
+    return data.answer;
+  }
+
+  function persistChat() {
+    try { localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); } catch (e) {}
+  }
+
+  function normalizeAssetName(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+
+  function teamIdByName(name) {
+    var ids = Object.keys(state.teams);
+    for (var i = 0; i < ids.length; i++) {
+      if (state.teams[ids[i]].name === name) return ids[i];
+    }
+    return "";
+  }
+
+  function draftPickAsset(query, ownerName) {
+    var text = String(query || "");
+    var yearMatch = text.match(/\b(20\d{2})\b/);
+    if (!yearMatch) return null;
+    var round = /\b(?:1st|first|round\s*1)\b/i.test(text) ? 1
+      : /\b(?:2nd|second|round\s*2)\b/i.test(text) ? 2
+        : /\b(?:3rd|third|round\s*3)\b/i.test(text) ? 3 : 0;
+    if (!round) return null;
+    var year = Number(yearMatch[1]);
+    var ownerId = teamIdByName(ownerName);
+    var matchingPicks = state.picks.filter(function (pick) {
+      return Number(pick.year) === year && Number(pick.round) === round && String(pick.currentOwnerTeamId) === ownerId;
+    });
+    if (/original/i.test(text) && matchingPicks.length > 1) {
+      var normalizedQuery = normalizeAssetName(text);
+      var hintedTeamId = Object.keys(state.teams).find(function (teamId) {
+        return normalizedQuery.indexOf(normalizeAssetName(state.teams[teamId].name)) >= 0;
+      });
+      if (hintedTeamId) {
+        matchingPicks = matchingPicks.filter(function (pick) {
+          return String(pick.originalOwnerTeamId) === hintedTeamId;
+        });
+      }
+    }
+    if (!matchingPicks.length) {
+      return { error: ownerName + " does not own a " + year + " Round " + round + " pick in the synced Fantrax data." };
+    }
+    var pick = matchingPicks[0];
+    var originalOwner = state.teams[pick.originalOwnerTeamId] && state.teams[pick.originalOwnerTeamId].name;
+    var base = round === 1 ? 74 : round === 2 ? 42 : 24;
+    var value = Math.max(10, base - Math.max(0, year - 2027) * 6);
+    return {
+      type: "pick",
+      id: [pick.currentOwnerTeamId, pick.originalOwnerTeamId, year, round].join(":"),
+      name: year + " Round " + round + " pick" + (originalOwner ? " (originally " + originalOwner + ")" : ""),
+      team: ownerName,
+      value: value,
+      salary: 0,
+      years: 0,
+      pos: "PICK",
+      status: "FUTURE"
+    };
+  }
+
+  function playerAssetValue(player) {
+    var bases = { QB: 42, SFX: 42, RB: 38, WR: 40, TE: 37, DL: 34, ID: 34, LB: 33, DB: 31 };
+    var base = bases[player.pos] || 28;
+    var market = Math.min(42, Math.sqrt(Math.max(0, player.salary) / CAP_NOW) * 88);
+    var control = Math.min(18, Math.max(0, player.years) * 4.5);
+    var contractSignal = (bhsSignal(player).score - 50) * 0.3;
+    var status = /ACTIVE/i.test(player.status) ? 4 : /MINORS|TAXI/i.test(player.status) ? 6 : /INJURED|OUT|SUSPEND/i.test(player.status) ? -6 : 0;
+    return Math.max(10, Math.min(99, Math.round(base + market + control + contractSignal + status)));
+  }
+
+  function findPlayerAsset(query, ownerName) {
+    var target = normalizeAssetName(query);
+    if (!target) return { error: "Empty asset" };
+    var players = allRosterPlayers();
+    var exact = players.filter(function (player) { return normalizeAssetName(player.name) === target; });
+    var matches = exact.length ? exact : players.filter(function (player) {
+      var name = normalizeAssetName(player.name);
+      return target.length >= 4 && (name.indexOf(target) >= 0 || target.indexOf(name) >= 0);
+    });
+    var ownedMatches = ownerName ? matches.filter(function (player) { return player.team === ownerName; }) : matches;
+    if (ownedMatches.length === 1) matches = ownedMatches;
+    if (matches.length !== 1) {
+      return { error: matches.length ? ("Ambiguous player: " + query) : ("Player not found: " + query) };
+    }
+    var player = matches[0];
+    if (ownerName && player.team !== ownerName) {
+      return { error: player.name + " is rostered by " + player.team + ", not " + ownerName + "." };
+    }
+    return {
+      type: "player",
+      id: player.id,
+      name: player.name,
+      pos: player.pos,
+      team: player.team,
+      salary: player.salary,
+      years: player.years,
+      status: player.status,
+      value: playerAssetValue(player)
+    };
+  }
+
+  function resolveTradeSide(text, ownerName) {
+    var queries = String(text || "").split(/[,;\n]+/).map(function (part) { return part.trim(); }).filter(Boolean);
+    var assets = [];
+    var errors = [];
+    var seen = {};
+    queries.forEach(function (query) {
+      var asset = draftPickAsset(query, ownerName) || findPlayerAsset(query, ownerName);
+      if (asset.error) {
+        errors.push(asset.error);
+      } else if (seen[asset.type + ":" + asset.id]) {
+        errors.push("Duplicate asset: " + asset.name);
+      } else {
+        seen[asset.type + ":" + asset.id] = true;
+        assets.push(asset);
+      }
+    });
+    return { assets: assets, errors: errors };
+  }
+
+  function scoreTrade(giveText, getText, partnerName) {
+    var give = resolveTradeSide(giveText, MY_TEAM);
+    var get = resolveTradeSide(getText, partnerName);
+    var errors = give.errors.concat(get.errors);
+    if (!give.assets.length) errors.push("Add at least one asset to Your side.");
+    if (!get.assets.length) errors.push("Add at least one asset to Their side.");
+    var giveValue = give.assets.reduce(function (sum, asset) { return sum + asset.value; }, 0);
+    var getValue = get.assets.reduce(function (sum, asset) { return sum + asset.value; }, 0);
+    var ratio = giveValue ? getValue / giveValue : 0;
+    var grade = ratio >= 1.15 ? "A" : ratio >= 1.05 ? "B+" : ratio >= 0.97 ? "B" : ratio >= 0.90 ? "C" : ratio >= 0.78 ? "D" : "F";
+    var verdict = ratio >= 1.05 ? "ACCEPT" : ratio >= 0.97 ? "COUNTER" : "DECLINE";
+    var salarySent = give.assets.reduce(function (sum, asset) { return sum + (asset.salary || 0); }, 0);
+    var salaryReceived = get.assets.reduce(function (sum, asset) { return sum + (asset.salary || 0); }, 0);
+    return {
+      giveText: giveText,
+      getText: getText,
+      partner: partnerName,
+      give: give.assets,
+      get: get.assets,
+      errors: errors,
+      giveValue: giveValue,
+      getValue: getValue,
+      delta: getValue - giveValue,
+      salaryDelta: salaryReceived - salarySent,
+      ratio: ratio,
+      grade: grade,
+      verdict: verdict
+    };
   }
 
   function freeAgentsApprox() {
@@ -322,7 +659,7 @@
     var html = '<div class="card"><div class="sectionhead"><h2>League Teams</h2><span class="pill">' + names.length + ' TEAMS</span></div>';
     html += '<div class="field"><label>Team</label><select onchange="GMS.selectTeam(this.value)">';
     names.forEach(function (n) {
-      html += '<option value="' + esc(n) + '"' + (n === sel ? " selected" : "") + ">" + esc(n) + (n === MY_TEAM ? " (YOU)" : "") + "</option>';
+      html += '<option value="' + esc(n) + '"' + (n === sel ? " selected" : "") + ">" + esc(n) + (n === MY_TEAM ? " (YOU)" : "") + "</option>";
     });
     html += '</select></div>';
     html += '<div class="grid4" style="margin-top:10px">';
@@ -406,13 +743,63 @@
     return html;
   }
 
+  function tradeAssetRows(assets) {
+    return (assets || []).map(function (asset) {
+      return '<tr><td><b>' + esc(asset.name) + '</b></td><td>' + esc(asset.pos || "-") + '</td><td>' +
+        (asset.type === "pick" ? "-" : ("$" + Number(asset.salary || 0).toFixed(1))) + '</td><td>' +
+        (asset.type === "pick" ? "-" : esc(asset.years)) + '</td><td><b>' + esc(asset.value) + '</b></td></tr>';
+    }).join("");
+  }
+
+  function tradeResultHtml(result) {
+    if (!result) return "";
+    if (result.errors.length) {
+      return '<div class="error-banner"><b>Fix these assets:</b><br>' + result.errors.map(esc).join("<br>") + '</div>';
+    }
+    var capClass = result.salaryDelta <= 0 ? "good" : "bad";
+    var capText = (result.salaryDelta > 0 ? "+" : "") + "$" + result.salaryDelta.toFixed(1);
+    var html = '<div class="notice"><b>' + esc(result.verdict) + ' · Grade ' + esc(result.grade) + '</b><br>' +
+      'Contract-market value: receive ' + result.getValue + ', send ' + result.giveValue +
+      ' (' + (result.delta >= 0 ? "+" : "") + result.delta + ').</div>';
+    html += '<div class="grid3" style="margin-top:10px">';
+    html += '<div class="metric"><b>' + esc(result.grade) + '</b><span>Trade grade</span></div>';
+    html += '<div class="metric"><b>' + Math.round(result.ratio * 100) + '%</b><span>Value received</span></div>';
+    html += '<div class="metric"><b class="' + capClass + '">' + capText + '</b><span>Annual cap change</span></div></div>';
+    html += '<div class="grid2" style="margin-top:10px">';
+    html += '<div><h3>Your side — sending</h3><div class="tableWrap"><table><thead><tr><th>Asset</th><th>Pos</th><th>Sal</th><th>Yrs</th><th>Value</th></tr></thead><tbody>' + tradeAssetRows(result.give) + '</tbody></table></div></div>';
+    html += '<div><h3>Their side — receiving</h3><div class="tableWrap"><table><thead><tr><th>Asset</th><th>Pos</th><th>Sal</th><th>Yrs</th><th>Value</th></tr></thead><tbody>' + tradeAssetRows(result.get) + '</tbody></table></div></div></div>';
+    html += '<p class="muted small" style="margin-top:10px">Baseline uses verified Fantrax salary, contract years, position, and roster status. It is a cap/asset screen—not a substitute for current projection and injury evidence.</p>';
+    html += '<div class="actions"><button class="secondary" onclick="GMS.askTradeAI()"' + (state.tradeAiBusy ? " disabled" : "") + '>' +
+      (state.tradeAiBusy ? "Reviewing…" : ("Ask " + esc(providerLabel(CHAT_PROVIDER)) + " for full review")) + '</button></div>';
+    if (state.tradeAiError) html += '<div class="error-banner" style="margin-top:10px">' + esc(state.tradeAiError) + '</div>';
+    if (state.tradeAiText) html += '<div class="notice" style="margin-top:10px"><b>' + esc(providerLabel(CHAT_PROVIDER)) + ' review</b><br>' + esc(state.tradeAiText).replace(/\n/g, "<br>") + '</div>';
+    return html;
+  }
+
   function viewTrade() {
+    var partners = allTeamNames().filter(function (name) { return name !== MY_TEAM; });
+    if (partners.indexOf(state.tradePartner) < 0) state.tradePartner = partners[0] || "";
+    var tradeOwnerIds = [teamIdByName(MY_TEAM), teamIdByName(state.tradePartner)];
+    var pickSuggestions = state.picks.filter(function (pick) {
+      return tradeOwnerIds.indexOf(String(pick.currentOwnerTeamId)) >= 0;
+    }).map(function (pick) {
+      var original = state.teams[pick.originalOwnerTeamId] && state.teams[pick.originalOwnerTeamId].name;
+      return pick.year + " " + (Number(pick.round) === 1 ? "1st" : Number(pick.round) === 2 ? "2nd" : "3rd") +
+        (original ? " (originally " + original + ")" : "");
+    });
     var html = '<div class="card"><div class="sectionhead"><h2>Trade Lab</h2><span class="pill">ADVISE ONLY</span></div>';
-    html += '<div class="notice"><b>Simulate here. Execute in Fantrax.</b></div>';
-    html += '<div class="field"><label>Your side</label><input type="text" id="tradeGive" placeholder="Player A, Player B"></div>';
-    html += '<div class="field"><label>Their side</label><input type="text" id="tradeGet" placeholder="Player C"></div>';
+    html += '<div class="notice"><b>Simulate here. Execute in Fantrax.</b> Enter exact player names separated by commas. Draft picks work as “2027 1st”, “2028 2nd”, etc.</div>';
+    html += '<div class="field"><label>Trade partner</label><select onchange="GMS.setTradePartner(this.value)">';
+    partners.forEach(function (name) {
+      html += '<option value="' + esc(name) + '"' + (name === state.tradePartner ? " selected" : "") + '>' + esc(name) + '</option>';
+    });
+    html += '</select></div>';
+    html += '<div class="field"><label>Your side — assets you send</label><input type="text" id="tradeGive" list="tradeAssets" value="' + esc(state.trade ? state.trade.giveText : "") + '" placeholder="Player A, 2027 2nd"></div>';
+    html += '<div class="field"><label>Their side — assets you receive</label><input type="text" id="tradeGet" list="tradeAssets" value="' + esc(state.trade ? state.trade.getText : "") + '" placeholder="Player B"></div>';
+    html += '<datalist id="tradeAssets">' + allRosterPlayers().map(function (player) { return '<option value="' + esc(player.name) + '">'; }).join("") +
+      pickSuggestions.map(function (pick) { return '<option value="' + esc(pick) + '">'; }).join("") + '</datalist>';
     html += '<div class="actions"><button class="primary" onclick="GMS.evalTrade()">Evaluate trade</button></div>';
-    html += '<div id="tradeResult" style="margin-top:12px"></div></div>';
+    html += '<div id="tradeResult" style="margin-top:12px">' + tradeResultHtml(state.trade) + '</div></div>';
     return html;
   }
 
@@ -442,18 +829,26 @@
 
   function viewChat() {
     var html = '<div class="card"><div class="sectionhead"><h2>GM Chat</h2><span class="pill">SESSION</span></div>';
-    html += '<div class="notice">Browser memory. Advise only.</div>';
+    html += '<div class="notice"><b>Real AI assistant.</b> Cloudflare Llama uses the synced Pride Dynasty roster, contracts, picks, standings, and matchup context. Gemini receives your prompt plus public NFL context only. Advise only—nothing is submitted to Fantrax.</div>';
+    html += '<div class="field"><label>AI provider</label><select onchange="GMS.setChatProvider(this.value)">';
+    html += '<option value="llama"' + (CHAT_PROVIDER === "llama" ? " selected" : "") + '>Cloudflare Llama</option>';
+    html += '<option value="gemini"' + (CHAT_PROVIDER === "gemini" ? " selected" : "") + '>Gemini</option></select></div>';
+    html += '<label class="notice" style="display:block;margin-top:8px"><input type="checkbox" onchange="GMS.setGeminiConsent(this.checked)"' + (GEMINI_CONSENT ? " checked" : "") + '> I agree to send my prompt and approved public context to Gemini when Gemini is selected.</label>';
     html += '<div class="chat-box"><div class="chat-log" id="chatLog">';
-    if (!state.chat.length) html += '<div class="chat-msg ai"><b>GM:</b> Sync Fantrax, then ask about cuts, trades, or cap.</div>';
+    if (!state.chat.length) html += '<div class="chat-msg ai"><b>GM:</b> Sync Fantrax, then ask about cuts, trades, waivers, picks, opponents, or cap.</div>';
     else state.chat.forEach(function (m) {
-      html += '<div class="chat-msg ' + (m.role === "user" ? "user" : "ai") + '"><b>' + (m.role === "user" ? "You" : "GM") + ':</b> ' + esc(m.text) + '</div>';
+      html += '<div class="chat-msg ' + (m.role === "user" ? "user" : "ai") + '"><b>' + (m.role === "user" ? "You" : providerLabel(m.provider || CHAT_PROVIDER)) + ':</b> ' + esc(m.text).replace(/\n/g, "<br>") + '</div>';
     });
-    html += '</div><div class="chat-input-row"><input type="text" id="chatInput" placeholder="Ask about your team..." onkeydown="if(event.key===\'Enter\')GMS.sendChat()"><button class="primary" onclick="GMS.sendChat()">Send</button></div></div></div>';
+    if (state.chatBusy) html += '<div class="chat-msg ai"><b>' + esc(providerLabel(CHAT_PROVIDER)) + ':</b> Thinking…</div>';
+    if (state.chatError) html += '<div class="error-banner">' + esc(state.chatError) + '</div>';
+    html += '</div><div class="chat-input-row"><input type="text" id="chatInput" placeholder="Ask about your team..." onkeydown="if(event.key===\'Enter\')GMS.sendChat()"' + (state.chatBusy ? " disabled" : "") + '><button class="primary" onclick="GMS.sendChat()"' + (state.chatBusy ? " disabled" : "") + '>Send</button></div>';
+    html += '<div class="actions"><button class="secondary" onclick="GMS.clearChat()">Clear chat</button></div></div></div>';
     return html;
   }
 
   function viewContact() {
     var html = '<div class="card"><div class="sectionhead"><h2>Contact Us</h2><span class="pill">GM LOCKER</span></div>';
+    html += '<a class="contact-sponsor" href="https://www.ebay.com/str/pinvaultcollectibles" target="_blank" rel="noopener"><img src="pinvault-collectibles-logo.png" alt="Pin Vault Collectibles — Unlock the Vault. Chase the Rare."></a>';
     html += '<div class="notice"><b>Questions, feedback, or business?</b></div>';
     html += '<div class="contact-emails">';
     html += '<a class="email-card" href="mailto:gmslocker@gmail.com"><b>gmslocker@gmail.com</b><span>Primary - GM Locker / Pride Dynasty support</span></a>';
@@ -528,9 +923,18 @@
     render();
   }
 
+  function openChat() {
+    show("chat");
+    var main = document.getElementById("main");
+    if (main && typeof main.scrollIntoView === "function") main.scrollIntoView({ behavior: "smooth", block: "start" });
+    var input = document.getElementById("chatInput");
+    if (input && typeof input.focus === "function") input.focus();
+  }
+
   window.GMS = {
     sync: syncFantrax,
     show: show,
+    openChat: openChat,
     selectTeam: function (n) { state.selectedTeam = n; render(); },
     toggleCut: function (id) {
       var i = state.cutIds.indexOf(id);
@@ -548,13 +952,43 @@
       try { localStorage.setItem("gms_coach", COACH); } catch (e) {}
       render();
     },
+    setTradePartner: function (partner) {
+      state.tradePartner = allTeamNames().indexOf(partner) >= 0 && partner !== MY_TEAM ? partner : "";
+      state.trade = null;
+      state.tradeAiText = "";
+      state.tradeAiError = null;
+      try { localStorage.setItem("gms_trade_partner", state.tradePartner); } catch (e) {}
+      render();
+    },
     evalTrade: function () {
-      var el = document.getElementById("tradeResult");
-      if (!el) return;
       var give = (document.getElementById("tradeGive") || {}).value || "";
       var get = (document.getElementById("tradeGet") || {}).value || "";
-      el.innerHTML = '<div class="notice"><b>Prototype evaluation</b><br>Give: ' + esc(give || "-") +
-        '<br>Get: ' + esc(get || "-") + '<br><br>Info only - complete in Fantrax.</div>';
+      state.trade = scoreTrade(give, get, state.tradePartner);
+      state.tradeAiText = "";
+      state.tradeAiError = null;
+      render();
+    },
+    askTradeAI: async function () {
+      if (!state.trade || state.trade.errors.length || state.tradeAiBusy) return;
+      state.tradeAiBusy = true;
+      state.tradeAiText = "";
+      state.tradeAiError = null;
+      render();
+      var selected = CHAT_PROVIDER;
+      var trade = state.trade;
+      var prompt = "Evaluate this proposed trade between Capitol Carnage and " + trade.partner + ". Use the verified Fantrax league context and Pride Dynasty rules. " +
+        "Return VERDICT, GRADE, FOUR-QUESTION VALUE TEST, WHY, RISKS, BEST COUNTER, and WHAT WOULD CHANGE THE DECISION. " +
+        "Assets sent: " + JSON.stringify(trade.give) + ". Assets received: " + JSON.stringify(trade.get) + ". " +
+        "The deterministic contract-market screen scored sent=" + trade.giveValue + ", received=" + trade.getValue +
+        ", cap change=" + trade.salaryDelta.toFixed(1) + ". Treat that score as a baseline, not authoritative talent evaluation.";
+      try {
+        var answer = await requestGM([{ role: "user", content: prompt }], selected);
+        state.tradeAiText = answer.text;
+      } catch (e) {
+        state.tradeAiError = String(e.message || e);
+      }
+      state.tradeAiBusy = false;
+      render();
     },
     loadNews: async function () {
       var el = document.getElementById("newsList");
@@ -574,21 +1008,58 @@
         el.innerHTML = '<span class="bad">News failed: ' + esc(e.message || e) + '</span>';
       }
     },
-    sendChat: function () {
+    setChatProvider: function (provider) {
+      CHAT_PROVIDER = provider === "gemini" ? "gemini" : "llama";
+      try { localStorage.setItem("gms_chat_provider", CHAT_PROVIDER); } catch (e) {}
+      state.chatError = null;
+      render();
+    },
+    setGeminiConsent: function (consent) {
+      GEMINI_CONSENT = Boolean(consent);
+      try { localStorage.setItem("gms_gemini_consent", GEMINI_CONSENT ? "true" : "false"); } catch (e) {}
+      state.chatError = null;
+      render();
+    },
+    clearChat: function () {
+      state.chat = [];
+      state.chatError = null;
+      persistChat();
+      render();
+    },
+    sendChat: async function () {
       var input = document.getElementById("chatInput");
-      if (!input || !input.value.trim()) return;
+      if (!input || !input.value.trim() || state.chatBusy) return;
       var text = input.value.trim();
       input.value = "";
       state.chat.push({ role: "user", text: text });
-      var health = rosterHealth(MY_TEAM);
-      var reply = "Cap space ~$" + health.space.toFixed(0) + " (grade " + health.grade + "). " + health.why;
-      if (/cut|dead|cap/i.test(text)) reply = "Under Article IX, a cut hits 100% of salary this year and 40/60/80/85% next year only. Use Cap/Dead to simulate.";
-      else if (/trade/i.test(text)) reply = "Trade Lab evaluates both sides. We never submit the trade - you do that in Fantrax.";
-      state.chat.push({ role: "ai", text: reply });
-      try { localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); } catch (e) {}
+      persistChat();
+      state.chatBusy = true;
+      state.chatError = null;
+      render();
+      var selected = CHAT_PROVIDER;
+      var messages = state.chat.map(function (message) {
+        return { role: message.role === "ai" ? "assistant" : "user", content: message.text };
+      });
+      try {
+        var answer = await requestGM(messages, selected);
+        state.chat.push({ role: "ai", provider: selected, text: answer.text });
+        persistChat();
+      } catch (e) {
+        state.chatError = String(e.message || e);
+      }
+      state.chatBusy = false;
       render();
     }
   };
+
+  if (window.__GMS_TEST__) {
+    window.GMS.__test = {
+      normalizeFantrax: normalizeFantrax,
+      applyFantraxSnapshot: applyFantraxSnapshot,
+      scoreTrade: scoreTrade,
+      state: state
+    };
+  }
 
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".nav button").forEach(function (btn) {
@@ -596,6 +1067,7 @@
         show(btn.getAttribute("data-view"));
       });
     });
+    restoreFantraxSnapshot();
     render();
     syncFantrax();
   });
