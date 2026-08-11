@@ -11,8 +11,8 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
-    if (url.pathname === "/auth/request-code") return requestLoginCode(request, env);
-    if (url.pathname === "/auth/verify-code") return verifyLoginCode(request, env);
+    if (url.pathname === "/auth/register") return registerAccount(request, env);
+    if (url.pathname === "/auth/login") return loginWithPassword(request, env);
     const auth = await authenticatedUser(request, env);
     if (url.pathname === "/auth/me") return auth ? json({ user: auth.user }) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/auth/logout") return auth ? logout(request, env, auth) : json({ ok: true });
@@ -39,47 +39,64 @@ export default {
 
 function normalizeEmail(value) { return String(value || "").trim().toLowerCase().slice(0, 254); }
 function validEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
+function normalizeUsername(value) { return String(value || "").trim().toLowerCase().slice(0, 30); }
+function validUsername(value) { return /^[a-z0-9][a-z0-9_]{2,29}$/.test(value); }
 function bytesToHex(bytes) { return Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, "0")).join(""); }
 async function sha256(value) { return bytesToHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(value)))); }
 function randomToken(bytes = 32) { const value = new Uint8Array(bytes); crypto.getRandomValues(value); return btoa(String.fromCharCode(...value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+function randomHex(bytes = 16) { const value = new Uint8Array(bytes); crypto.getRandomValues(value); return bytesToHex(value); }
 function bearerToken(request) { const match = String(request.headers.get("Authorization") || "").match(/^Bearer\s+([A-Za-z0-9_-]{32,})$/); return match ? match[1] : ""; }
 
 async function readJson(request) { try { return await request.json(); } catch (_) { return null; } }
-async function requestLoginCode(request, env) {
+async function passwordHash(password, saltHex) {
+  const salt = Uint8Array.from(String(saltHex).match(/.{2}/g) || [], (byte) => parseInt(byte, 16));
+  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  return bytesToHex(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 210000 }, material, 256));
+}
+function safeEqual(left, right) {
+  if (left.length !== right.length) return false;
+  let difference = 0; for (let index = 0; index < left.length; index += 1) difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  return difference === 0;
+}
+async function createSession(env, user) {
+  const token = randomToken(); const tokenHash = await sha256(token);
+  await env.DB.batch([env.DB.prepare("UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?").bind(user.id), env.DB.prepare("INSERT INTO user_sessions (token_hash,user_id,expires_at) VALUES (?,?,datetime('now','+30 days'))").bind(tokenHash, user.id)]);
+  return json({ token, user: { id: user.id, username: user.username, email: user.email, displayName: user.display_name || "" } });
+}
+async function registerAccount(request, env) {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!env.DB) return json({ error: "Account database is not configured" }, 503);
-  if (!env.RESEND_API_KEY) return json({ error: "Account email service is not configured" }, 503);
-  const body = await readJson(request); const email = normalizeEmail(body?.email);
+  const body = await readJson(request); const username = normalizeUsername(body?.username); const email = normalizeEmail(body?.email); const password = String(body?.password || "");
+  if (!validUsername(username)) return json({ error: "Username must be 3–30 letters, numbers, or underscores" }, 400);
   if (!validEmail(email)) return json({ error: "Enter a valid email address" }, 400);
-  const recent = await env.DB.prepare("SELECT COUNT(*) AS total FROM login_codes WHERE email=? AND created_at>datetime('now','-10 minutes')").bind(email).first();
-  if (Number(recent?.total || 0) >= 5) return json({ error: "Too many codes requested. Wait 10 minutes and try again." }, 429);
-  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0");
-  const id = crypto.randomUUID(); const codeHash = await sha256(id + ":" + code);
-  await env.DB.prepare("INSERT INTO login_codes (id,email,code_hash,expires_at) VALUES (?,?,?,datetime('now','+10 minutes'))").bind(id, email, codeHash).run();
-  const sent = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ from: env.AUTH_FROM_EMAIL || "GMS Locker <login@gmslocker.com>", to: [email], subject: "Your GMS Locker login code", text: "Your GMS Locker code is " + code + ". It expires in 10 minutes. If you did not request it, ignore this email." }) });
-  if (!sent.ok) { await env.DB.prepare("DELETE FROM login_codes WHERE id=?").bind(id).run(); return json({ error: "Login email could not be sent" }, 502); }
-  return json({ ok: true, challengeId: id, expiresInSeconds: 600 });
+  if (password.length < 10 || password.length > 128) return json({ error: "Password must be 10–128 characters" }, 400);
+  const existing = await env.DB.prepare("SELECT id FROM users WHERE username=? OR email=?").bind(username, email).first();
+  if (existing) return json({ error: "That username or email is already in use" }, 409);
+  const salt = randomHex(); const hash = await passwordHash(password, salt);
+  const user = { id: crypto.randomUUID(), username, email, display_name: "" };
+  await env.DB.prepare("INSERT INTO users (id,email,username,password_hash,password_salt) VALUES (?,?,?,?,?)").bind(user.id, email, username, hash, salt).run();
+  return createSession(env, user);
 }
 
-async function verifyLoginCode(request, env) {
+async function loginWithPassword(request, env) {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  const body = await readJson(request); const email = normalizeEmail(body?.email); const id = String(body?.challengeId || ""); const code = String(body?.code || "").replace(/\D/g, "").slice(0, 6);
-  const row = id && env.DB ? await env.DB.prepare("SELECT id,email,code_hash,expires_at,attempts,consumed_at FROM login_codes WHERE id=? AND email=?").bind(id, email).first() : null;
-  if (!row || row.consumed_at || new Date(row.expires_at) <= new Date() || row.attempts >= 5) return json({ error: "Code expired or unavailable" }, 401);
-  const expected = await sha256(id + ":" + code);
-  if (expected !== row.code_hash) { await env.DB.prepare("UPDATE login_codes SET attempts=attempts+1 WHERE id=?").bind(id).run(); return json({ error: "Code not recognized" }, 401); }
-  let user = await env.DB.prepare("SELECT id,email,display_name FROM users WHERE email=?").bind(email).first();
-  if (!user) { user = { id: crypto.randomUUID(), email, display_name: "" }; await env.DB.prepare("INSERT INTO users (id,email) VALUES (?,?)").bind(user.id, email).run(); }
-  const token = randomToken(); const tokenHash = await sha256(token);
-  await env.DB.batch([env.DB.prepare("UPDATE login_codes SET consumed_at=CURRENT_TIMESTAMP WHERE id=?").bind(id), env.DB.prepare("UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?").bind(user.id), env.DB.prepare("INSERT INTO user_sessions (token_hash,user_id,expires_at) VALUES (?,?,datetime('now','+30 days'))").bind(tokenHash, user.id)]);
-  return json({ token, user: { id: user.id, email: user.email, displayName: user.display_name || "" } });
+  if (!env.DB) return json({ error: "Account database is not configured" }, 503);
+  const body = await readJson(request); const username = normalizeUsername(body?.username); const password = String(body?.password || "");
+  const clientKey = await sha256(String(request.headers.get("CF-Connecting-IP") || "unknown") + ":" + username);
+  const recent = await env.DB.prepare("SELECT COUNT(*) AS total FROM password_login_attempts WHERE client_key=? AND created_at>datetime('now','-15 minutes')").bind(clientKey).first();
+  if (Number(recent?.total || 0) >= 10) return json({ error: "Too many sign-in attempts. Wait 15 minutes and try again." }, 429);
+  const user = validUsername(username) ? await env.DB.prepare("SELECT id,username,email,display_name,password_hash,password_salt FROM users WHERE username=?").bind(username).first() : null;
+  const expected = user?.password_hash && user?.password_salt ? await passwordHash(password.slice(0, 128), user.password_salt) : "";
+  if (!user || !expected || !safeEqual(expected, user.password_hash)) { await env.DB.prepare("INSERT INTO password_login_attempts (client_key) VALUES (?)").bind(clientKey).run(); return json({ error: "Username or password is incorrect" }, 401); }
+  await env.DB.prepare("DELETE FROM password_login_attempts WHERE client_key=?").bind(clientKey).run();
+  return createSession(env, user);
 }
 
 async function authenticatedUser(request, env) {
   const token = bearerToken(request); if (!token || !env.DB) return null;
   const tokenHash = await sha256(token);
-  const row = await env.DB.prepare("SELECT s.token_hash,s.user_id,u.email,u.display_name FROM user_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>CURRENT_TIMESTAMP").bind(tokenHash).first();
-  return row ? { tokenHash, env, user: { id: row.user_id, email: row.email, displayName: row.display_name || "", isOwner: row.email === OWNER_EMAIL } } : null;
+  const row = await env.DB.prepare("SELECT s.token_hash,s.user_id,u.username,u.email,u.display_name FROM user_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>CURRENT_TIMESTAMP").bind(tokenHash).first();
+  return row ? { tokenHash, env, user: { id: row.user_id, username: row.username, email: row.email, displayName: row.display_name || "", isOwner: row.email === OWNER_EMAIL } } : null;
 }
 async function logout(request, env, auth) { if (request.method !== "POST") return json({ error: "Method not allowed" }, 405); await env.DB.prepare("UPDATE user_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE token_hash=?").bind(auth.tokenHash).run(); return json({ ok: true }); }
 async function settingsMap(env) { const rows = await env.DB.prepare("SELECT key,enabled FROM site_settings").all(); const map = {}; for (const row of rows.results || []) map[row.key] = Boolean(row.enabled); return map; }
