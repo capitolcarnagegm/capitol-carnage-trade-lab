@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.13";
+  var VERSION = "1.6.16";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -38,16 +38,40 @@
     builder: { name: "Builder", lens: "Dynasty horizon, picks, age, contracts, and cost-controlled talent." }
   };
 
+  var PRIDE_STARTERS = [
+    { slot: "QB", count: 1, accept: ["QB"] }, { slot: "SFX", count: 1, accept: ["QB", "RB", "WR", "TE"] },
+    { slot: "RB", count: 2, accept: ["RB"] }, { slot: "WR", count: 3, accept: ["WR"] },
+    { slot: "TE", count: 1, accept: ["TE"] }, { slot: "RWT", count: 1, accept: ["RB", "WR", "TE"] },
+    { slot: "DL", count: 3, accept: ["DL"] }, { slot: "LB", count: 2, accept: ["LB"] },
+    { slot: "DB", count: 3, accept: ["DB"] }, { slot: "ID", count: 2, accept: ["DL", "LB", "DB"] }
+  ];
+  var LINEUP_SLOT_CATALOG = [
+    { slot: "QB", accept: ["QB"] }, { slot: "SFX", accept: ["QB", "RB", "WR", "TE"] },
+    { slot: "RB", accept: ["RB"] }, { slot: "WR", accept: ["WR"] }, { slot: "TE", accept: ["TE"] },
+    { slot: "RWT", accept: ["RB", "WR", "TE"] }, { slot: "FLEX", accept: ["RB", "WR", "TE"] },
+    { slot: "DL", accept: ["DL"] }, { slot: "LB", accept: ["LB"] }, { slot: "DB", accept: ["DB"] },
+    { slot: "ID", accept: ["DL", "LB", "DB"] }, { slot: "K", accept: ["K"] }, { slot: "DST", accept: ["DST"] }
+  ];
+
+  function copyLineupRules(rules) { return rules.map(function (rule) { return { slot: rule.slot, count: rule.count, accept: rule.accept.slice() }; }); }
+  function lineupSettingsKey() { return "gms_league_lineup_" + LEAGUE_ID; }
+  function sanitizeLineupRules(value) {
+    if (!Array.isArray(value)) return null;
+    var allowed = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "K", "DST"], clean = [];
+    value.forEach(function (rule) {
+      var slot = String(rule && rule.slot || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 8);
+      var count = Math.max(0, Math.min(20, Math.floor(Number(rule && rule.count) || 0)));
+      var accept = (Array.isArray(rule && rule.accept) ? rule.accept : String(rule && rule.accept || "").split(",")).map(function (pos) { return primaryPos(pos); }).filter(function (pos, index, all) { return allowed.indexOf(pos) >= 0 && all.indexOf(pos) === index; });
+      if (slot && count && accept.length) clean.push({ slot: slot, count: count, accept: accept });
+    });
+    return clean.length ? clean : null;
+  }
+  function savedLineupRules() { return sanitizeLineupRules(safeJson(localStorage.getItem(lineupSettingsKey()), null)); }
+
   var BYLAWS = {
     name: "Pride Dynasty", cap: CAP_NOW, capInflation: 0.05, salaryRaise: 0.20,
     dead: { 1: 0, 2: 0.4, 3: 0.6, 4: 0.8, 5: 0.85 },
-    starters: [
-      { slot: "QB", count: 1, accept: ["QB"] }, { slot: "SFX", count: 1, accept: ["QB", "RB", "WR", "TE"] },
-      { slot: "RB", count: 2, accept: ["RB"] }, { slot: "WR", count: 3, accept: ["WR"] },
-      { slot: "TE", count: 1, accept: ["TE"] }, { slot: "RWT", count: 1, accept: ["RB", "WR", "TE"] },
-      { slot: "DL", count: 3, accept: ["DL"] }, { slot: "LB", count: 2, accept: ["LB"] },
-      { slot: "DB", count: 3, accept: ["DB"] }, { slot: "ID", count: 2, accept: ["DL", "LB", "DB"] }
-    ]
+    starters: savedLineupRules() || copyLineupRules(PRIDE_STARTERS)
   };
 
   var EVALUATION_POLICY = {
@@ -58,9 +82,10 @@
   };
 
   var state = {
-    teams: {}, players: {}, standings: [], picks: [], matchups: {}, leagueInfo: {}, teamData: {}, freeAgentData: {}, news: [], games: [], gamesAsOf: null, gamesError: null, gamesLoading: false, gameSeasonType: 2,
+    teams: {}, players: {}, standings: [], picks: [], matchups: {}, leagueInfo: {}, teamData: {}, freeAgentData: {}, news: [], newsLoading: false, newsError: null, newsAsOf: null, games: [], gamesAsOf: null, gamesError: null, gamesLoading: false, gameSeasonType: 2,
     asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, selectedWaiverId: "", waiverAnalysisId: "", waiverAnalysisLoading: false, waiverContext: {}, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
-    chat: safeJson(localStorage.getItem("gms_chat"), []), tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: []
+    chat: safeJson(localStorage.getItem("gms_chat"), []), warChat: safeJson(localStorage.getItem("gms_war_chat"), []), tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: [],
+    lineupSettingsDraft: null, lineupSettingsError: ""
   };
 
   function safeJson(value, fallback) { try { return JSON.parse(value || "") || fallback; } catch (_) { return fallback; } }
@@ -72,7 +97,7 @@
   function mean(values) { var good = values.filter(function (v) { return Number.isFinite(v); }); return good.length ? good.reduce(function (a, b) { return a + b; }, 0) / good.length : null; }
   function percentile(value, values) { var good = values.filter(function (v) { return Number.isFinite(v); }).sort(function (a, b) { return a - b; }); if (!good.length || !Number.isFinite(value)) return null; return 100 * good.filter(function (v) { return v <= value; }).length / good.length; }
   function grade(score) { if (!Number.isFinite(score)) return "N/A"; return score >= 93 ? "A" : score >= 88 ? "A-" : score >= 83 ? "B+" : score >= 78 ? "B" : score >= 73 ? "B-" : score >= 68 ? "C+" : score >= 63 ? "C" : score >= 58 ? "C-" : score >= 50 ? "D" : "F"; }
-  function primaryPos(value) { var p = String(value || "").toUpperCase(); if (p.indexOf("QB") >= 0) return "QB"; if (p.indexOf("RB") >= 0) return "RB"; if (p.indexOf("WR") >= 0) return "WR"; if (p.indexOf("TE") >= 0) return "TE"; if (/DL|DE|DT|EDGE/.test(p)) return "DL"; if (p.indexOf("LB") >= 0) return "LB"; if (/DB|CB|\bS\b/.test(p)) return "DB"; return p.split(",")[0] || "?"; }
+  function primaryPos(value) { var p = String(value || "").toUpperCase(); if (/D\/?ST|DEFENSE/.test(p)) return "DST"; if (/^K$|KICKER/.test(p)) return "K"; if (p.indexOf("QB") >= 0) return "QB"; if (p.indexOf("RB") >= 0) return "RB"; if (p.indexOf("WR") >= 0) return "WR"; if (p.indexOf("TE") >= 0) return "TE"; if (/DL|DE|DT|EDGE/.test(p)) return "DL"; if (p.indexOf("LB") >= 0) return "LB"; if (/DB|CB|\bS\b/.test(p)) return "DB"; return p.split(",")[0] || "?"; }
   function unavailable(p) { return /OUT|INJURED_RESERVE|\bIR\b|SUSPEND/i.test(String(p.status) + " " + String(p.rosterSlot) + " " + String(p.injury)); }
   function taxi(p) { return /TAXI|MINOR/i.test(String(p.status) + " " + String(p.rosterSlot)); }
 
@@ -104,11 +129,17 @@
   }
 
   async function refreshNews(repaint) {
+    state.newsLoading = true; state.newsError = null;
+    if (repaint !== false) render();
     try {
-      var response = await fetch(API_BASE + "/news", { cache: "no-store" });
+      var response = await fetch(API_BASE + "/news?ts=" + Date.now(), { cache: "no-store", headers: { Accept: "application/json" } });
       var data = await response.json();
-      if (response.ok) state.news = data.articles || [];
-    } catch (_) {}
+      if (!response.ok) throw new Error(data.detail || data.error || "ESPN news feed failed");
+      state.news = (data.articles || []).filter(function (article) { return article && article.headline; });
+      state.newsAsOf = data.syncedAt || new Date().toISOString();
+      if (!state.news.length) state.newsError = "ESPN returned no current NFL stories.";
+    } catch (error) { state.newsError = String(error.message || error); }
+    state.newsLoading = false;
     if (repaint !== false) render();
   }
 
@@ -306,6 +337,30 @@
       if (unavailable(a) !== unavailable(b)) return unavailable(a) ? 1 : -1;
       return (expectedScore(b) == null ? -1 : expectedScore(b)) - (expectedScore(a) == null ? -1 : expectedScore(a));
     });
+  }
+
+  function warRoomLineupControls() {
+    var preview = lineupPreview(), optimized = optimize(MY_TEAM), roster = teamPlayers(MY_TEAM), activeIds = lineupDraftIds();
+    var filled = preview.lineup.filter(function (row) { return row.player; }).length, open = preview.lineup.length - filled, delta = preview.total - optimized.total;
+    var verdict = open ? "INCOMPLETE LINEUP" : delta >= -0.05 ? "BEST PROJECTED LINEUP" : Math.abs(delta) <= 10 ? "PLAYABLE — POINTS LEFT ON BENCH" : "CHANGE RECOMMENDED";
+    var verdictClass = !open && delta >= -0.05 ? "good" : "bad";
+    var html = '<div class="card war-lineup"><div class="sectionhead"><div><h2>Set Lineup — Live Evaluation</h2><span class="small muted">Change any starter below. The evaluation and projected points update immediately.</span></div><button class="secondary" onclick="GMS.applyOptimizedLineup()">Use best lineup</button></div>';
+    html += '<div class="lineup-summary"><b>' + pts(preview.total) + ' projected points</b><span>Optimizer: ' + pts(optimized.total) + '</span><span class="projection-delta ' + (preview.total >= optimized.total ? 'good' : 'bad') + '">' + (preview.total - optimized.total >= 0 ? '+' : '') + pts(preview.total - optimized.total) + ' vs optimized</span></div><div class="war-lineup-grid">';
+    preview.lineup.forEach(function (row, index) {
+      var choices = roster.filter(function (p) { return !taxi(p) && !unavailable(p) && row.accept.indexOf(p.pos) >= 0 && (activeIds.indexOf(p.id) < 0 || activeIds[index] === p.id); }).sort(function (a, b) { return (expectedScore(b) || 0) - (expectedScore(a) || 0); });
+      html += '<label><span>' + esc(row.slot) + '</span><select class="lineup-select" onchange="GMS.moveStarter(' + index + ',this.value)"><option value="">Open spot — 0.0</option>';
+      choices.forEach(function (p) { html += '<option value="' + esc(p.id) + '"' + (row.player && row.player.id === p.id ? ' selected' : '') + '>' + esc(p.name + ' · ' + p.pos + ' · ' + pts(expectedScore(p)) + ' pts') + '</option>'; });
+      html += '</select></label>';
+    });
+    html += '</div><div class="lineup-live-evaluation"><span class="pill ' + verdictClass + '">LIVE EVALUATION</span><b>' + esc(verdict) + '</b><span>' + filled + ' of ' + preview.lineup.length + ' starter spots filled' + (open ? ' · fill ' + open + ' open spot' + (open === 1 ? '' : 's') : delta < -0.05 ? ' · current lineup projects ' + pts(Math.abs(delta)) + ' points below the best legal lineup' : ' · no higher legal projected lineup is available') + '.</span></div>';
+    return html + '<p class="muted">This is a private lineup simulation. Fantrax is read-only and is never changed. Weekly points use Fantrax when present, then the existing season/prior-production fallback used throughout GMS Locker.</p></div>';
+  }
+
+  function warRoomChat() {
+    var html = '<div class="card war-chat"><div class="sectionhead"><div><h2>War Room GM Discussion</h2><span class="small muted">Trades, roster moves, and specific ways to improve Capitol Carnage</span></div><span class="pill">FULL LEAGUE CONTEXT</span></div><div class="notice">The GM receives every synced roster, projection, contract, salary, injury, pick, standing, matchup, free agent, and dead-cap fact. Use the separate GM Chat tab for unrestricted conversation.</div><div class="chat-box"><div class="chat-log" id="warChatLog">';
+    if (!state.warChat.length) html += '<div class="chat-msg ai"><b>GM:</b> Ask what trade, waiver move, lineup change, or roster decision would improve your team.</div>';
+    else state.warChat.forEach(function (m) { html += '<div class="chat-msg ' + (m.role === "user" ? "user" : "ai") + '"><b>' + (m.role === "user" ? "You" : "GM") + ':</b> ' + esc(m.text) + '</div>'; });
+    return html + '</div><div class="chat-input-row"><input id="warChatInput" type="text" placeholder="Discuss a trade or roster move..." onkeydown="if(event.key===\'Enter\')GMS.sendWarRoomChat()"><button class="primary" onclick="GMS.sendWarRoomChat()">Discuss</button></div></div></div>';
   }
 
   function completeSum(players, getter) {
@@ -624,11 +679,15 @@
     var threats = teamPlayers(opp).filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 5);
     var html = '<div class="card"><div class="sectionhead"><h2>What should I do today?</h2><span class="pill">FANTRAX LIVE</span></div><div class="notice"><b>Full-roster rule:</b> the roster grade covers every player. Only the current-week Game Day edge below compares best legal starters. Every reason is tied to current Fantrax evidence; unavailable data is never replaced or invented.</div><div class="actions"><button class="primary" onclick="GMS.sync()">Refresh analysis</button><button class="secondary" onclick="GMS.news()">Refresh news</button></div></div>';
     html += '<div class="grid4"><div class="metric"><b>' + esc(mine.grade || "N/A") + '</b><span>Live roster grade</span></div><div class="metric"><b>' + pts(myOpt.total) + '</b><span>Expected lineup</span></div><div class="metric"><b>' + pts(oppOpt.total) + '</b><span>' + esc(opp) + '</span></div><div class="metric"><b class="' + (myOpt.total >= oppOpt.total ? "good" : "bad") + '">' + (myOpt.total >= oppOpt.total ? "+" : "") + pts(myOpt.total - oppOpt.total) + '</b><span>Current-week edge</span></div></div>';
+    html += warRoomLineupControls();
+    html += warRoomChat();
     html += '<div class="card hidden-gems"><div class="sectionhead"><div><h2>Top 10 Hidden Gems in Free Agency</h2><span class="small muted">Live Fantrax value targets for Capitol Carnage</span></div><span class="pill">BUY WATCHLIST</span></div><div class="notice">Up to 10 players are shown. A hidden gem must rank at or above the 60th projection percentile among available players at his position and also be overlooked (50% rostered or less, or rising when roster percentage is unavailable). Ranking then uses Fantrax expectation 40%, prior production 20%, low roster rate 15%, trend 15%, and age 10%, reweighted when fields are missing, with a small roster-need tiebreaker.</div>';
     if (!gems.length) html += '<div class="muted">No free agent currently clears the live hidden-gem evidence rules.</div>';
     gems.forEach(function (gem, index) { var p = gem.player, bid = gem.advice.maxBid == null ? "unavailable" : money(gem.advice.maxBid); html += '<div class="gem-card"><div class="gem-rank">' + (index + 1) + '</div><div class="gem-body"><div class="sectionhead"><div><h3>' + esc(p.name) + ' <span class="teamBadge">' + esc(p.pos) + '</span></h3><span class="small">' + esc(p.nfl || "NFL team unavailable") + (p.injury ? ' · ' + esc(p.injury) : '') + '</span></div><div class="gem-bid"><b>' + bid + '</b><span>Max blind bid</span></div></div><p><b>Why buy:</b> ' + esc(gem.facts.join("; ")) + '.</p><p class="muted">Evidence score ' + gem.evidenceScore.toFixed(1) + ' · ' + esc(gem.advice.bidBasis) + '</p></div></div>'; });
     html += '</div><div class="card"><h2>Opponent threats</h2>' + threats.map(function (p) { return '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + " · " + (p.injury || "No Fantrax injury flag")) + '</span></span><b>' + pts(expectedScore(p)) + '</b></div>'; }).join("") + '</div>';
-    html += '<div class="card"><div class="sectionhead"><h2>Key news brief</h2><span class="pill">ESPN</span></div>' + keyNews().map(newsRow).join("") + (!state.news.length ? '<div class="muted">News is loading. Tap Refresh news.</div>' : "") + '</div>';
+    html += '<div class="card"><div class="sectionhead"><h2>Key news brief</h2><div class="actions"><span class="pill">ESPN LIVE</span><button class="secondary" onclick="GMS.news()"' + (state.newsLoading ? ' disabled' : '') + '>' + (state.newsLoading ? 'Loading…' : 'Refresh news') + '</button></div></div>';
+    if (state.newsError) html += '<div class="error-banner"><b>News feed:</b> ' + esc(state.newsError) + ' Tap Refresh news to try again.</div>';
+    html += keyNews().map(newsRow).join("") + (!state.news.length && state.newsLoading ? '<div class="muted">Loading current NFL news from ESPN…</div>' : '') + (!state.news.length && !state.newsLoading && !state.newsError ? '<div class="muted">No current NFL stories were returned.</div>' : '') + (state.newsAsOf ? '<p class="muted">News updated ' + esc(new Date(state.newsAsOf).toLocaleString()) + '</p>' : '') + '</div>';
     return html;
   }
 
@@ -860,7 +919,24 @@
 
   function viewPicks() { var html = '<div class="card"><h2>League Draft Picks</h2><div class="tableWrap"><table><thead><tr><th>Owner</th><th>Year</th><th>Round</th><th>Original owner</th></tr></thead><tbody>'; state.picks.forEach(function (p) { html += '<tr><td>' + esc(state.teams[p.currentOwnerTeamId] && state.teams[p.currentOwnerTeamId].name || p.currentOwnerTeamId) + '</td><td>' + p.year + '</td><td>' + p.round + '</td><td>' + esc(state.teams[p.originalOwnerTeamId] && state.teams[p.originalOwnerTeamId].name || p.originalOwnerTeamId) + '</td></tr>'; }); return html + '</tbody></table></div></div>'; }
   function viewChat() { var coach = COACHES[COACH] || COACHES.process, html = '<div class="card"><div class="sectionhead"><h2>GM Chat</h2><span class="pill">' + esc(coach.name) + ' PERSONALITY</span></div><div class="notice">Chat receives the same live rosters, Fantrax projections/performance, injuries, picks, matchup, grades, free agents, and exact dead-cap penalties shown in the app.</div><div class="chat-box"><div class="chat-log" id="chatLog">'; if (!state.chat.length) html += '<div class="chat-msg ai"><b>GM:</b> Ask me about the league, your roster, a trade, cap, or anything else.</div>'; else state.chat.forEach(function (m) { html += '<div class="chat-msg ' + (m.role === "user" ? "user" : "ai") + '"><b>' + (m.role === "user" ? "You" : "GM") + ':</b> ' + esc(m.text) + '</div>'; }); return html + '</div><div class="chat-input-row"><input id="chatInput" type="text" placeholder="Ask about the league or anything else..." onkeydown="if(event.key===\'Enter\')GMS.sendChat()"><button class="primary" onclick="GMS.sendChat()">Send</button></div></div></div>'; }
-  function viewSettings() { var coach = COACHES[COACH] || COACHES.process, html = '<div class="card"><div class="sectionhead"><h2>App Personality</h2><span class="pill">CURRENT: ' + esc(coach.name) + '</span></div><div class="notice"><b>This is where the app’s personality lives.</b> It changes the tone and decision lens in War Room and GM Chat, while live Fantrax facts always remain the same.</div><div class="grid2">'; Object.keys(COACHES).forEach(function (key) { var c = COACHES[key]; html += '<button class="personality-card ' + (key === COACH ? "selected" : "") + '" onclick="GMS.setCoach(\'' + key + '\')"><b>' + esc(c.name) + '</b><span>' + esc(c.lens) + '</span></button>'; }); return html + '</div></div>' + mvpCheckout('settings') + '<div class="card"><h2>Data integrity</h2><div class="gate"><span>Projection source</span><b>Fantrax</b></div><div class="gate"><span>Performance source</span><b>Fantrax prior season</b></div><div class="gate"><span>Dead-cap source</span><b>Fantrax penalty table</b></div><div class="gate"><span>Last refresh</span><b>' + esc(state.asOf ? new Date(state.asOf).toLocaleString() : "Not synced") + '</b></div><div class="gate"><span>Version</span><b>' + VERSION + '</b></div><div class="actions"><button class="primary" onclick="GMS.sync()">Force live refresh</button></div></div>'; }
+  function lineupSettingsEditor() {
+    if (!state.lineupSettingsDraft) {
+      var current = {};
+      BYLAWS.starters.forEach(function (rule) { current[rule.slot] = rule; });
+      state.lineupSettingsDraft = LINEUP_SLOT_CATALOG.map(function (base) { var rule = current[base.slot]; return { slot: base.slot, count: rule ? rule.count : 0, accept: (rule ? rule.accept : base.accept).slice() }; });
+    }
+    var total = state.lineupSettingsDraft.reduce(function (sum, rule) { return sum + (Number(rule.count) || 0); }, 0);
+    var html = '<div class="card league-lineup-settings"><div class="sectionhead"><div><h2>League Lineup Settings</h2><span class="small muted">Saved separately for league ' + esc(LEAGUE_ID) + '</span></div><span class="pill">' + total + ' STARTERS</span></div>';
+    html += '<div class="notice"><b>PRIDE bylaws:</b> 19 starters — 9 offense and 10 IDP. Change these values when another league accepts a different lineup. Flex eligibility controls which players the optimizer and lineup dropdowns will accept.</div>';
+    if (state.lineupSettingsError) html += '<div class="error-banner">' + esc(state.lineupSettingsError) + '</div>';
+    html += '<div class="lineup-settings-head"><span>Slot</span><span>Count</span><span>Accepted positions</span></div><div class="lineup-settings-list">';
+    state.lineupSettingsDraft.forEach(function (rule, index) {
+      html += '<div class="lineup-setting-row"><b>' + esc(rule.slot) + '</b><input type="number" min="0" max="20" value="' + esc(rule.count) + '" aria-label="' + esc(rule.slot) + ' starter count" onchange="GMS.setLineupRuleCount(' + index + ',this.value)"><input type="text" value="' + esc(rule.accept.join(', ')) + '" aria-label="' + esc(rule.slot) + ' accepted positions" onchange="GMS.setLineupRulePositions(' + index + ',this.value)" placeholder="QB, RB, WR, TE"></div>';
+    });
+    return html + '</div><div class="actions"><button class="primary" onclick="GMS.saveLeagueLineupSettings()">Save league lineup</button><button class="secondary" onclick="GMS.loadPrideLineupSettings()">Load PRIDE bylaws</button><button class="secondary" onclick="GMS.cancelLeagueLineupChanges()">Cancel changes</button></div><p class="muted">These settings drive War Room, My Team, Start/Sit, team grades, rankings, waiver fit, and GM context. They simulate accepted lineups inside GMS Locker; they do not change Fantrax itself.</p></div>';
+  }
+
+  function viewSettings() { var coach = COACHES[COACH] || COACHES.process, html = '<div class="card"><div class="sectionhead"><h2>App Personality</h2><span class="pill">CURRENT: ' + esc(coach.name) + '</span></div><div class="notice"><b>This is where the app’s personality lives.</b> It changes the tone and decision lens in War Room and GM Chat, while live Fantrax facts always remain the same.</div><div class="grid2">'; Object.keys(COACHES).forEach(function (key) { var c = COACHES[key]; html += '<button class="personality-card ' + (key === COACH ? "selected" : "") + '" onclick="GMS.setCoach(\'' + key + '\')"><b>' + esc(c.name) + '</b><span>' + esc(c.lens) + '</span></button>'; }); return html + '</div></div>' + lineupSettingsEditor() + mvpCheckout('settings') + '<div class="card"><h2>Data integrity</h2><div class="gate"><span>Projection source</span><b>Fantrax</b></div><div class="gate"><span>Performance source</span><b>Fantrax prior season</b></div><div class="gate"><span>Dead-cap source</span><b>Fantrax penalty table</b></div><div class="gate"><span>Last refresh</span><b>' + esc(state.asOf ? new Date(state.asOf).toLocaleString() : "Not synced") + '</b></div><div class="gate"><span>Version</span><b>' + VERSION + '</b></div><div class="actions"><button class="primary" onclick="GMS.sync()">Force live refresh</button></div></div>'; }
   function viewContact() { return '<div class="card"><h2>Contact</h2><div class="contact-emails"><a class="email-card" href="mailto:gmslocker@gmail.com"><b>GMS Locker</b><span>gmslocker@gmail.com</span></a><a class="email-card" href="mailto:pinvaultcollectibles@gmail.com"><b>Pin Vault Collectibles</b><span>pinvaultcollectibles@gmail.com</span></a></div></div>'; }
 
   function render() {
@@ -877,6 +953,26 @@
     root.innerHTML = body;
     renderPayPalButtons();
     var chatLog = document.getElementById("chatLog"); if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+    var warChatLog = document.getElementById("warChatLog"); if (warChatLog) warChatLog.scrollTop = warChatLog.scrollHeight;
+  }
+
+  function compactPlayer(p) { return { id: p.id, name: p.name, position: p.pos, nfl: p.nfl, salary: p.salary, years: p.years, status: p.status, rosterSlot: p.rosterSlot, age: p.age, weeklyProjection: projection(p), seasonProjection: seasonProjection(p), priorPerformancePpg: production(p), opponent: p.opponent, injury: p.injury, evaluation: p.team === "Free Agent" ? null : playerSignal(p).label }; }
+
+  function fullLeagueChatPayload(message, history, mode) {
+    var grades = leagueGrades();
+    var rosters = allTeamNames().map(function (name) { var g = grades[name]; return { team: name, grade: g && g.grade, score: g && g.score, metrics: g && g.metrics, players: teamPlayers(name).map(compactPlayer), picks: teamPicks(name), deadCap: existingDead(name), optimizedLineup: optimize(name) }; });
+    return { mode: mode, message: message, history: history, personality: COACHES[COACH], evaluationPolicy: EVALUATION_POLICY, league: BYLAWS, leagueInfo: state.leagueInfo, team: { name: MY_TEAM, opponent: opponentName(), gameDayStarters: lineupPreview(), optimizedStarters: optimize(MY_TEAM), fullRosterGrade: grades[MY_TEAM], cap: capProjection(MY_TEAM, []) }, leagueRosters: rosters, freeAgents: freeAgents().map(compactPlayer), draftPicks: state.picks, standings: state.standings, matchups: state.matchups, deadCap: existingDead(MY_TEAM), preferences: localStorage.getItem("gms_preferences") || "" };
+  }
+
+  async function sendScopedChat(inputId, stateKey, storageKey, mode) {
+    var input = document.getElementById(inputId); if (!input || !input.value.trim()) return;
+    var text = input.value.trim(), thread = state[stateKey]; input.value = ""; thread.push({ role: "user", text: text }); localStorage.setItem(storageKey, JSON.stringify(thread.slice(-40))); render();
+    try {
+      var response = await fetch(API_BASE + "/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fullLeagueChatPayload(text, thread.slice(0, -1).slice(-40), mode)) });
+      var data = await response.json(); if (!response.ok) throw new Error(data.detail || data.error || "Chat failed");
+      thread.push({ role: "ai", text: data.reply || "I couldn't form a response." }); if (data.preferences) localStorage.setItem("gms_preferences", String(data.preferences).slice(0, 12000));
+    } catch (error) { thread.push({ role: "ai", text: "Chat could not answer: " + String(error.message || error) }); }
+    localStorage.setItem(storageKey, JSON.stringify(thread.slice(-40))); render();
   }
 
   window.GMS = {
@@ -937,25 +1033,33 @@
     simulateCuts: function () { state.simulatedCutIds = state.cutIds.slice(); render(); },
     clearCuts: function () { state.cutIds = []; state.simulatedCutIds = []; render(); },
     setCoach: function (key) { if (COACHES[key]) { COACH = key; localStorage.setItem("gms_coach", key); } render(); },
+    setLineupRuleCount: function (index, value) {
+      if (!state.lineupSettingsDraft || !state.lineupSettingsDraft[index]) return;
+      state.lineupSettingsDraft[index].count = Math.max(0, Math.min(20, Math.floor(Number(value) || 0))); state.lineupSettingsError = ""; render();
+    },
+    setLineupRulePositions: function (index, value) {
+      if (!state.lineupSettingsDraft || !state.lineupSettingsDraft[index]) return;
+      state.lineupSettingsDraft[index].accept = String(value || "").split(",").map(primaryPos).filter(function (pos, posIndex, all) { return ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "K", "DST"].indexOf(pos) >= 0 && all.indexOf(pos) === posIndex; }); state.lineupSettingsError = ""; render();
+    },
+    saveLeagueLineupSettings: function () {
+      var rules = sanitizeLineupRules(state.lineupSettingsDraft), expected = (state.lineupSettingsDraft || []).reduce(function (sum, rule) { return sum + (Number(rule.count) || 0); }, 0);
+      if (!rules || !expected) { state.lineupSettingsError = "Add at least one starter and accepted position before saving."; render(); return; }
+      if (rules.reduce(function (sum, rule) { return sum + rule.count; }, 0) !== expected) { state.lineupSettingsError = "Every starter slot with a count must have at least one accepted position."; render(); return; }
+      BYLAWS.starters = copyLineupRules(rules); localStorage.setItem(lineupSettingsKey(), JSON.stringify(BYLAWS.starters)); state.lineupDraft = null; state.selectedLineupIndex = null; localStorage.removeItem("gms_lineup_preview"); state.lineupSettingsDraft = null; state.lineupSettingsError = ""; render();
+    },
+    loadPrideLineupSettings: function () { state.lineupSettingsDraft = LINEUP_SLOT_CATALOG.map(function (base) { var pride = PRIDE_STARTERS.filter(function (rule) { return rule.slot === base.slot; })[0]; return { slot: base.slot, count: pride ? pride.count : 0, accept: (pride ? pride.accept : base.accept).slice() }; }); state.lineupSettingsError = ""; render(); },
+    cancelLeagueLineupChanges: function () { state.lineupSettingsDraft = null; state.lineupSettingsError = ""; render(); },
     tradeTeam: function (side, name) { state[side === "A" ? "tradeTeamA" : "tradeTeamB"] = name; state["trade" + side] = []; render(); },
     tradeAsset: function (side, key) { var list = state["trade" + side], i = list.indexOf(key); if (i >= 0) list.splice(i, 1); else list.push(key); },
     evalTrade: function () { var el = document.getElementById("tradeResult"); if (el) el.innerHTML = evaluateTradeHtml(); },
     sendChat: async function () {
-      var input = document.getElementById("chatInput"); if (!input || !input.value.trim()) return;
-      var text = input.value.trim(); input.value = ""; state.chat.push({ role: "user", text: text }); localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); render();
-      try {
-        function compact(p) { return { id: p.id, name: p.name, position: p.pos, nfl: p.nfl, salary: p.salary, years: p.years, status: p.status, age: p.age, weeklyProjection: projection(p), seasonProjection: seasonProjection(p), priorPerformancePpg: production(p), opponent: p.opponent, injury: p.injury, evaluation: p.team === "Free Agent" ? null : playerSignal(p).label }; }
-        var rosters = allTeamNames().map(function (name) { var g = leagueGrades()[name]; return { team: name, grade: g && g.grade, score: g && g.score, metrics: g && g.metrics, players: teamPlayers(name).map(compact), picks: teamPicks(name), deadCap: existingDead(name) }; });
-        var response = await fetch(API_BASE + "/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, history: state.chat.slice(0, -1).slice(-40), personality: COACHES[COACH], evaluationPolicy: EVALUATION_POLICY, league: BYLAWS, team: { name: MY_TEAM, opponent: opponentName(), gameDayStarters: optimize(MY_TEAM), fullRosterGrade: leagueGrades()[MY_TEAM] }, leagueRosters: rosters, freeAgents: freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 200).map(compact), draftPicks: state.picks, standings: state.standings, matchups: state.matchups, deadCap: existingDead(MY_TEAM), preferences: localStorage.getItem("gms_preferences") || "" }) });
-        var data = await response.json(); if (!response.ok) throw new Error(data.detail || data.error || "Chat failed");
-        state.chat.push({ role: "ai", text: data.reply || "I couldn't form a response." }); if (data.preferences) localStorage.setItem("gms_preferences", String(data.preferences).slice(0, 12000));
-      } catch (error) { state.chat.push({ role: "ai", text: "Chat could not answer: " + String(error.message || error) }); }
-      localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); render();
-    }
+      return sendScopedChat("chatInput", "chat", "gms_chat", "full");
+    },
+    sendWarRoomChat: async function () { return sendScopedChat("warChatInput", "warChat", "gms_war_chat", "war-room"); }
   };
 
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".nav button").forEach(function (button) { button.addEventListener("click", function () { window.GMS.show(button.getAttribute("data-view")); }); });
-    render(); syncFantrax();
+    render(); refreshNews(true); syncFantrax();
   });
 })();
