@@ -9,7 +9,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.3.0";
+  var VERSION = "1.4.0";
   var API_BASE = "https://api.gmslocker.com";
 
   var TIER = localStorage.getItem("gms_tier") || "free";
@@ -521,13 +521,13 @@
 
   function viewChat() {
     var html = '<div class="card"><div class="sectionhead"><h2>GM Chat</h2><span class="pill">SESSION</span></div>';
-    html += '<div class="notice">Gemini-powered GM assistant. Remembers this conversation on this device so it can learn your preferences.</div>';
+    html += '<div class="notice">Your Gemini-powered personal assistant and fantasy GM. Ask about your league, restaurants, travel, or everyday questions. It remembers this conversation and your preferences on this device.</div>';
     html += '<div class="chat-box"><div class="chat-log" id="chatLog">';
     if (!state.chat.length) html += '<div class="chat-msg ai"><b>GM:</b> Sync Fantrax, then ask about cuts, trades, or cap.</div>';
     else state.chat.forEach(function (m) {
       html += '<div class="chat-msg ' + (m.role === "user" ? "user" : "ai") + '"><b>' + (m.role === "user" ? "You" : "GM") + ':</b> ' + esc(m.text) + '</div>';
     });
-    html += '</div><div class="chat-input-row"><input type="text" id="chatInput" placeholder="Ask about your team..." onkeydown="if(event.key===\'Enter\')GMS.sendChat()"><button class="primary" onclick="GMS.sendChat()">Send</button></div></div></div>';
+    html += '</div><div class="chat-input-row"><input type="text" id="chatInput" placeholder="Ask about your team, restaurants, or anything..." onkeydown="if(event.key===\'Enter\')GMS.sendChat()"><button class="primary" onclick="GMS.sendChat()">Send</button></div></div></div>';
     return html;
   }
 
@@ -676,9 +676,17 @@
       try { localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); } catch (e) {}
       render();
       try {
-        var roster = teamPlayers(MY_TEAM).map(function (p) {
+        function aiPlayer(p) {
           return { name: p.name, position: p.pos, salary: p.salary, years: p.years, status: p.status, projectedPoints: projectedPoints(p), currentProduction: currentProduction(p) };
+        }
+        var leagueRosters = allTeamNames().map(function (teamName) {
+          return {
+            team: teamName,
+            health: rosterHealth(teamName),
+            players: teamPlayers(teamName).map(aiPlayer)
+          };
         });
+        var freeAgents = freeAgentsApprox().map(aiPlayer);
         var response = await fetch(API_BASE + "/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -687,14 +695,22 @@
             history: state.chat.slice(0, -1).slice(-60),
             coach: COACHES[COACH] || COACHES.process,
             league: BYLAWS,
-            team: { name: MY_TEAM, roster: roster, health: rosterHealth(MY_TEAM), opponent: opponentName() },
-            leagueTeams: allTeamNames(),
+            team: { name: MY_TEAM, health: rosterHealth(MY_TEAM), opponent: opponentName(), optimizedLineup: optimizedLineup().map(aiPlayer) },
+            leagueRosters: leagueRosters,
+            freeAgents: freeAgents,
+            draftPicks: state.picks,
+            standings: state.standings,
+            matchups: state.matchups,
+            leagueInfo: state.leagueInfo,
             preferences: localStorage.getItem("gms_preferences") || ""
           })
         });
         var data = await response.json();
         if (!response.ok) throw new Error(data.error || "Chat request failed");
         state.chat.push({ role: "ai", text: data.reply || "I couldn't form a response." });
+        if (data.preferences) {
+          try { localStorage.setItem("gms_preferences", String(data.preferences).slice(0, 12000)); } catch (e) {}
+        }
       } catch (e) {
         state.chat.push({ role: "ai", text: "Chat is not connected yet: " + String(e.message || e) });
       }
