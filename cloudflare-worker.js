@@ -212,7 +212,7 @@ async function handleNews(request) {
       headline: article.headline || "", description: article.description || "", published: article.published || article.lastModified || "",
       link: article.links?.web?.href || "", teams: (article.categories || []).map((category) => category.team?.abbreviation || category.description).filter(Boolean)
     }));
-    return json({ source: "ESPN", articles });
+    return json({ source: "ESPN", articles, syncedAt: new Date().toISOString() });
   } catch (error) {
     return json({ error: "News request failed", detail: String(error?.message || error) }, 502);
   }
@@ -238,6 +238,7 @@ async function handleChat(request, env) {
   const message = String(input.message || "").trim();
   if (!message) return json({ error: "Message is required" }, 400);
   const personality = input.personality || {};
+  const mode = input.mode === "war-room" ? "war-room" : "full";
   const system = [
     "You are GM's Locker, a conversational personal assistant and the user's fantasy-football general manager partner.",
     "Your visible personality is " + String(personality.name || "Process") + ": " + String(personality.lens || "evidence-first and direct") + ". Apply that style consistently without hiding contrary evidence.",
@@ -246,12 +247,13 @@ async function handleChat(request, env) {
     "Every team evaluation must analyze the entire roster, including starters, active depth, Taxi, IR/unavailable, injuries, age, salary value, projections, prior performance, contracts, and picks when supplied. Only a current-week Game Day or matchup question may compare best legal projected starters versus best legal projected starters.",
     "Explain every strength, weakness, recommendation, and verdict with the specific supplied facts that caused it. If data is unavailable, say so.",
     "Do not reuse canned conclusions or repetitive wording. Make each explanation original to the exact player, team, transaction, and current evidence; vary both the facts emphasized and the sentence structure while preserving accuracy.",
-    "Help with ordinary conversation too. You have no live web or maps access, so flag time-sensitive details that should be verified.",
+    mode === "war-room" ? "This is the focused War Room discussion. Answer only about trades, roster moves, lineup choices, waivers, cap decisions, opponent strategy, and concrete ways to improve the user's team. Give a clear recommended action and cite the exact league facts behind it." : "This is the full GM Chat. Help with the league, the roster, and ordinary conversation. You have no live web or maps access, so flag time-sensitive details that should be verified.",
+    "You are the only AI answering this request. Use the complete supplied league context and do not claim that Grok, ChatGPT, Claude, or any other paid provider participated.",
     "Learn stable preferences from the conversation. Return only valid JSON with two strings: reply and preferences."
   ].join(" ");
   const history = Array.isArray(input.history) ? input.history.slice(-40) : [];
   const messages = [{ role: "system", content: system }].concat(history.map((entry) => ({ role: entry.role === "ai" ? "assistant" : "user", content: String(entry.text || "").slice(0, 2500) })));
-  const context = { evaluationPolicy: input.evaluationPolicy || {}, league: input.league || {}, team: input.team || {}, leagueRosters: input.leagueRosters || [], freeAgents: input.freeAgents || [], draftPicks: input.draftPicks || [], standings: input.standings || [], matchups: input.matchups || {}, deadCap: input.deadCap || {}, savedPreferences: String(input.preferences || "").slice(0, 12000) };
+  const context = { mode, evaluationPolicy: input.evaluationPolicy || {}, league: input.league || {}, leagueInfo: input.leagueInfo || {}, team: input.team || {}, leagueRosters: input.leagueRosters || [], freeAgents: input.freeAgents || [], draftPicks: input.draftPicks || [], standings: input.standings || [], matchups: input.matchups || {}, deadCap: input.deadCap || {}, savedPreferences: String(input.preferences || "").slice(0, 12000) };
   messages.push({ role: "user", content: message + "\n\nCurrent live league context:\n" + JSON.stringify(context).slice(0, 90000) });
   try {
     const data = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", { messages, temperature: 0.35, max_tokens: 2400 });
