@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <title>GMS Locker — GM Sports Assistant</title>
   <meta name="description" content="Fantasy football GM sports assistant for rosters, cap, waivers, trades, picks and league analysis.">
-  <link rel="stylesheet" href="styles.css?v=1.7.0">
+  <link rel="stylesheet" href="styles.css?v=1.8.0">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%23050505' width='64' height='64' rx='12'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' font-family='system-ui' font-weight='800' fill='%23d4af37'%3EGMS%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -35,6 +35,7 @@
     <div class="header-right">
       <div class="asof" id="asof">Connecting…</div>
       <button type="button" class="secondary" id="syncBtn" title="Refresh Fantrax league data">Refresh</button>
+      <button type="button" class="secondary" id="loginBtn">Login</button>
       <a class="pv-top" href="https://pinvaultcollectibles.com" target="_blank" rel="noopener noreferrer" title="Pin Vault Collectibles live store">
         <img id="pvImg" src="pinvault-collectibles-logo.svg" alt="Pin Vault Collectibles" class="pv-top-logo">
         <span class="pv-top-label">Live Store →</span>
@@ -75,14 +76,15 @@
 
   <script src="https://www.paypal.com/sdk/js?client-id=BAAz3FfFBvgvOsglS86_LIp1ahIUHGwHOjn38UKyhbS26v-z_Fzpw35xIQvPIh6d4VBevWp7r87Ac2RHXo&components=hosted-buttons&enable-funding=venmo&currency=USD"></script>
   <script src="fantrax-proxy.js"></script>
-  <script src="app.js?v=1.7.0"></script>
+  <script src="app.js?v=1.8.0"></script>
   <script>
   (function () {
     var btn = document.getElementById("syncBtn");
-    if (!btn) return;
-    btn.addEventListener("click", function () {
+    if (btn) btn.addEventListener("click", function () {
       if (window.GMS && typeof window.GMS.sync === "function") window.GMS.sync();
     });
+    var login = document.getElementById("loginBtn");
+    if (login) login.addEventListener("click", function () { if (window.GMS) window.GMS.loginOrLogout(); });
   })();
   </script>
 </body>

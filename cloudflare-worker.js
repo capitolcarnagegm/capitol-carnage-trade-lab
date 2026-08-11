@@ -4,6 +4,8 @@ const ALLOWED_ENDPOINTS = new Set(["getTeamRosters", "getPlayerIds", "getStandin
 const SEASON_PROJ = "PROJECTION_0_23l_SEASON";
 const WEEKLY_PROJ = "PROJECTION_0_23l_EVENT_PROJECTED_WEEKLY";
 const LAST_SEASON = "SEASON_23j_YEAR_TO_DATE";
+const OWNER_EMAIL = "gmslocker@gmail.com";
+const CONTROL_KEYS = new Set(["payment_required", "checkout", "onboarding", "league_data", "ai_analysis", "waivers", "news", "current_games"]);
 
 export default {
   async fetch(request, env, ctx) {
@@ -14,6 +16,13 @@ export default {
     const auth = await authenticatedUser(request, env);
     if (url.pathname === "/auth/me") return auth ? json({ user: auth.user }) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/auth/logout") return auth ? logout(request, env, auth) : json({ ok: true });
+    if (url.pathname === "/account/access") return auth ? handleAccess(request, env, auth) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/owner/controls") return auth ? handleOwnerControls(request, env, auth) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/owner/entitlements") return auth ? handleOwnerEntitlements(request, env, auth) : json({ error: "Sign in required" }, 401);
+    const access = auth ? await accessFor(env, auth) : null;
+    if (auth && !access.allowed) return json({ error: "Paid access required", code: "PAYMENT_REQUIRED", access }, 402);
+    const feature = featureForPath(url.pathname);
+    if (auth && !access.isOwner && feature && access.settings[feature] === false) return json({ error: "This feature is temporarily disabled by the owner", code: "FEATURE_DISABLED" }, 503);
     if (url.pathname === "/account/leagues") return auth ? handleAccountLeagues(request, env, auth) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/account/league") return auth ? handleAccountLeague(request, env, auth) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/account/league/settings") return auth ? handleLeagueSettings(request, env, auth) : json({ error: "Sign in required" }, 401);
@@ -21,8 +30,8 @@ export default {
     if (url.pathname === "/account/league/inspect") return auth ? inspectLeague(request, env) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/chat") return auth ? handleChat(request, env, auth) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/league-data") return auth ? handleLeagueData(request, url, auth) : json({ error: "Sign in required" }, 401);
-    if (url.pathname === "/current-games") return handleCurrentGames(request, url);
-    if (url.pathname === "/news") return handleNews(request);
+    if (url.pathname === "/current-games") return auth ? handleCurrentGames(request, url) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/news") return auth ? handleNews(request) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/waiver-context") return auth ? handleWaiverContext(request, url) : json({ error: "Sign in required" }, 401);
     return auth ? handleFantrax(request, url, auth) : json({ error: "Sign in required" }, 401);
   }
@@ -70,9 +79,16 @@ async function authenticatedUser(request, env) {
   const token = bearerToken(request); if (!token || !env.DB) return null;
   const tokenHash = await sha256(token);
   const row = await env.DB.prepare("SELECT s.token_hash,s.user_id,u.email,u.display_name FROM user_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>CURRENT_TIMESTAMP").bind(tokenHash).first();
-  return row ? { tokenHash, env, user: { id: row.user_id, email: row.email, displayName: row.display_name || "" } } : null;
+  return row ? { tokenHash, env, user: { id: row.user_id, email: row.email, displayName: row.display_name || "", isOwner: row.email === OWNER_EMAIL } } : null;
 }
 async function logout(request, env, auth) { if (request.method !== "POST") return json({ error: "Method not allowed" }, 405); await env.DB.prepare("UPDATE user_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE token_hash=?").bind(auth.tokenHash).run(); return json({ ok: true }); }
+async function settingsMap(env) { const rows = await env.DB.prepare("SELECT key,enabled FROM site_settings").all(); const map = {}; for (const row of rows.results || []) map[row.key] = Boolean(row.enabled); return map; }
+async function accessFor(env, auth) { const owner = auth.user.email === OWNER_EMAIL; const settings = await settingsMap(env); const row = await env.DB.prepare("SELECT access_until,permanent_bypass FROM account_entitlements WHERE user_id=?").bind(auth.user.id).first(); const active = owner || Boolean(row?.permanent_bypass) || (row?.access_until && new Date(row.access_until) > new Date()); return { allowed: owner || settings.payment_required === false || active, isOwner: owner, accessUntil: row?.access_until || null, permanentBypass: Boolean(row?.permanent_bypass), settings }; }
+async function handleAccess(request, env, auth) { if (request.method !== "GET") return json({ error: "Method not allowed" }, 405); return json({ access: await accessFor(env, auth) }); }
+function featureForPath(path) { if (path === "/account/league" || path === "/account/league/inspect") return "onboarding"; if (path === "/chat") return "ai_analysis"; if (path === "/waiver-context") return "waivers"; if (path === "/news") return "news"; if (path === "/current-games") return "current_games"; if (path === "/league-data" || ALLOWED_ENDPOINTS.has(path.slice(1))) return "league_data"; return ""; }
+function requireOwner(auth) { return auth.user.email === OWNER_EMAIL; }
+async function handleOwnerControls(request, env, auth) { if (!requireOwner(auth)) return json({ error: "Owner access required" }, 403); if (request.method === "GET") return json({ settings: await settingsMap(env) }); if (request.method !== "POST") return json({ error: "Method not allowed" }, 405); const body = await readJson(request); const key = String(body?.key || ""); if (!CONTROL_KEYS.has(key)) return json({ error: "Unknown control" }, 400); await env.DB.prepare("INSERT INTO site_settings(key,enabled,updated_by) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET enabled=excluded.enabled,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP").bind(key, body?.enabled ? 1 : 0, auth.user.id).run(); return json({ ok: true, settings: await settingsMap(env) }); }
+async function handleOwnerEntitlements(request, env, auth) { if (!requireOwner(auth)) return json({ error: "Owner access required" }, 403); if (request.method === "GET") { const rows = await env.DB.prepare("SELECT u.email,e.access_until AS accessUntil,e.permanent_bypass AS permanentBypass,e.note FROM users u LEFT JOIN account_entitlements e ON e.user_id=u.id ORDER BY u.email").all(); return json({ accounts: rows.results || [] }); } if (request.method !== "POST") return json({ error: "Method not allowed" }, 405); const body = await readJson(request); const email = normalizeEmail(body?.email); const action = String(body?.action || ""); const user = await env.DB.prepare("SELECT id FROM users WHERE email=?").bind(email).first(); if (!user) return json({ error: "Account not found" }, 404); if (email === OWNER_EMAIL && action === "revoke") return json({ error: "Owner access cannot be revoked" }, 400); if (action === "revoke") await env.DB.prepare("DELETE FROM account_entitlements WHERE user_id=?").bind(user.id).run(); else { const permanent = action === "bypass" ? 1 : 0; const until = action === "grant" || action === "credit" ? new Date(Date.now() + 31536000000).toISOString() : null; if (!permanent && !until) return json({ error: "Unknown entitlement action" }, 400); await env.DB.prepare("INSERT INTO account_entitlements(user_id,access_until,permanent_bypass,note,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET access_until=excluded.access_until,permanent_bypass=excluded.permanent_bypass,note=excluded.note,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP").bind(user.id, until, permanent, String(body?.note || "").slice(0,300), auth.user.id).run(); } return json({ ok: true }); }
 function extractLeagueId(value) {
   const raw = String(value || "").trim();
   const query = raw.match(/[?&]leagueId=([A-Za-z0-9]+)/i);
