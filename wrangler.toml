@@ -7,9 +7,19 @@ workers_dev = true
 [ai]
 binding = "AI"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "gms-locker-db"
+database_id = "4d3b93c6-25cf-42cc-9458-8fe6deb20c17"
+migrations_dir = "migrations"
+
+[vars]
+AUTH_FROM_EMAIL = "GMS Locker <login@gmslocker.com>"
+
 [[routes]]
 pattern = "api.gmslocker.com"
 custom_domain = true
 
 [observability]
 enabled = true
+head_sampling_rate = 1
