@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.17";
+  var VERSION = "1.6.18";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -98,6 +98,11 @@
   function percentile(value, values) { var good = values.filter(function (v) { return Number.isFinite(v); }).sort(function (a, b) { return a - b; }); if (!good.length || !Number.isFinite(value)) return null; return 100 * good.filter(function (v) { return v <= value; }).length / good.length; }
   function grade(score) { if (!Number.isFinite(score)) return "N/A"; return score >= 93 ? "A" : score >= 88 ? "A-" : score >= 83 ? "B+" : score >= 78 ? "B" : score >= 73 ? "B-" : score >= 68 ? "C+" : score >= 63 ? "C" : score >= 58 ? "C-" : score >= 50 ? "D" : "F"; }
   function primaryPos(value) { var p = String(value || "").toUpperCase(); if (/D\/?ST|DEFENSE/.test(p)) return "DST"; if (/^K$|KICKER/.test(p)) return "K"; if (p.indexOf("QB") >= 0) return "QB"; if (p.indexOf("RB") >= 0) return "RB"; if (p.indexOf("WR") >= 0) return "WR"; if (p.indexOf("TE") >= 0) return "TE"; if (/DL|DE|DT|EDGE/.test(p)) return "DL"; if (p.indexOf("LB") >= 0) return "LB"; if (/DB|CB|\bS\b/.test(p)) return "DB"; return p.split(",")[0] || "?"; }
+  function playerPositions(p) {
+    var values = [p && p.pos].concat(String(p && p.eligible || "").split(/[,/|;]+/));
+    return values.map(primaryPos).filter(function (pos, index, all) { return pos && pos !== "?" && all.indexOf(pos) === index; });
+  }
+  function eligibleForSlot(p, slot) { return playerPositions(p).some(function (pos) { return slot.accept.indexOf(pos) >= 0; }); }
   function unavailable(p) { return /OUT|INJURED_RESERVE|\bIR\b|SUSPEND/i.test(String(p.status) + " " + String(p.rosterSlot) + " " + String(p.injury)); }
   function taxi(p) { return /TAXI|MINOR/i.test(String(p.status) + " " + String(p.rosterSlot)); }
 
@@ -300,7 +305,7 @@
     ids.forEach(function (id, index) {
       if (!id) return;
       var p = players[id];
-      if (!p || used[id] || unavailable(p) || slots[index].accept.indexOf(p.pos) < 0) valid = false;
+      if (!p || used[id] || unavailable(p) || !eligibleForSlot(p, slots[index])) valid = false;
       used[id] = true;
     });
     return valid ? ids.slice() : null;
@@ -347,7 +352,7 @@
     var html = '<div class="card war-lineup"><div class="sectionhead"><div><h2>Set Lineup — Live Evaluation</h2><span class="small muted">Change any starter below. The evaluation and projected points update immediately.</span></div><button class="secondary" onclick="GMS.applyOptimizedLineup()">Use best lineup</button></div>';
     html += '<div class="lineup-summary"><b>' + pts(preview.total) + ' projected points</b><span>Optimizer: ' + pts(optimized.total) + '</span><span class="projection-delta ' + (preview.total >= optimized.total ? 'good' : 'bad') + '">' + (preview.total - optimized.total >= 0 ? '+' : '') + pts(preview.total - optimized.total) + ' vs optimized</span></div><div class="war-lineup-grid">';
     preview.lineup.forEach(function (row, index) {
-      var choices = roster.filter(function (p) { return !taxi(p) && !unavailable(p) && row.accept.indexOf(p.pos) >= 0 && (activeIds.indexOf(p.id) < 0 || activeIds[index] === p.id); }).sort(function (a, b) { return (expectedScore(b) || 0) - (expectedScore(a) || 0); });
+      var choices = roster.filter(function (p) { return !taxi(p) && !unavailable(p) && eligibleForSlot(p, row); }).sort(function (a, b) { return (expectedScore(b) || 0) - (expectedScore(a) || 0); });
       html += '<label><span>' + esc(row.slot) + '</span><select class="lineup-select" onchange="GMS.moveStarter(' + index + ',this.value)"><option value="">Open spot — 0.0</option>';
       choices.forEach(function (p) { html += '<option value="' + esc(p.id) + '"' + (row.player && row.player.id === p.id ? ' selected' : '') + '>' + esc(p.name + ' · ' + p.pos + ' · ' + pts(expectedScore(p)) + ' pts') + '</option>'; });
       html += '</select></label>';
@@ -1042,7 +1047,14 @@
       var ids = lineupDraftIds(), slots = starterSlots(), p = teamPlayers(MY_TEAM).filter(function (player) { return player.id === id; })[0];
       if (index < 0 || index >= slots.length) return;
       if (!id) ids[index] = null;
-      else if (p && !unavailable(p) && slots[index].accept.indexOf(p.pos) >= 0 && ids.indexOf(id) < 0) ids[index] = id;
+      else if (p && !taxi(p) && !unavailable(p) && eligibleForSlot(p, slots[index])) {
+        var previousIndex = ids.indexOf(id), displacedId = ids[index];
+        if (previousIndex >= 0 && previousIndex !== index) {
+          var displaced = teamPlayers(MY_TEAM).filter(function (player) { return player.id === displacedId; })[0];
+          ids[previousIndex] = displaced && eligibleForSlot(displaced, slots[previousIndex]) ? displacedId : null;
+        }
+        ids[index] = id;
+      }
       saveLineupDraft(ids); render();
     },
     moveStarterDirection: function (index, direction) {
