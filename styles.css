@@ -155,8 +155,9 @@ a:hover { text-decoration: underline; }
 .notice b { color: var(--gold2); }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-@media (max-width: 720px) { .grid3, .grid4 { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 420px) { .grid3, .grid4 { grid-template-columns: 1fr; } }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 720px) { .grid2, .grid3, .grid4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .grid2, .grid3, .grid4 { grid-template-columns: 1fr; } }
 .metric {
   background: var(--bg3);
   border: 1px solid var(--border);
@@ -244,6 +245,24 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 .bhs.buy { background: rgba(62,207,142,0.2); color: var(--good); }
 .bhs.hold { background: rgba(232,184,74,0.2); color: var(--warn); }
 .bhs.sell { background: rgba(232,93,93,0.2); color: var(--bad); }
+
+.personality-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+}
+.personality-card:hover,
+.personality-card.selected { border-color: var(--gold); }
+.personality-card.selected { background: rgba(212,175,55,0.10); }
+.personality-card b { color: var(--gold2); font-size: 15px; }
+.personality-card span { color: var(--muted); font-size: 12px; line-height: 1.45; }
 
 .contact-emails {
   display: flex;

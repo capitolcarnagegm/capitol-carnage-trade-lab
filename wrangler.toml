@@ -1,6 +1,7 @@
 name = "gmslocker-fantrax-proxy"
 main = "cloudflare-worker.js"
-compatibility_date = "2026-08-10"
+compatibility_date = "2026-08-11"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [ai]
