@@ -9,7 +9,8 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.0.3";
+  var VERSION = "1.1.0";
+  var API_BASE = "https://api.gmslocker.com";
 
   var TIER = localStorage.getItem("gms_tier") || "free";
   var COACH = localStorage.getItem("gms_coach") || "process";
@@ -38,8 +39,8 @@
   };
 
   async function fx(endpoint, extra) {
-    var url = "https://www.fantrax.com/fxea/general/" + endpoint +
-      "?leagueId=" + encodeURIComponent(LEAGUE_ID) + (extra || "");
+    var url = API_BASE + "/?endpoint=" + encodeURIComponent(endpoint) +
+      "&leagueId=" + encodeURIComponent(LEAGUE_ID) + (extra || "");
     var res = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error(endpoint + " HTTP " + res.status);
     return res.json();
@@ -442,7 +443,7 @@
 
   function viewChat() {
     var html = '<div class="card"><div class="sectionhead"><h2>GM Chat</h2><span class="pill">SESSION</span></div>';
-    html += '<div class="notice">Browser memory. Advise only.</div>';
+    html += '<div class="notice">Powered by Google Gemini. Your chat, roster, league settings, and coaching preferences personalize its advice.</div>';
     html += '<div class="chat-box"><div class="chat-log" id="chatLog">';
     if (!state.chat.length) html += '<div class="chat-msg ai"><b>GM:</b> Sync Fantrax, then ask about cuts, trades, or cap.</div>';
     else state.chat.forEach(function (m) {
@@ -574,18 +575,36 @@
         el.innerHTML = '<span class="bad">News failed: ' + esc(e.message || e) + '</span>';
       }
     },
-    sendChat: function () {
+    sendChat: async function () {
       var input = document.getElementById("chatInput");
       if (!input || !input.value.trim()) return;
-      var text = input.value.trim();
+      var userText = input.value.trim();
       input.value = "";
-      state.chat.push({ role: "user", text: text });
-      var health = rosterHealth(MY_TEAM);
-      var reply = "Cap space ~$" + health.space.toFixed(0) + " (grade " + health.grade + "). " + health.why;
-      if (/cut|dead|cap/i.test(text)) reply = "Under Article IX, a cut hits 100% of salary this year and 40/60/80/85% next year only. Use Cap/Dead to simulate.";
-      else if (/trade/i.test(text)) reply = "Trade Lab evaluates both sides. We never submit the trade - you do that in Fantrax.";
-      state.chat.push({ role: "ai", text: reply });
-      try { localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); } catch (e) {}
+      state.chat.push({ role: "user", text: userText });
+      state.chat.push({ role: "ai", text: "Thinking...", pending: true });
+      render();
+      try {
+        var roster = teamPlayers(MY_TEAM).map(function (p) {
+          return { name: p.name, position: p.pos, nflTeam: p.nfl, salary: p.salary, years: p.years, status: p.status };
+        });
+        var response = await fetch(API_BASE + "/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({
+            message: userText,
+            history: state.chat.filter(function (m) { return !m.pending; }).slice(-30),
+            coach: COACHES[COACH] || COACHES.process,
+            league: BYLAWS,
+            team: { name: MY_TEAM, salaryCap: CAP_NOW, roster: roster, health: rosterHealth(MY_TEAM) }
+          })
+        });
+        var data = await response.json();
+        if (!response.ok) throw new Error(data.error || ("Chat HTTP " + response.status));
+        state.chat[state.chat.length - 1] = { role: "ai", text: data.reply };
+      } catch (err) {
+        state.chat[state.chat.length - 1] = { role: "ai", text: "Gemini chat is unavailable: " + String(err.message || err) };
+      }
+      try { localStorage.setItem("gms_chat", JSON.stringify(state.chat.slice(-40))); } catch (err) {}
       render();
     }
   };
