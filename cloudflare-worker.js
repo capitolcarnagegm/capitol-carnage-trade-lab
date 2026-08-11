@@ -1,22 +1,88 @@
 // GM's Locker API: authoritative Fantrax data plus Cloudflare Workers AI chat.
-const LEAGUE_ID = "astbqxhwmk4b6bg9";
+const LEGACY_LEAGUE_ID = "astbqxhwmk4b6bg9";
 const ALLOWED_ENDPOINTS = new Set(["getTeamRosters", "getPlayerIds", "getStandings", "getDraftPicks", "getMatchupScores", "getLeagueInfo"]);
 const SEASON_PROJ = "PROJECTION_0_23l_SEASON";
 const WEEKLY_PROJ = "PROJECTION_0_23l_EVENT_PROJECTED_WEEKLY";
 const LAST_SEASON = "SEASON_23j_YEAR_TO_DATE";
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
-    if (url.pathname === "/chat") return handleChat(request, env);
-    if (url.pathname === "/league-data") return handleLeagueData(request, url);
+    if (url.pathname === "/auth/request-code") return requestLoginCode(request, env);
+    if (url.pathname === "/auth/verify-code") return verifyLoginCode(request, env);
+    const auth = await authenticatedUser(request, env);
+    if (url.pathname === "/auth/me") return auth ? json({ user: auth.user }) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/auth/logout") return auth ? logout(request, env, auth) : json({ ok: true });
+    if (url.pathname === "/account/leagues") return auth ? handleAccountLeagues(request, env, auth) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/account/league") return auth ? handleAccountLeague(request, env, auth) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/account/league/settings") return auth ? handleLeagueSettings(request, env, auth) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/account/conversation") return auth ? handleConversation(request, env, auth) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/account/league/inspect") return auth ? inspectLeague(request, env) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/chat") return auth ? handleChat(request, env, auth) : json({ error: "Sign in required" }, 401);
+    if (url.pathname === "/league-data") return auth ? handleLeagueData(request, url, auth) : json({ error: "Sign in required" }, 401);
     if (url.pathname === "/current-games") return handleCurrentGames(request, url);
     if (url.pathname === "/news") return handleNews(request);
-    if (url.pathname === "/waiver-context") return handleWaiverContext(request, url);
-    return handleFantrax(request, url);
+    if (url.pathname === "/waiver-context") return auth ? handleWaiverContext(request, url) : json({ error: "Sign in required" }, 401);
+    return auth ? handleFantrax(request, url, auth) : json({ error: "Sign in required" }, 401);
   }
 };
+
+function normalizeEmail(value) { return String(value || "").trim().toLowerCase().slice(0, 254); }
+function validEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
+function bytesToHex(bytes) { return Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, "0")).join(""); }
+async function sha256(value) { return bytesToHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(value)))); }
+function randomToken(bytes = 32) { const value = new Uint8Array(bytes); crypto.getRandomValues(value); return btoa(String.fromCharCode(...value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+function bearerToken(request) { const match = String(request.headers.get("Authorization") || "").match(/^Bearer\s+([A-Za-z0-9_-]{32,})$/); return match ? match[1] : ""; }
+
+async function readJson(request) { try { return await request.json(); } catch (_) { return null; } }
+async function requestLoginCode(request, env) {
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (!env.DB || !env.RESEND_API_KEY) return json({ error: "Account email service is not configured" }, 503);
+  const body = await readJson(request); const email = normalizeEmail(body?.email);
+  if (!validEmail(email)) return json({ error: "Enter a valid email address" }, 400);
+  const recent = await env.DB.prepare("SELECT COUNT(*) AS total FROM login_codes WHERE email=? AND created_at>datetime('now','-10 minutes')").bind(email).first();
+  if (Number(recent?.total || 0) >= 5) return json({ error: "Too many codes requested. Wait 10 minutes and try again." }, 429);
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0");
+  const id = crypto.randomUUID(); const codeHash = await sha256(id + ":" + code);
+  await env.DB.prepare("INSERT INTO login_codes (id,email,code_hash,expires_at) VALUES (?,?,?,datetime('now','+10 minutes'))").bind(id, email, codeHash).run();
+  const sent = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ from: env.AUTH_FROM_EMAIL || "GMS Locker <login@gmslocker.com>", to: [email], subject: "Your GMS Locker login code", text: "Your GMS Locker code is " + code + ". It expires in 10 minutes. If you did not request it, ignore this email." }) });
+  if (!sent.ok) { await env.DB.prepare("DELETE FROM login_codes WHERE id=?").bind(id).run(); return json({ error: "Login email could not be sent" }, 502); }
+  return json({ ok: true, challengeId: id, expiresInSeconds: 600 });
+}
+
+async function verifyLoginCode(request, env) {
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  const body = await readJson(request); const email = normalizeEmail(body?.email); const id = String(body?.challengeId || ""); const code = String(body?.code || "").replace(/\D/g, "").slice(0, 6);
+  const row = id && env.DB ? await env.DB.prepare("SELECT id,email,code_hash,expires_at,attempts,consumed_at FROM login_codes WHERE id=? AND email=?").bind(id, email).first() : null;
+  if (!row || row.consumed_at || new Date(row.expires_at) <= new Date() || row.attempts >= 5) return json({ error: "Code expired or unavailable" }, 401);
+  const expected = await sha256(id + ":" + code);
+  if (expected !== row.code_hash) { await env.DB.prepare("UPDATE login_codes SET attempts=attempts+1 WHERE id=?").bind(id).run(); return json({ error: "Code not recognized" }, 401); }
+  let user = await env.DB.prepare("SELECT id,email,display_name FROM users WHERE email=?").bind(email).first();
+  if (!user) { user = { id: crypto.randomUUID(), email, display_name: "" }; await env.DB.prepare("INSERT INTO users (id,email) VALUES (?,?)").bind(user.id, email).run(); }
+  const token = randomToken(); const tokenHash = await sha256(token);
+  await env.DB.batch([env.DB.prepare("UPDATE login_codes SET consumed_at=CURRENT_TIMESTAMP WHERE id=?").bind(id), env.DB.prepare("UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?").bind(user.id), env.DB.prepare("INSERT INTO user_sessions (token_hash,user_id,expires_at) VALUES (?,?,datetime('now','+30 days'))").bind(tokenHash, user.id)]);
+  return json({ token, user: { id: user.id, email: user.email, displayName: user.display_name || "" } });
+}
+
+async function authenticatedUser(request, env) {
+  const token = bearerToken(request); if (!token || !env.DB) return null;
+  const tokenHash = await sha256(token);
+  const row = await env.DB.prepare("SELECT s.token_hash,s.user_id,u.email,u.display_name FROM user_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>CURRENT_TIMESTAMP").bind(tokenHash).first();
+  return row ? { tokenHash, env, user: { id: row.user_id, email: row.email, displayName: row.display_name || "" } } : null;
+}
+async function logout(request, env, auth) { if (request.method !== "POST") return json({ error: "Method not allowed" }, 405); await env.DB.prepare("UPDATE user_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE token_hash=?").bind(auth.tokenHash).run(); return json({ ok: true }); }
+function extractLeagueId(value) { const raw = String(value || "").trim(); const query = raw.match(/[?&]leagueId=([A-Za-z0-9]+)/i); return (query ? query[1] : raw).replace(/[^A-Za-z0-9]/g, "").slice(0, 64); }
+async function inspectLeague(request, env) { const body = await readJson(request); const leagueId = extractLeagueId(body?.league); if (!leagueId) return json({ error: "Enter a Fantrax league ID or link" }, 400); try { const [rosters, info] = await Promise.all([fantrax("getTeamRosters", leagueId), fantrax("getLeagueInfo", leagueId)]); return json({ leagueId, leagueName: info?.leagueName || info?.name || "Fantrax League", teams: Object.keys(rosters?.rosters || {}).map((id) => ({ id, name: rosters.rosters[id].teamName || id })) }); } catch (error) { return json({ error: "Fantrax league could not be read", detail: String(error?.message || error) }, 400); } }
+async function handleAccountLeagues(request, env, auth) { if (request.method !== "GET") return json({ error: "Method not allowed" }, 405); const result = await env.DB.prepare("SELECT id,fantrax_league_id AS leagueId,league_name AS leagueName,team_id AS teamId,team_name AS teamName,settings_json AS settings FROM user_leagues WHERE user_id=? ORDER BY updated_at DESC").bind(auth.user.id).all(); return json({ leagues: (result.results || []).map((row) => ({ ...row, settings: JSON.parse(row.settings || "{}") })) }); }
+async function handleAccountLeague(request, env, auth) {
+  if (request.method === "POST") { const body = await readJson(request); const leagueId = extractLeagueId(body?.leagueId); const teamId = String(body?.teamId || "").slice(0, 80); const teamName = String(body?.teamName || "").trim().slice(0, 120); const leagueName = String(body?.leagueName || "Fantrax League").trim().slice(0, 120); if (!leagueId || !teamId || !teamName) return json({ error: "League and team are required" }, 400); const roster = await fantrax("getTeamRosters", leagueId); if (!roster?.rosters?.[teamId] || String(roster.rosters[teamId].teamName || teamId) !== teamName) return json({ error: "That team does not belong to this league" }, 400); const existing = await env.DB.prepare("SELECT id FROM user_leagues WHERE user_id=? AND fantrax_league_id=?").bind(auth.user.id, leagueId).first(); const id = existing?.id || crypto.randomUUID(); await env.DB.prepare("INSERT INTO user_leagues (id,user_id,fantrax_league_id,league_name,team_id,team_name) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id,fantrax_league_id) DO UPDATE SET league_name=excluded.league_name,team_id=excluded.team_id,team_name=excluded.team_name,updated_at=CURRENT_TIMESTAMP").bind(id, auth.user.id, leagueId, leagueName, teamId, teamName).run(); return json({ league: { id, leagueId, leagueName, teamId, teamName } }); }
+  if (request.method === "DELETE") { const body = await readJson(request); await env.DB.prepare("DELETE FROM user_leagues WHERE id=? AND user_id=?").bind(String(body?.id || ""), auth.user.id).run(); return json({ ok: true }); }
+  return json({ error: "Method not allowed" }, 405);
+}
+async function handleLeagueSettings(request, env, auth) { if (request.method !== "POST") return json({ error: "Method not allowed" }, 405); const body = await readJson(request); const workspace = await ownedLeague(env, auth, String(body?.workspaceId || "")); if (!workspace) return json({ error: "League not found in your account" }, 404); const settings = JSON.stringify(body?.settings && typeof body.settings === "object" ? body.settings : {}).slice(0, 30000); await env.DB.prepare("UPDATE user_leagues SET settings_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?").bind(settings, workspace.id, auth.user.id).run(); return json({ ok: true }); }
+async function handleConversation(request, env, auth) { const url = new URL(request.url); const body = request.method === "POST" ? await readJson(request) : null; const workspaceId = String(body?.workspaceId || url.searchParams.get("workspaceId") || ""); const mode = String(body?.mode || url.searchParams.get("mode") || "") === "war-room" ? "war-room" : "full"; const workspace = await ownedLeague(env, auth, workspaceId); if (!workspace) return json({ error: "League not found in your account" }, 404); if (request.method === "GET") { const row = await env.DB.prepare("SELECT history_json AS history,preferences FROM user_conversations WHERE user_id=? AND user_league_id=? AND mode=?").bind(auth.user.id, workspaceId, mode).first(); return json({ history: row ? JSON.parse(row.history || "[]") : [], preferences: row?.preferences || "" }); } if (request.method === "POST") { const history = JSON.stringify((Array.isArray(body?.history) ? body.history : []).slice(-40)).slice(0, 100000); const preferences = String(body?.preferences || "").slice(0, 12000); const id = crypto.randomUUID(); await env.DB.prepare("INSERT INTO user_conversations (id,user_id,user_league_id,mode,history_json,preferences) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id,user_league_id,mode) DO UPDATE SET history_json=excluded.history_json,preferences=excluded.preferences,updated_at=CURRENT_TIMESTAMP").bind(id, auth.user.id, workspaceId, mode, history, preferences).run(); return json({ ok: true }); } return json({ error: "Method not allowed" }, 405); }
+async function ownedLeague(env, auth, id) { return id ? env.DB.prepare("SELECT * FROM user_leagues WHERE id=? AND user_id=?").bind(id, auth.user.id).first() : null; }
 
 function normalizedPlayerName(value) { return String(value || "").toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, "").replace(/[^a-z0-9]/g, ""); }
 function playerSlug(value) { return String(value || "").toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
@@ -156,17 +222,19 @@ function parseStatsResponse(response) {
   };
 }
 
-function statsMessage(teamId, seasonOrProjection) {
-  return { method: "getTeamRosterInfo", data: { leagueId: LEAGUE_ID, teamId, view: "STATS", seasonOrProjection } };
+function statsMessage(leagueId, teamId, seasonOrProjection) {
+  return { method: "getTeamRosterInfo", data: { leagueId, teamId, view: "STATS", seasonOrProjection } };
 }
 
-function poolMessage(seasonOrProjection) {
-  return { method: "getPlayerStats", data: { leagueId: LEAGUE_ID, pageNumber: 1, maxResultsPerPage: 750, statusOrTeamFilter: "AVAILABLE", view: "STATS", seasonOrProjection, sortType: "SCORE", sortDirection: -1 } };
+function poolMessage(leagueId, seasonOrProjection) {
+  return { method: "getPlayerStats", data: { leagueId, pageNumber: 1, maxResultsPerPage: 750, statusOrTeamFilter: "AVAILABLE", view: "STATS", seasonOrProjection, sortType: "SCORE", sortDirection: -1 } };
 }
 
-async function handleLeagueData(request, url) {
+async function handleLeagueData(request, url, auth) {
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
-  const leagueId = url.searchParams.get("leagueId") || LEAGUE_ID;
+  const workspace = await ownedLeague(auth.env || null, auth, url.searchParams.get("workspaceId"));
+  if (!workspace) return json({ error: "League not found in your account" }, 404);
+  const leagueId = workspace.fantrax_league_id;
   try {
     const [rosters, players, standings, picks, matchups, leagueInfo] = await Promise.all([
       fantrax("getTeamRosters", leagueId), fantrax("getPlayerIds", leagueId), fantrax("getStandings", leagueId),
@@ -174,11 +242,11 @@ async function handleLeagueData(request, url) {
     ]);
     const teamIds = Object.keys(rosters.rosters || {});
     const teamResponses = await Promise.all(teamIds.map(async (teamId) => {
-      const result = await fantraxPa(leagueId, [statsMessage(teamId, SEASON_PROJ), statsMessage(teamId, WEEKLY_PROJ), statsMessage(teamId, LAST_SEASON)]);
+      const result = await fantraxPa(leagueId, [statsMessage(leagueId, teamId, SEASON_PROJ), statsMessage(leagueId, teamId, WEEKLY_PROJ), statsMessage(leagueId, teamId, LAST_SEASON)]);
       const responses = result.responses || [];
       return { teamId, season: parseStatsResponse(responses[0]), weekly: parseStatsResponse(responses[1]), performance: parseStatsResponse(responses[2]) };
     }));
-    const poolResult = await fantraxPa(leagueId, [poolMessage(SEASON_PROJ), poolMessage(WEEKLY_PROJ), poolMessage(LAST_SEASON)]);
+    const poolResult = await fantraxPa(leagueId, [poolMessage(leagueId, SEASON_PROJ), poolMessage(leagueId, WEEKLY_PROJ), poolMessage(leagueId, LAST_SEASON)]);
     const poolResponses = poolResult.responses || [];
     const poolSeason = parseStatsResponse(poolResponses[0]);
     const poolWeekly = parseStatsResponse(poolResponses[1]);
@@ -186,7 +254,7 @@ async function handleLeagueData(request, url) {
     const teamData = {};
     for (const result of teamResponses) teamData[result.teamId] = result;
     return json({
-      ok: true, source: "Fantrax live", syncedAt: new Date().toISOString(), rosters, players, standings, picks, matchups, leagueInfo,
+      ok: true, source: "Fantrax live", syncedAt: new Date().toISOString(), workspace: { id: workspace.id, leagueId, leagueName: workspace.league_name, teamId: workspace.team_id, teamName: workspace.team_name }, rosters, players, standings, picks, matchups, leagueInfo,
       teamData,
       freeAgents: {
         season: poolSeason.players,
@@ -231,23 +299,27 @@ async function handleNews(request) {
   }
 }
 
-async function handleFantrax(request, url) {
+async function handleFantrax(request, url, auth) {
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
   const endpoint = url.searchParams.get("endpoint") || "";
   if (!ALLOWED_ENDPOINTS.has(endpoint)) return json({ error: "Unsupported Fantrax endpoint" }, 400);
   try {
-    const data = await fantrax(endpoint, url.searchParams.get("leagueId") || LEAGUE_ID);
+    const workspace = await ownedLeague(auth.env || null, auth, url.searchParams.get("workspaceId"));
+    if (!workspace) return json({ error: "League not found in your account" }, 404);
+    const data = await fantrax(endpoint, workspace.fantrax_league_id);
     return json(data);
   } catch (error) {
     return json({ error: "Fantrax upstream failed", detail: String(error?.message || error) }, 502);
   }
 }
 
-async function handleChat(request, env) {
+async function handleChat(request, env, auth) {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!env.AI) return json({ error: "Cloudflare Workers AI is not connected to the Worker" }, 503);
   let input;
   try { input = await request.json(); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
+  const workspace = await ownedLeague(env, auth, String(input.workspaceId || ""));
+  if (!workspace) return json({ error: "League not found in your account" }, 404);
   const message = String(input.message || "").trim();
   if (!message) return json({ error: "Message is required" }, 400);
   const personality = input.personality || {};
@@ -259,18 +331,22 @@ async function handleChat(request, env) {
     "The league context contains all rosters, Fantrax season and weekly projections, prior performance, injuries, picks, matchups, standings, free agents, and Fantrax dead-cap penalties.",
     "Every team evaluation must analyze the entire roster, including starters, active depth, Taxi, IR/unavailable, injuries, age, salary value, projections, prior performance, contracts, and picks when supplied. Only a current-week Game Day or matchup question may compare best legal projected starters versus best legal projected starters.",
     "Explain every strength, weakness, recommendation, and verdict with the specific supplied facts that caused it. If data is unavailable, say so.",
+    "Whenever you recommend adding, dropping, starting, sitting, or trading for a player, use that player's exact name from the supplied context. Never use placeholders such as WR1, WR2, Player A, or an unnamed position label.",
+    "Never invent probability percentages or confidence scores. Only state a number when that exact value is present in the supplied context, and identify what the number measures.",
+    "Answer the user's question immediately in this response. Never say 'let us start', 'we need to analyze', 'to evaluate', or tell the user what information should be examined when that information is already in the supplied context.",
+    "A request such as 'do that', 'yes', 'continue', or 'give me a real answer' refers to the most recent unanswered request in conversation history. Complete that request now rather than restating it.",
+    "For a best-roster or best-lineup question, lead with a direct yes/no verdict, compare the current lineup with the optimized legal lineup, name every recommended starter change, then cover depth, Taxi, unavailable/injured players, age, salary/value, prior performance, picks, standings/matchup, relevant free agents, and dead-cap consequences using the supplied facts.",
     "Do not reuse canned conclusions or repetitive wording. Make each explanation original to the exact player, team, transaction, and current evidence; vary both the facts emphasized and the sentence structure while preserving accuracy.",
     mode === "war-room" ? "This is the focused War Room discussion. Answer only about trades, roster moves, lineup choices, waivers, cap decisions, opponent strategy, and concrete ways to improve the user's team. Give a clear recommended action and cite the exact league facts behind it." : "This is the full GM Chat. Help with the league, the roster, and ordinary conversation. You have no live web or maps access, so flag time-sensitive details that should be verified.",
     "You are the only AI answering this request. Use the complete supplied league context and do not claim that Grok, ChatGPT, Claude, or any other paid provider participated.",
-    "Learn stable preferences from the conversation. Return only valid JSON with two strings: reply and preferences."
+    "Learn only genuinely stable user preferences from the conversation. Instructions for the current analysis are not preferences. Return only valid JSON with two strings: reply and preferences. The reply must contain the completed user-facing answer, never JSON, a prompt, instructions, a plan, or a preferences object."
   ].join(" ");
   const history = Array.isArray(input.history) ? input.history.slice(-40) : [];
   const messages = [{ role: "system", content: system }].concat(history.map((entry) => ({ role: entry.role === "ai" ? "assistant" : "user", content: String(entry.text || "").slice(0, 2500) })));
   const context = { mode, evaluationPolicy: input.evaluationPolicy || {}, league: input.league || {}, leagueInfo: input.leagueInfo || {}, team: input.team || {}, leagueRosters: input.leagueRosters || [], freeAgents: input.freeAgents || [], draftPicks: input.draftPicks || [], standings: input.standings || [], matchups: input.matchups || {}, deadCap: input.deadCap || {}, savedPreferences: String(input.preferences || "").slice(0, 12000) };
   messages.push({ role: "user", content: message + "\n\nCurrent live league context:\n" + JSON.stringify(context).slice(0, 90000) });
-  try {
-    const data = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", { messages, temperature: 0.35, max_tokens: 2400 });
-    const raw = String(data?.response || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const parseModelAnswer = (response) => {
+    const raw = String(response || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
     let parsed;
     try { parsed = JSON.parse(raw); } catch (_) {
       const replyMatch = raw.match(/(?:^|\n)\s*reply\s*=\s*"([\s\S]*?)"\s*(?:\n|$)/i);
@@ -282,16 +358,44 @@ async function handleChat(request, env) {
         preferences: preferencesMatch ? preferencesMatch[1] : preferencesLine ? preferencesLine[1].trim() : String(input.preferences || "")
       };
     }
-    const reply = String(parsed.reply || "").trim();
-    if (!reply) return json({ error: "Llama returned no answer" }, 502);
-    return json({ reply, preferences: String(parsed.preferences || input.preferences || "").slice(0, 12000) });
+    let reply = String(parsed.reply || "").trim();
+    // Some small-model responses put a second JSON object inside `reply`.
+    if (/^\s*\{[\s\S]*\}\s*$/.test(reply)) {
+      try {
+        const nested = JSON.parse(reply);
+        if (nested && typeof nested.reply === "string") reply = nested.reply.trim();
+        else if (nested && Object.prototype.hasOwnProperty.call(nested, "preferences")) reply = "";
+      } catch (_) {}
+    }
+    return { reply, preferences: String(parsed.preferences || input.preferences || "").slice(0, 12000) };
+  };
+  const isNonAnswer = (reply) => {
+    const text = String(reply || "").trim();
+    if (!text || /^\s*\{\s*["']?preferences["']?\s*:/i.test(text)) return true;
+    if (/\b(?:QB|RB|WR|TE|DL|LB|DB|IDP|Player|Free Agent)\s*(?:#?\d+|[A-Z])\b/i.test(text)) return true;
+    if (/^(to (?:evaluate|analyze|assess)|we (?:need to|will|should)|let(?:'s| us) (?:start|analyz|examin))/i.test(text)) return true;
+    return /(?:provide|give) a clear recommended action and cite the exact league facts/i.test(text);
+  };
+  try {
+    let data = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", { messages, temperature: 0.25, max_tokens: 2400 });
+    let answer = parseModelAnswer(data?.response);
+    if (isNonAnswer(answer.reply)) {
+      const retryMessages = messages.concat([
+        { role: "assistant", content: String(data?.response || "").slice(0, 3000) },
+        { role: "user", content: "That was not an answer. Complete my actual request now using the supplied live facts. Lead with the verdict and concrete roster or lineup changes. Every recommended add, drop, start, sit, or trade target must use an exact player name from the context. Do not use placeholders such as WR1 or invent percentages. Do not repeat my instructions, describe what you need to analyze, return preferences, or output JSON inside the reply." }
+      ]);
+      data = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", { messages: retryMessages, temperature: 0.2, max_tokens: 2400 });
+      answer = parseModelAnswer(data?.response);
+    }
+    if (isNonAnswer(answer.reply)) return json({ error: "GM did not produce a factual answer. Please retry." }, 502);
+    return json(answer);
   } catch (error) {
     return json({ error: "Workers AI request failed", detail: String(error?.message || error) }, 502);
   }
 }
 
 function corsHeaders() {
-  return new Headers({ "Access-Control-Allow-Origin": "https://gmslocker.com", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Accept, Content-Type", Vary: "Origin", "X-Content-Type-Options": "nosniff" });
+  return new Headers({ "Access-Control-Allow-Origin": "https://gmslocker.com", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Accept, Content-Type, Authorization", Vary: "Origin", "X-Content-Type-Options": "nosniff" });
 }
 
 function json(value, status = 200) {
