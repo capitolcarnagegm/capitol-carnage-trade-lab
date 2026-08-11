@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.2";
+  var VERSION = "1.6.6";
   var API_BASE = "https://api.gmslocker.com";
   var COACH = localStorage.getItem("gms_coach") || "process";
 
@@ -32,9 +32,16 @@
     ]
   };
 
+  var EVALUATION_POLICY = {
+    teamScope: "Every team evaluation uses the entire Fantrax roster: starters, active depth, Taxi, IR/unavailable, injuries, age, salary value, projections, and prior performance.",
+    gameDayException: "Only current-week Game Day analysis compares each team's best legal projected starters.",
+    evidence: "Every conclusion must cite the live Fantrax facts that caused it. Missing facts are labeled unavailable; no values are invented.",
+    originality: "Reasoning must be specific to the subject and current evidence. Do not reuse canned strengths, weaknesses, summaries, or recommendation wording."
+  };
+
   var state = {
     teams: {}, players: {}, standings: [], picks: [], matchups: {}, leagueInfo: {}, teamData: {}, freeAgentData: {}, news: [],
-    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, cutIds: [],
+    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, cutIds: [], simulatedCutIds: [],
     chat: safeJson(localStorage.getItem("gms_chat"), []), tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: []
   };
 
@@ -202,19 +209,20 @@
   function available(value, formatter) { return value == null ? "unavailable" : formatter(value); }
 
   function teamMetrics(teamName) {
-    var players = teamPlayers(teamName), opt = optimize(teamName);
-    var projected = opt.total;
-    var performance = opt.lineup.reduce(function (sum, row) { return sum + (row.player && production(row.player) || 0); }, 0);
-    var age = mean(opt.lineup.map(function (row) { return row.player && row.player.age; }));
+    var players = teamPlayers(teamName);
+    var projected = completeSum(players, expectedScore);
+    var performance = completeSum(players, production);
+    var age = players.length && players.every(function (p) { return num(p.age) != null; }) ? mean(players.map(function (p) { return num(p.age); })) : null;
     var salary = players.reduce(function (sum, p) { return sum + p.salary; }, 0);
     var injured = players.filter(unavailable).length;
-    var value = projected && salary ? projected / salary * 100 : null;
-    return { players: players.length, projected: projected, performance: performance, age: age, salary: salary, injured: injured, value: value, missing: opt.missing };
+    var health = players.length ? (players.length - injured) / players.length * 100 : null;
+    var value = projected != null && salary > 0 ? projected / salary * 100 : null;
+    return { players: players.length, projected: projected, performance: performance, age: age, salary: salary, injured: injured, health: health, value: value };
   }
 
   function leagueGrades() {
     var names = allTeamNames(), metrics = {}; names.forEach(function (name) { metrics[name] = teamMetrics(name); });
-    var arrays = { projected: names.map(function (n) { return metrics[n].projected; }), performance: names.map(function (n) { return metrics[n].performance; }), value: names.map(function (n) { return metrics[n].value; }), age: names.map(function (n) { return metrics[n].age; }), health: names.map(function (n) { return -metrics[n].injured; }) };
+    var arrays = { projected: names.map(function (n) { return metrics[n].projected; }), performance: names.map(function (n) { return metrics[n].performance; }), value: names.map(function (n) { return metrics[n].value; }), age: names.map(function (n) { return metrics[n].age; }), health: names.map(function (n) { return metrics[n].health; }) };
     var out = {};
     names.forEach(function (name) {
       var m = metrics[name];
@@ -223,13 +231,41 @@
         { name: "Performance", score: percentile(m.performance, arrays.performance), weight: 0.2 },
         { name: "Value", score: percentile(m.value, arrays.value), weight: 0.15 },
         { name: "Age", score: percentile(m.age == null ? null : -m.age, arrays.age.map(function (x) { return x == null ? null : -x; })), weight: 0.1 },
-        { name: "Health", score: percentile(-m.injured, arrays.health), weight: 0.15 }
+        { name: "Health", score: percentile(m.health, arrays.health), weight: 0.15 }
       ].filter(function (c) { return c.score != null; });
       var weight = components.reduce(function (s, c) { return s + c.weight; }, 0);
       var score = weight ? components.reduce(function (s, c) { return s + c.score * c.weight; }, 0) / weight : null;
-      out[name] = { score: score, grade: grade(score), metrics: m, components: components };
+      out[name] = { score: score, grade: grade(score), metrics: m, components: components, appliedWeight: weight, scope: "full roster" };
     });
     return out;
+  }
+
+  function leaguePowerGrades() {
+    var fullRosterGrades = leagueGrades(), depthGrades = leagueDepthGrades(), out = {};
+    allTeamNames().forEach(function (name) {
+      var fullRoster = fullRosterGrades[name] || {}, depth = depthGrades[name] || {};
+      var starterMetrics = starterTeamMetrics(name);
+      out[name] = {
+        score: fullRoster.score,
+        grade: fullRoster.grade,
+        fullRoster: fullRoster,
+        starters: { metrics: starterMetrics },
+        depth: depth,
+        components: fullRoster.components || [],
+        appliedWeight: fullRoster.appliedWeight
+      };
+    });
+    return out;
+  }
+
+  function starterTeamMetrics(teamName) {
+    var opt = optimize(teamName);
+    return {
+      projected: opt.total,
+      performance: completeSum(opt.lineup.filter(function (row) { return row.player; }).map(function (row) { return row.player; }), production),
+      age: mean(opt.lineup.map(function (row) { return row.player && num(row.player.age); })),
+      missing: opt.missing
+    };
   }
 
   function opponentName() {
@@ -261,6 +297,36 @@
   }
 
   function deadSchedule(salary, years) { var y = Math.max(1, Number(years) || 1), s = Number(salary) || 0; return { now: s, next: s * (BYLAWS.dead[y] == null ? 0 : BYLAWS.dead[y]) }; }
+
+  function capProjection(teamName, cutIds) {
+    var players = teamPlayers(teamName), penalties = existingDead(teamName), cuts = {};
+    (cutIds || []).forEach(function (id) { cuts[id] = true; });
+    var currentYear = new Date().getFullYear();
+    var dated = penalties.some(function (row) { return num(row.year) != null; });
+    var currentDead = penalties.filter(function (row) { return !dated || num(row.year) == null || num(row.year) === currentYear; }).reduce(function (sum, row) { return sum + row.amount; }, 0);
+    var existingNextDead = penalties.filter(function (row) { return num(row.year) === currentYear + 1; }).reduce(function (sum, row) { return sum + row.amount; }, 0);
+    var selectedCuts = players.filter(function (p) { return cuts[p.id]; });
+    var team = teamByName(teamName), cap = team && team.salaryCap != null ? team.salaryCap : CAP_NOW;
+    var rosterSalary = players.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var cutSalary = selectedCuts.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var newDeadNow = selectedCuts.reduce(function (sum, p) { return sum + deadSchedule(p.salary, p.years).now; }, 0);
+    var newDeadNext = selectedCuts.reduce(function (sum, p) { return sum + deadSchedule(p.salary, p.years).next; }, 0);
+    var expiring = players.filter(function (p) { return !cuts[p.id] && p.years <= 1; });
+    var returning = players.filter(function (p) { return !cuts[p.id] && p.years > 1; });
+    var expiringSalary = expiring.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var nextRosterSalary = returning.reduce(function (sum, p) { return sum + p.salary * (1 + BYLAWS.salaryRaise); }, 0);
+    var nextDead = existingNextDead + newDeadNext;
+    return {
+      cap: cap, nextCap: cap * (1 + BYLAWS.capInflation), rosterSalary: rosterSalary, currentDead: currentDead,
+      currentUsed: rosterSalary + currentDead, currentRoom: cap - rosterSalary - currentDead,
+      cutSalary: cutSalary, newDeadNow: newDeadNow, newDeadNext: newDeadNext,
+      afterRosterSalary: rosterSalary - cutSalary, afterDead: currentDead + newDeadNow,
+      afterUsed: rosterSalary - cutSalary + currentDead + newDeadNow,
+      expiringCount: expiring.length, expiringSalary: expiringSalary, returningCount: returning.length,
+      nextRosterSalary: nextRosterSalary, existingNextDead: existingNextDead, nextDead: nextDead,
+      nextUsed: nextRosterSalary + nextDead, nextRoom: cap * (1 + BYLAWS.capInflation) - nextRosterSalary - nextDead
+    };
+  }
 
   function playerSignal(p) {
     var same = allRosteredPlayers().filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; });
@@ -297,6 +363,26 @@
     return pieces.join("; ") + ".";
   }
 
+  function waiverAdvice(p) {
+    var score = expectedScore(p);
+    var mine = teamPlayers(MY_TEAM).filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
+    var replacement = mine[0] || null;
+    var need = (teamNeeds(MY_TEAM)[p.pos] || 0) > 0;
+    var verdict = unavailable(p) ? "PASS" : (need || (replacement && score != null && score > expectedScore(replacement)) ? "PICK UP" : "MONITOR");
+    var reason = waiverReason(p);
+    if (verdict === "PASS") reason = "Do not bid while Fantrax marks this player unavailable. " + reason;
+    else if (verdict === "MONITOR") reason = "Not a current projected upgrade or identified depth need. " + reason;
+    else reason = "Recommended pickup. " + reason;
+
+    if (score == null) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: "Fantrax expectation unavailable" };
+    var comparables = allRosteredPlayers().filter(function (x) { return x.pos === p.pos && expectedScore(x) != null && x.salary > 0; }).sort(function (a, b) { return Math.abs(expectedScore(a) - score) - Math.abs(expectedScore(b) - score); });
+    var comparable = comparables[0] || null;
+    if (!comparable) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: "No salaried Fantrax comparable available" };
+    var room = capOutlook(MY_TEAM, []).currentRoom;
+    var maxBid = verdict === "PASS" ? 0 : Math.max(0, Math.min(room, comparable.salary));
+    return { verdict: verdict, reason: reason, maxBid: maxBid, bidBasis: "Capped by " + comparable.name + " (" + money(comparable.salary) + ") and current room" };
+  }
+
   function keyNews() {
     var myTeams = {}; teamPlayers(MY_TEAM).forEach(function (p) { if (p.nfl) myTeams[p.nfl] = true; });
     var relevant = state.news.filter(function (article) { return (article.teams || []).some(function (team) { return myTeams[team]; }); });
@@ -307,7 +393,7 @@
     var grades = leagueGrades(), mine = grades[MY_TEAM] || {}, opp = opponentName(), myOpt = optimize(MY_TEAM), oppOpt = optimize(opp);
     var fas = freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 5);
     var threats = teamPlayers(opp).filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 5);
-    var html = '<div class="card"><div class="sectionhead"><h2>What should I do today?</h2><span class="pill">FANTRAX LIVE</span></div><div class="notice">Every number below comes from the current Fantrax sync. Missing data is shown as unavailable.</div><div class="actions"><button class="primary" onclick="GMS.sync()">Refresh analysis</button><button class="secondary" onclick="GMS.news()">Refresh news</button></div></div>';
+    var html = '<div class="card"><div class="sectionhead"><h2>What should I do today?</h2><span class="pill">FANTRAX LIVE</span></div><div class="notice"><b>Full-roster rule:</b> the roster grade covers every player. Only the current-week Game Day edge below compares best legal starters. Every reason is tied to current Fantrax evidence; unavailable data is never replaced or invented.</div><div class="actions"><button class="primary" onclick="GMS.sync()">Refresh analysis</button><button class="secondary" onclick="GMS.news()">Refresh news</button></div></div>';
     html += '<div class="grid4"><div class="metric"><b>' + esc(mine.grade || "N/A") + '</b><span>Live roster grade</span></div><div class="metric"><b>' + pts(myOpt.total) + '</b><span>Expected lineup</span></div><div class="metric"><b>' + pts(oppOpt.total) + '</b><span>' + esc(opp) + '</span></div><div class="metric"><b class="' + (myOpt.total >= oppOpt.total ? "good" : "bad") + '">' + (myOpt.total >= oppOpt.total ? "+" : "") + pts(myOpt.total - oppOpt.total) + '</b><span>Current-week edge</span></div></div>';
     html += '<div class="grid2"><div class="card"><h2>5 players to watch</h2>' + fas.map(function (p) { return '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(waiverReason(p)) + '</span></span><b>' + pts(expectedScore(p)) + '</b></div>'; }).join("") + '</div><div class="card"><h2>Opponent threats</h2>' + threats.map(function (p) { return '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + " · " + (p.injury || "No Fantrax injury flag")) + '</span></span><b>' + pts(expectedScore(p)) + '</b></div>'; }).join("") + '</div></div>';
     html += '<div class="card"><div class="sectionhead"><h2>Key news brief</h2><span class="pill">ESPN</span></div>' + keyNews().map(newsRow).join("") + (!state.news.length ? '<div class="muted">News is loading. Tap Refresh news.</div>' : "") + '</div>';
@@ -315,8 +401,8 @@
   }
 
   function viewTeam() {
-    var g = leagueGrades()[MY_TEAM] || {}, depth = leagueDepthGrades()[MY_TEAM] || {}, dm = depth.metrics || {}, opt = optimize(MY_TEAM), players = teamPlayers(MY_TEAM);
-    var html = '<div class="card"><div class="sectionhead"><h2>My Team</h2><span class="pill">' + esc(g.grade || "N/A") + '</span></div><div class="notice">Live grade combines Fantrax projection (40%), prior performance (20%), salary value (15%), age (10%), and injury availability (15%), reweighted when a field is missing.</div><div class="grid4"><div class="metric"><b>' + pts(g.metrics && g.metrics.projected) + '</b><span>Expected starters</span></div><div class="metric"><b>' + pts(g.metrics && g.metrics.performance) + '</b><span>Prior FP/G lineup</span></div><div class="metric"><b>' + (g.metrics && g.metrics.age != null ? g.metrics.age.toFixed(1) : "—") + '</b><span>Starter age</span></div><div class="metric"><b>' + (g.metrics ? g.metrics.injured : "—") + '</b><span>Unavailable</span></div></div></div>';
+    var g = leagueGrades()[MY_TEAM] || {}, depth = leagueDepthGrades()[MY_TEAM] || {}, dm = depth.metrics || {}, opt = optimize(MY_TEAM), starter = starterTeamMetrics(MY_TEAM), players = teamPlayers(MY_TEAM);
+    var html = '<div class="card"><div class="sectionhead"><h2>My Team</h2><span class="pill">FULL ROSTER ' + esc(g.grade || "N/A") + '</span></div><div class="notice">The overall grade evaluates the entire Fantrax roster—starters, active depth, Taxi, and IR/unavailable—using projection (40%), prior performance (20%), salary value (15%), age (10%), and availability (15%). The starter figures below are lineup facts, not the team grade.</div><div class="grid4"><div class="metric"><b>' + pts(starter.projected) + '</b><span>Expected starters</span></div><div class="metric"><b>' + available(starter.performance, pts) + '</b><span>Prior FP/G lineup</span></div><div class="metric"><b>' + available(starter.age, function (value) { return value.toFixed(1); }) + '</b><span>Starter age</span></div><div class="metric"><b>' + (g.metrics ? g.metrics.injured : "—") + '</b><span>Full-roster unavailable</span></div></div></div>';
     html += '<div class="card"><div class="sectionhead"><h2>Roster optimizer</h2><button class="primary" onclick="GMS.sync()">Refresh optimizer</button></div><div class="notice">Selects the highest Fantrax weekly expectation for every Pride starter slot and excludes Fantrax OUT, IR, and suspended players.</div><div class="tableWrap"><table><thead><tr><th>Slot</th><th>Player</th><th>Opp</th><th>Weekly proj</th><th>Season proj</th><th>Prior FP/G</th><th>Injury</th></tr></thead><tbody>';
     opt.lineup.forEach(function (row) { var p = row.player; html += '<tr><td>' + esc(row.slot) + '</td>' + (p ? '<td><b>' + esc(p.name) + '</b></td><td>' + esc(p.opponent || "—") + '</td><td>' + pts(projection(p)) + '</td><td>' + pts(seasonProjection(p)) + '</td><td>' + pts(production(p)) + '</td><td>' + esc(p.injury || "—") + '</td>' : '<td colspan="6" class="bad">No eligible projected player</td>') + '</tr>'; });
     html += '</tbody></table></div></div>';
@@ -339,25 +425,23 @@
   function viewTeams() {
     var names = allTeamNames(), selected = state.selectedTeam; if (names.indexOf(selected) < 0) selected = state.selectedTeam = names[0] || MY_TEAM;
     var g = leagueGrades()[selected] || {}, picks = teamPicks(selected);
-    var html = '<div class="card"><div class="sectionhead"><h2>League Teams</h2><span class="pill">LIVE GRADE ' + esc(g.grade || "N/A") + '</span></div><div class="field"><label>Select team</label><select onchange="GMS.selectTeam(this.value)">' + names.map(function (name) { return '<option' + (name === selected ? " selected" : "") + '>' + esc(name) + '</option>'; }).join("") + '</select></div><div class="notice">Grades change on every refresh with Fantrax projections, performance, age, injuries, and salary value.</div></div>';
+    var html = '<div class="card"><div class="sectionhead"><h2>League Teams</h2><span class="pill">FULL-ROSTER GRADE ' + esc(g.grade || "N/A") + '</span></div><div class="field"><label>Select team</label><select onchange="GMS.selectTeam(this.value)">' + names.map(function (name) { return '<option' + (name === selected ? " selected" : "") + '>' + esc(name) + '</option>'; }).join("") + '</select></div><div class="notice">This evaluation includes every rostered player, including active depth, Taxi, and IR/unavailable. It changes with live Fantrax projections, performance, age, injuries, and salary value; missing fields remain unavailable.</div></div>';
     html += rosterTable(teamPlayers(selected), false);
     html += '<div class="card"><h2>Owned draft picks</h2>' + picks.map(function (p) { return '<div class="gate"><span><b>' + p.year + ' Round ' + p.round + '</b></span><span class="small">Originally ' + esc(p.original) + '</span></div>'; }).join("") + (!picks.length ? '<div class="muted">No future picks returned by Fantrax.</div>' : "") + '</div>';
     return html;
   }
 
   function viewCap() {
-    var players = teamPlayers(MY_TEAM), penalties = existingDead(MY_TEAM), info = salaryInfo(MY_TEAM), selected = {};
+    var players = teamPlayers(MY_TEAM), penalties = existingDead(MY_TEAM), selected = {}, simulated = {};
     state.cutIds.forEach(function (id) { selected[id] = true; });
-    var currentDead = penalties.reduce(function (sum, row) { return sum + row.amount; }, 0);
-    var selectedCuts = players.filter(function (p) { return selected[p.id]; });
-    var cutSalary = selectedCuts.reduce(function (sum, p) { return sum + p.salary; }, 0);
-    var newDeadNow = selectedCuts.reduce(function (sum, p) { return sum + deadSchedule(p.salary, p.years).now; }, 0);
-    var newDeadNext = selectedCuts.reduce(function (sum, p) { return sum + deadSchedule(p.salary, p.years).next; }, 0);
-    var used = info.salaryUsed != null ? info.salaryUsed : players.filter(function (p) { return !/INJURED_RESERVE/i.test(p.status); }).reduce(function (s, p) { return s + p.salary; }, 0) + currentDead;
-    var afterUsed = used - cutSalary + newDeadNow;
-    var html = '<div class="card"><div class="sectionhead"><h2>Cap / Dead</h2><span class="pill">FANTRAX PENALTIES</span></div><div class="notice"><b>A cut does not create current-year cap room.</b> The salary leaves the active roster but 100% returns as dead cap. Existing penalties below come directly from Fantrax’s Cap Hit Penalties table.</div><div class="grid4"><div class="metric"><b>' + money(used) + '</b><span>Fantrax cap used</span></div><div class="metric"><b>' + money(currentDead) + '</b><span>Existing dead cap</span></div><div class="metric"><b>' + money(afterUsed) + '</b><span>Used after selected cuts</span></div><div class="metric"><b>' + money(newDeadNext) + '</b><span>New next-year dead</span></div></div></div>';
+    state.simulatedCutIds.forEach(function (id) { simulated[id] = true; });
+    var simulatedCuts = players.filter(function (p) { return simulated[p.id]; });
+    var capData = capProjection(MY_TEAM, state.simulatedCutIds);
+    var html = '<div class="card"><div class="sectionhead"><h2>Cap / Dead</h2><span class="pill">FANTRAX PENALTIES</span></div><div class="notice"><b>Current cap used includes existing dead money.</b> It is calculated as live Fantrax roster salary plus the current Cap Hit Penalties table. A cut does not create current-year room because 100% of that salary becomes new dead cap.</div><div class="grid4"><div class="metric"><b>' + money(capData.rosterSalary) + '</b><span>Current roster salary</span></div><div class="metric"><b>' + money(capData.currentDead) + '</b><span>Existing current dead cap</span></div><div class="metric"><b>' + money(capData.currentUsed) + '</b><span>Total current cap used</span></div><div class="metric"><b>' + money(capData.currentRoom) + '</b><span>Current cap room</span></div></div></div>';
+    html += '<div class="card"><div class="sectionhead"><h2>Cut simulation result</h2><span class="pill">' + simulatedCuts.length + ' CUT' + (simulatedCuts.length === 1 ? '' : 'S') + '</span></div>' + (!simulatedCuts.length ? '<div class="muted">Select players below, then press Simulate Cuts.</div>' : '<div class="grid4"><div class="metric"><b>' + money(capData.afterRosterSalary) + '</b><span>Roster salary after cuts</span></div><div class="metric"><b>' + money(capData.afterDead) + '</b><span>Dead cap after cuts</span></div><div class="metric"><b>' + money(capData.afterUsed) + '</b><span>Total used after cuts</span></div><div class="metric"><b>' + money(capData.newDeadNext) + '</b><span>New next-year dead</span></div></div><div class="notice"><b>Current-year change: ' + money(capData.afterUsed - capData.currentUsed) + '.</b> This simulation is advice only and does not submit cuts to Fantrax.</div>') + '</div>';
+    html += '<div class="card"><div class="sectionhead"><h2>Next-year cap outlook</h2><span class="pill">PRIDE +5% CAP</span></div><div class="notice">Next year removes expiring contracts, applies the Pride 20% salary increase to returning contracts, and includes both Fantrax-recorded next-year penalties and dead money created by simulated cuts.</div><div class="grid4"><div class="metric"><b>' + money(capData.nextCap) + '</b><span>Next-year salary cap</span></div><div class="metric"><b>' + money(capData.nextRosterSalary) + '</b><span>Returning-contract salary</span></div><div class="metric"><b>' + money(capData.nextDead) + '</b><span>Total next-year dead cap</span></div><div class="metric"><b>' + money(capData.nextRoom) + '</b><span>Projected next-year room</span></div></div><div class="depth-split"><div class="depth-bucket"><b>Expiring contracts</b><span>' + capData.expiringCount + ' players · ' + money(capData.expiringSalary) + ' current salary</span></div><div class="depth-bucket"><b>Existing next-year dead</b><span>' + money(capData.existingNextDead) + '</span></div><div class="depth-bucket"><b>New dead from cuts</b><span>' + money(capData.newDeadNext) + '</span></div></div></div>';
     html += '<div class="card"><h2>Fantrax recorded penalties</h2>' + penalties.map(function (row) { return '<div class="gate"><span><b>' + esc(row.name) + '</b><br><span class="small">' + esc(row.description) + '</span></span><b>' + money(row.amount) + '</b></div>'; }).join("") + (!penalties.length ? '<div class="muted">Fantrax returned no cap-hit penalties.</div>' : "") + '</div>';
-    html += '<div class="card"><div class="sectionhead"><h2>Cut simulator</h2><button class="secondary" onclick="GMS.clearCuts()">Clear</button></div>' + players.slice().sort(function (a, b) { return b.salary - a.salary; }).map(function (p) { var d = deadSchedule(p.salary, p.years); return '<label class="gate"><span><input type="checkbox" ' + (selected[p.id] ? "checked" : "") + ' onchange="GMS.toggleCut(\'' + esc(p.id) + '\')"> <b>' + esc(p.name) + '</b><br><span class="small">' + money(p.salary) + ' · ' + p.years + ' years · current dead ' + money(d.now) + ' · next dead ' + money(d.next) + '</span></span></label>'; }).join("") + '</div>';
+    html += '<div class="card"><div class="sectionhead"><h2>Cut simulator</h2><div class="actions"><button class="primary" onclick="GMS.simulateCuts()">Simulate Cuts</button><button class="secondary" onclick="GMS.clearCuts()">Clear</button></div></div><div class="notice">Check one or more players, then press <b>Simulate Cuts</b>. Nothing is sent to Fantrax.</div>' + players.slice().sort(function (a, b) { return b.salary - a.salary; }).map(function (p) { var d = deadSchedule(p.salary, p.years); return '<label class="gate"><span><input type="checkbox" ' + (selected[p.id] ? "checked" : "") + ' onchange="GMS.toggleCut(\'' + esc(p.id) + '\')"> <b>' + esc(p.name) + '</b><br><span class="small">' + money(p.salary) + ' · ' + p.years + ' years · current dead ' + money(d.now) + ' · next dead ' + money(d.next) + '</span></span></label>'; }).join("") + '</div>';
     return html;
   }
 
@@ -370,10 +454,23 @@
   }
 
   function viewWaivers() {
-    var list = freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { var needA = teamNeeds(MY_TEAM)[a.pos] || 0, needB = teamNeeds(MY_TEAM)[b.pos] || 0; return (needB * 10 + expectedScore(b)) - (needA * 10 + expectedScore(a)); }).slice(0, 150);
-    var html = '<div class="card"><div class="sectionhead"><h2>Waivers / Free Agency</h2><button class="primary" onclick="GMS.sync()">Refresh free agents</button></div><div class="notice">Only Fantrax players marked available are shown. Weekly/season projections, performance, injuries, roster percentage, and trends are direct Fantrax values.</div></div><div class="card"><div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>Week</th><th>Season</th><th>Prior FP/G</th><th>Age</th><th>Ros%</th><th>Trend</th><th>Why for Capitol Carnage</th></tr></thead><tbody>';
-    list.forEach(function (p) { html += '<tr><td><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.nfl + (p.injury ? " · " + p.injury : "")) + '</span></td><td>' + esc(p.pos) + '</td><td>' + pts(projection(p)) + '</td><td>' + pts(seasonProjection(p)) + '</td><td>' + pts(production(p)) + '</td><td>' + (p.age == null ? "—" : p.age) + '</td><td>' + (p.rosteredPct == null ? "—" : p.rosteredPct.toFixed(0) + "%") + '</td><td>' + (p.rosterTrend == null ? "—" : (p.rosterTrend > 0 ? "+" : "") + p.rosterTrend.toFixed(0) + "%") + '</td><td>' + esc(waiverReason(p)) + '</td></tr>'; });
-    return html + '</tbody></table></div></div>';
+    var needs = teamNeeds(MY_TEAM);
+    var list = freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { var needA = needs[a.pos] || 0, needB = needs[b.pos] || 0; return (needB * 10 + expectedScore(b)) - (needA * 10 + expectedScore(a)); }).slice(0, 150);
+    var positionOrder = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
+    var grouped = {};
+    list.forEach(function (p) { (grouped[p.pos] || (grouped[p.pos] = [])).push(p); });
+    Object.keys(grouped).forEach(function (pos) { if (positionOrder.indexOf(pos) < 0) positionOrder.push(pos); });
+    var html = '<div class="card"><div class="sectionhead"><h2>Waivers / Free Agency by Position</h2><button class="primary" onclick="GMS.sync()">Refresh free agents</button></div><div class="notice">Players are grouped by their primary Fantrax position and ranked within that position using live Fantrax expectation plus Capitol Carnage roster need. Pickup advice compares each player with your same-position depth. The blind-bid maximum uses the salary of the closest live projected, same-position rostered player and never exceeds current cap room; it shows unavailable when no Fantrax comparable exists.</div><div class="actions">';
+    positionOrder.forEach(function (pos) { if (grouped[pos] && grouped[pos].length) html += '<a class="secondary" href="#free-agents-' + esc(pos.toLowerCase()) + '">' + esc(pos) + ' (' + grouped[pos].length + ')</a>'; });
+    html += '</div></div>';
+    positionOrder.forEach(function (pos) {
+      var players = grouped[pos] || [];
+      if (!players.length) return;
+      html += '<div class="card" id="free-agents-' + esc(pos.toLowerCase()) + '"><div class="sectionhead"><h2>' + esc(pos) + ' Free Agents</h2><span class="pill">' + players.length + ' AVAILABLE</span></div><div class="tableWrap"><table><thead><tr><th>Player</th><th>Week</th><th>Season</th><th>Prior FP/G</th><th>Age</th><th>Ros%</th><th>Trend</th><th>Pickup?</th><th>Blind-bid max</th><th>Why</th></tr></thead><tbody>';
+      players.forEach(function (p) { var advice = waiverAdvice(p); html += '<tr><td><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.nfl + (p.injury ? " · " + p.injury : "")) + '</span></td><td>' + pts(projection(p)) + '</td><td>' + pts(seasonProjection(p)) + '</td><td>' + pts(production(p)) + '</td><td>' + (p.age == null ? "—" : p.age) + '</td><td>' + (p.rosteredPct == null ? "—" : p.rosteredPct.toFixed(0) + "%") + '</td><td>' + (p.rosterTrend == null ? "—" : (p.rosterTrend > 0 ? "+" : "") + p.rosterTrend.toFixed(0) + "%") + '</td><td><b>' + esc(advice.verdict) + '</b></td><td><b>' + (advice.maxBid == null ? "unavailable" : money(advice.maxBid)) + '</b><br><span class="small">' + esc(advice.bidBasis) + '</span></td><td>' + esc(advice.reason) + '</td></tr>'; });
+      html += '</tbody></table></div></div>';
+    });
+    return html;
   }
 
   function tradeAssetValue(asset) {
@@ -423,27 +520,39 @@
   }
 
   function rankingExplanation(name, ranking, position, total) {
-    var components = (ranking.components || []).slice().sort(function (a, b) { return b.score - a.score; });
+    var fullRoster = ranking.fullRoster || {}, depthGrade = ranking.depth || {}, starterMetrics = ranking.starters && ranking.starters.metrics || {}, depthMetrics = depthGrade.metrics || {};
+    var components = (fullRoster.components || []).slice().sort(function (a, b) { return b.score - a.score; });
     var strongest = components[0], weakest = components[components.length - 1];
     var players = teamPlayers(name).filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 3);
-    var summary = position <= 3 ? "Championship-tier profile" : position <= Math.ceil(total / 2) ? "Playoff-caliber profile" : "Needs improvement to climb the league";
+    var m = fullRoster.metrics || {}, unavailableCount = m.injured || 0;
+    var leads = players.map(function (p) { return p.name; }).join(", ") || "no projected leaders available";
+    var summaries = [
+      "Rank " + position + " is driven by " + (strongest ? strongest.name.toLowerCase() : "available full-roster evidence") + ", with " + leads + " setting the projection ceiling",
+      "The full roster lands " + position + " of " + total + "; " + (weakest ? weakest.name.toLowerCase() : "missing comparative data") + " is the clearest constraint behind that placement",
+      (unavailableCount ? unavailableCount + " unavailable player" + (unavailableCount === 1 ? "" : "s") + " materially shape" : "Full-roster projection and value shape") + " this rank, while " + leads + " supply the leading expectations",
+      "Across all " + (m.players == null ? "available" : m.players) + " roster spots, " + (strongest ? strongest.name.toLowerCase() : "the returned evidence") + " carries the profile and " + (weakest ? weakest.name.toLowerCase() : "missing data") + " limits it"
+    ];
+    var seed = name.split("").reduce(function (sum, char) { return sum + char.charCodeAt(0); }, position);
+    var summary = summaries[seed % summaries.length];
     var details = [];
-    if (strongest) details.push("best area: " + strongest.name.toLowerCase() + " (" + Math.round(strongest.score) + "th percentile)");
-    if (weakest) details.push("biggest concern: " + weakest.name.toLowerCase() + " (" + Math.round(weakest.score) + "th percentile)");
-    if (ranking.metrics.missing) details.push(ranking.metrics.missing + " projected starter slot" + (ranking.metrics.missing === 1 ? " is" : "s are") + " unfilled");
-    if (ranking.metrics.injured) details.push(ranking.metrics.injured + " unavailable player" + (ranking.metrics.injured === 1 ? "" : "s"));
+    if (strongest) details.push(strongest.name + " is the roster's strongest measured category at the " + Math.round(strongest.score) + "th percentile");
+    if (weakest) details.push(weakest.name + " is the lowest at the " + Math.round(weakest.score) + "th percentile");
+    if (starterMetrics.missing) details.push(starterMetrics.missing + " projected starter slot" + (starterMetrics.missing === 1 ? " is" : "s are") + " unfilled");
+    if (unavailableCount) details.push(unavailableCount + " unavailable roster player" + (unavailableCount === 1 ? "" : "s"));
+    if (depthGrade.score != null) details.push((depthMetrics.active ? depthMetrics.active.length : 0) + " usable depth players produce a separate " + depthGrade.grade + " depth grade (" + depthGrade.score.toFixed(1) + ")");
     return { summary: summary, details: details.join("; ") + ".", leaders: players };
   }
 
   function viewRankings() {
-    var grades = leagueGrades(), ranked = Object.keys(grades).sort(function (a, b) { return (grades[b].score || -1) - (grades[a].score || -1); });
+    var grades = leaguePowerGrades(), ranked = Object.keys(grades).sort(function (a, b) { return (grades[b].score || -1) - (grades[a].score || -1); });
     var mineIndex = ranked.indexOf(MY_TEAM), mine = grades[MY_TEAM], above = ranked.slice(0, mineIndex);
-    var html = '<div class="card"><div class="sectionhead"><h2>League Power Rankings</h2><div class="actions"><span class="pill">FANTRAX LIVE</span><button class="primary" onclick="GMS.sync()">Refresh rankings</button></div></div><div class="notice">Rankings use the live team ratings: current-week starter projections (40%), prior performance (20%), salary value (15%), roster age (10%), and health (15%). They change whenever Fantrax data changes.</div></div>';
-    html += '<div class="grid4"><div class="metric"><b>#' + (mineIndex + 1) + '</b><span>Capitol Carnage rank</span></div><div class="metric"><b>' + esc(mine && mine.grade || "N/A") + '</b><span>Team grade</span></div><div class="metric"><b>' + (mine && mine.score != null ? mine.score.toFixed(1) : "—") + '</b><span>Power score</span></div><div class="metric"><b>' + pts(mine && mine.metrics.projected) + '</b><span>Weekly expectation</span></div></div>';
+    var html = '<div class="card"><div class="sectionhead"><h2>League Power Rankings</h2><div class="actions"><span class="pill">FULL ROSTERS · FANTRAX LIVE</span><button class="primary" onclick="GMS.sync()">Refresh rankings</button></div></div><div class="notice">Power rankings evaluate every player on every roster: starters, active depth, Taxi, IR/unavailable, projections, prior performance, salary value, age, and health. Starter-only comparison is reserved for Game Day. Each explanation is built from that team’s own live strongest and weakest evidence; missing fields are reweighted, never invented.</div></div>';
+    html += '<div class="grid4"><div class="metric"><b>#' + (mineIndex + 1) + '</b><span>Capitol Carnage rank</span></div><div class="metric"><b>' + esc(mine && mine.grade || "N/A") + '</b><span>Full-roster power grade</span></div><div class="metric"><b>' + (mine && mine.fullRoster && mine.fullRoster.metrics ? mine.fullRoster.metrics.players : "—") + '</b><span>Players evaluated</span></div><div class="metric"><b>' + (mine && mine.depth && mine.depth.score != null ? mine.depth.score.toFixed(1) : "—") + '</b><span>Depth grade</span></div></div>';
     html += '<div class="power-list">';
     ranked.forEach(function (name, i) {
       var g = grades[name], reason = rankingExplanation(name, g, i + 1, ranked.length);
-      html += '<div class="power-card' + (name === MY_TEAM ? ' my-power-card' : '') + '"><div class="power-rank">' + (i + 1) + '</div><div class="power-body"><div class="sectionhead"><div><h2>' + esc(name) + (name === MY_TEAM ? ' <span class="teamBadge">MY TEAM</span>' : '') + '</h2><div class="power-verdict">' + esc(reason.summary) + '</div></div><div><span class="grade">' + esc(g.grade) + '</span> <b class="power-score">' + (g.score == null ? "—" : g.score.toFixed(1)) + '</b></div></div><div class="power-metrics"><span><b>' + pts(g.metrics.projected) + '</b> weekly</span><span><b>' + pts(g.metrics.performance) + '</b> prior FP/G</span><span><b>' + (g.metrics.value == null ? "—" : g.metrics.value.toFixed(2)) + '</b> salary value</span><span><b>' + (g.metrics.age == null ? "—" : g.metrics.age.toFixed(1)) + '</b> starter age</span><span><b>' + g.metrics.injured + '</b> unavailable</span></div><p>' + esc(reason.details) + '</p><p class="muted"><b>Top projected players:</b> ' + esc(reason.leaders.map(function (p) { return p.name + " (" + pts(expectedScore(p)) + ")"; }).join(", ") || "Projection data unavailable") + '</p></div></div>';
+      var sm = g.starters.metrics || {}, dm = g.depth.metrics || {};
+      html += '<div class="power-card' + (name === MY_TEAM ? ' my-power-card' : '') + '"><div class="power-rank">' + (i + 1) + '</div><div class="power-body"><div class="sectionhead"><div><h2>' + esc(name) + (name === MY_TEAM ? ' <span class="teamBadge">MY TEAM</span>' : '') + '</h2><div class="power-verdict">' + esc(reason.summary) + '</div></div><div><span class="grade">' + esc(g.grade) + '</span> <b class="power-score">' + (g.score == null ? "—" : g.score.toFixed(1)) + '</b></div></div><div class="power-metrics"><span><b>' + (g.fullRoster && g.fullRoster.metrics ? g.fullRoster.metrics.players : "—") + '</b> full roster</span><span><b>' + (g.depth.score == null ? "—" : g.depth.score.toFixed(1)) + '</b> depth grade</span><span><b>' + pts(sm.projected) + '</b> Game Day starters</span><span><b>' + available(dm.projected, pts) + '</b> active-depth weekly</span><span><b>' + (dm.active ? dm.active.length : "—") + '</b> usable depth</span><span><b>' + (g.fullRoster && g.fullRoster.metrics ? g.fullRoster.metrics.injured : "—") + '</b> unavailable</span></div><p>' + esc(reason.details) + '</p><p class="muted"><b>Highest Fantrax expectations:</b> ' + esc(reason.leaders.map(function (p) { return p.name + " (" + pts(expectedScore(p)) + ")"; }).join(", ") || "Projection data unavailable") + '</p></div></div>';
     });
     html += '</div><div class="card"><h2>Capitol Carnage vs league</h2><p>Ranked <b>' + (mineIndex + 1) + ' of ' + ranked.length + '</b> with grade <b>' + esc(mine && mine.grade || "N/A") + '</b>.</p><p class="muted">Teams currently ahead: ' + esc(above.join(", ") || "None") + '.</p></div>';
     return html;
@@ -465,7 +574,8 @@
     document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); });
     var asof = document.getElementById("asof"); if (asof) asof.innerHTML = state.loading ? "<b>Refreshing Fantrax…</b>" : state.asOf ? "Updated <b>" + esc(new Date(state.asOf).toLocaleTimeString()) + "</b>" : "Not synced";
     if (state.loading && !Object.keys(state.teams).length) { root.innerHTML = '<div class="loading">Loading live Fantrax projections, performance, rosters, and cap penalties…</div>'; return; }
-    var body = state.error ? '<div class="error-banner"><b>Refresh failed:</b> ' + esc(state.error) + '</div>' : "";
+    var body = '<div class="notice evaluation-policy"><b>Evaluation standard:</b> Full Fantrax rosters drive every team judgment. Only Game Day is best legal starters vs best legal starters. Reasons must be original to the subject, specific to live facts, and show unavailable instead of invented data.</div>';
+    if (state.error) body += '<div class="error-banner"><b>Refresh failed:</b> ' + esc(state.error) + '</div>';
     try { body += (views[view] || viewWar)(); } catch (error) { body += '<div class="error-banner"><b>Screen error:</b> ' + esc(error.message || error) + '</div>'; }
     root.innerHTML = body;
     var chatLog = document.getElementById("chatLog"); if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
@@ -474,10 +584,13 @@
   window.GMS = {
     sync: syncFantrax, news: function () { refreshNews(true); },
     depth: function (teamName) { return depthMetrics(teamName || MY_TEAM); },
+    power: function (teamName) { return leaguePowerGrades()[teamName || MY_TEAM]; },
+    cap: function (teamName, cutIds) { return capProjection(teamName || MY_TEAM, cutIds || []); },
     show: function (view) { localStorage.setItem("gms_view", view); render(); },
     selectTeam: function (name) { state.selectedTeam = name; render(); },
     toggleCut: function (id) { var i = state.cutIds.indexOf(id); if (i >= 0) state.cutIds.splice(i, 1); else state.cutIds.push(id); render(); },
-    clearCuts: function () { state.cutIds = []; render(); },
+    simulateCuts: function () { state.simulatedCutIds = state.cutIds.slice(); render(); },
+    clearCuts: function () { state.cutIds = []; state.simulatedCutIds = []; render(); },
     setCoach: function (key) { if (COACHES[key]) { COACH = key; localStorage.setItem("gms_coach", key); } render(); },
     tradeTeam: function (side, name) { state[side === "A" ? "tradeTeamA" : "tradeTeamB"] = name; state["trade" + side] = []; render(); },
     tradeAsset: function (side, key) { var list = state["trade" + side], i = list.indexOf(key); if (i >= 0) list.splice(i, 1); else list.push(key); },
@@ -488,7 +601,7 @@
       try {
         function compact(p) { return { id: p.id, name: p.name, position: p.pos, nfl: p.nfl, salary: p.salary, years: p.years, status: p.status, age: p.age, weeklyProjection: projection(p), seasonProjection: seasonProjection(p), priorPerformancePpg: production(p), opponent: p.opponent, injury: p.injury, evaluation: p.team === "Free Agent" ? null : playerSignal(p).label }; }
         var rosters = allTeamNames().map(function (name) { var g = leagueGrades()[name]; return { team: name, grade: g && g.grade, score: g && g.score, metrics: g && g.metrics, players: teamPlayers(name).map(compact), picks: teamPicks(name), deadCap: existingDead(name) }; });
-        var response = await fetch(API_BASE + "/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, history: state.chat.slice(0, -1).slice(-40), personality: COACHES[COACH], league: BYLAWS, team: { name: MY_TEAM, opponent: opponentName(), optimizer: optimize(MY_TEAM), grade: leagueGrades()[MY_TEAM] }, leagueRosters: rosters, freeAgents: freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 200).map(compact), draftPicks: state.picks, standings: state.standings, matchups: state.matchups, deadCap: existingDead(MY_TEAM), preferences: localStorage.getItem("gms_preferences") || "" }) });
+        var response = await fetch(API_BASE + "/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, history: state.chat.slice(0, -1).slice(-40), personality: COACHES[COACH], evaluationPolicy: EVALUATION_POLICY, league: BYLAWS, team: { name: MY_TEAM, opponent: opponentName(), gameDayStarters: optimize(MY_TEAM), fullRosterGrade: leagueGrades()[MY_TEAM] }, leagueRosters: rosters, freeAgents: freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 200).map(compact), draftPicks: state.picks, standings: state.standings, matchups: state.matchups, deadCap: existingDead(MY_TEAM), preferences: localStorage.getItem("gms_preferences") || "" }) });
         var data = await response.json(); if (!response.ok) throw new Error(data.detail || data.error || "Chat failed");
         state.chat.push({ role: "ai", text: data.reply || "I couldn't form a response." }); if (data.preferences) localStorage.setItem("gms_preferences", String(data.preferences).slice(0, 12000));
       } catch (error) { state.chat.push({ role: "ai", text: "Chat could not answer: " + String(error.message || error) }); }
