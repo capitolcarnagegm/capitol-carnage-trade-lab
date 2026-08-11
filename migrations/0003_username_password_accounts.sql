@@ -1,3 +1,4 @@
+-- Adds individual username/password authentication while preserving existing email-code users.
 ALTER TABLE users ADD COLUMN username TEXT COLLATE NOCASE;
 ALTER TABLE users ADD COLUMN password_hash TEXT;
 ALTER TABLE users ADD COLUMN password_salt TEXT;
