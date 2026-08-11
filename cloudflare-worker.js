@@ -206,13 +206,26 @@ async function handleNews(request) {
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
   try {
     const response = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=30", { headers: { Accept: "application/json", "User-Agent": "GMSLocker/1.6" } });
-    if (!response.ok) throw new Error("ESPN HTTP " + response.status);
-    const data = await response.json();
-    const articles = (data.articles || []).map((article) => ({
-      headline: article.headline || "", description: article.description || "", published: article.published || article.lastModified || "",
-      link: article.links?.web?.href || "", teams: (article.categories || []).map((category) => category.team?.abbreviation || category.description).filter(Boolean)
-    }));
-    return json({ source: "ESPN", articles, syncedAt: new Date().toISOString() });
+    if (response.ok) {
+      const data = await response.json();
+      const articles = (data.articles || []).map((article) => ({
+        headline: article.headline || "", description: article.description || "", published: article.published || article.lastModified || "",
+        link: article.links?.web?.href || "", teams: (article.categories || []).map((category) => category.team?.abbreviation || category.description).filter(Boolean)
+      }));
+      return json({ source: "ESPN", articles, syncedAt: new Date().toISOString() });
+    }
+
+    // ESPN sometimes blocks its JSON endpoint from edge networks. Its official NFL RSS feed is the reliable fallback.
+    const rssResponse = await fetch("https://www.espn.com/espn/rss/nfl/news", { headers: { Accept: "application/rss+xml, application/xml, text/xml", "User-Agent": "Mozilla/5.0 GMSLocker/1.6" } });
+    if (!rssResponse.ok) throw new Error("ESPN JSON HTTP " + response.status + "; RSS HTTP " + rssResponse.status);
+    const xml = await rssResponse.text();
+    const decode = (value) => String(value || "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+    const articles = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)).slice(0, 30).map((match) => {
+      const item = match[1];
+      const field = (name) => decode((item.match(new RegExp("<" + name + "[^>]*>([\\s\\S]*?)<\\/" + name + ">", "i")) || [])[1]);
+      return { headline: field("title"), description: plain(field("description")), published: field("pubDate"), link: field("link"), teams: [] };
+    }).filter((article) => article.headline);
+    return json({ source: "ESPN RSS", articles, syncedAt: new Date().toISOString() });
   } catch (error) {
     return json({ error: "News request failed", detail: String(error?.message || error) }, 502);
   }
