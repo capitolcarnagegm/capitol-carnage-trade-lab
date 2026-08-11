@@ -32,7 +32,7 @@ async function handleChat(request,env) {
   const contents=history.map(m=>({role:m.role==="ai"?"model":"user",parts:[{text:String(m.text||"").slice(0,5000)}]}));
   contents.push({role:"user",parts:[{text:message+"\n\nCurrent GM context:\n"+JSON.stringify({coach:input.coach||{},league:input.league||{},team:input.team||{}}).slice(0,50000)}]});
   try {
-    const api="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="+encodeURIComponent(env.GEMINI_API_KEY);
+    const api="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key="+encodeURIComponent(env.GEMINI_API_KEY);
     const response=await fetch(api,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents,generationConfig:{temperature:0.55,maxOutputTokens:1200}})});
     const data=await response.json();
     if(!response.ok)return json({error:"Gemini request failed",detail:data.error&&data.error.message},502);
