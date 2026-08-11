@@ -198,6 +198,12 @@ a:hover { text-decoration: underline; }
 }
 
 .main { max-width: 1100px; margin: 0 auto; padding: 16px 14px 40px; }
+.account-mode .nav, .account-mode .site-header .asof, .account-mode #syncBtn { display: none; }
+.account-shell { min-height: 56vh; display: grid; place-items: center; padding: 28px 0; }
+.account-card { width: min(520px, 100%); padding: 26px; border-color: var(--gold-dim); box-shadow: 0 18px 70px rgba(0,0,0,.42); }
+.account-card h1 { color: var(--gold2); font-size: clamp(1.5rem, 5vw, 2.2rem); margin: 12px 0 6px; }
+.account-card .field { margin: 18px 0 12px; }
+.wide { width: 100%; margin-top: 8px; }
 .card {
   background: var(--card);
   border: 1px solid var(--border);
