@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.1";
+  var VERSION = "1.6.2";
   var API_BASE = "https://api.gmslocker.com";
   var COACH = localStorage.getItem("gms_coach") || "process";
 
@@ -48,7 +48,8 @@
   function percentile(value, values) { var good = values.filter(function (v) { return Number.isFinite(v); }).sort(function (a, b) { return a - b; }); if (!good.length || !Number.isFinite(value)) return null; return 100 * good.filter(function (v) { return v <= value; }).length / good.length; }
   function grade(score) { if (!Number.isFinite(score)) return "N/A"; return score >= 93 ? "A" : score >= 88 ? "A-" : score >= 83 ? "B+" : score >= 78 ? "B" : score >= 73 ? "B-" : score >= 68 ? "C+" : score >= 63 ? "C" : score >= 58 ? "C-" : score >= 50 ? "D" : "F"; }
   function primaryPos(value) { var p = String(value || "").toUpperCase(); if (p.indexOf("QB") >= 0) return "QB"; if (p.indexOf("RB") >= 0) return "RB"; if (p.indexOf("WR") >= 0) return "WR"; if (p.indexOf("TE") >= 0) return "TE"; if (/DL|DE|DT|EDGE/.test(p)) return "DL"; if (p.indexOf("LB") >= 0) return "LB"; if (/DB|CB|\bS\b/.test(p)) return "DB"; return p.split(",")[0] || "?"; }
-  function unavailable(p) { return /OUT|INJURED_RESERVE|SUSPEND/i.test(String(p.status) + " " + String(p.injury)); }
+  function unavailable(p) { return /OUT|INJURED_RESERVE|\bIR\b|SUSPEND/i.test(String(p.status) + " " + String(p.rosterSlot) + " " + String(p.injury)); }
+  function taxi(p) { return /TAXI|MINOR/i.test(String(p.status) + " " + String(p.rosterSlot)); }
 
   async function syncFantrax() {
     state.loading = true; state.error = null; render();
@@ -102,7 +103,7 @@
         eligible: state.leagueInfo.playerInfo && state.leagueInfo.playerInfo[item.id] && state.leagueInfo.playerInfo[item.id].eligiblePos || "",
         nfl: meta.team || season.nflTeam || "", salary: num(item.salary) || 0,
         years: num(item.contract && (item.contract.smallId || item.contract.name)) || 0,
-        status: item.status || "ACTIVE", team: teamName, age: season.age != null ? season.age : performance.age,
+        status: item.status || "ACTIVE", rosterSlot: item.rosterSlot || item.positionStatus || item.position || "", team: teamName, age: season.age != null ? season.age : performance.age,
         seasonProjection: season.fpts, weeklyProjection: weekly.fpts != null ? weekly.fpts : weekly.ppg,
         performance: performance.fpts, performancePpg: performance.ppg, opponent: weekly.opponent || season.opponent || "",
         injury: weekly.injury || season.injury || performance.injury || "", rosteredPct: season.rosteredPct, rosterTrend: season.rosterTrend
@@ -138,6 +139,67 @@
     });
     return { lineup: lineup, total: lineup.reduce(function (sum, row) { return sum + (row.player ? expectedScore(row.player) : 0); }, 0), missing: lineup.filter(function (row) { return !row.player; }).length };
   }
+
+  function completeSum(players, getter) {
+    if (!players.length) return 0;
+    var values = players.map(getter);
+    return values.every(function (value) { return value != null; }) ? values.reduce(function (sum, value) { return sum + value; }, 0) : null;
+  }
+
+  function depthMetrics(teamName) {
+    var players = teamPlayers(teamName), opt = optimize(teamName), starterIds = {};
+    opt.lineup.forEach(function (row) { if (row.player) starterIds[row.player.id] = true; });
+    var starters = players.filter(function (p) { return starterIds[p.id]; });
+    var bench = players.filter(function (p) { return !starterIds[p.id]; });
+    var taxiPlayers = bench.filter(taxi);
+    var unavailablePlayers = bench.filter(function (p) { return !taxi(p) && unavailable(p); });
+    var active = bench.filter(function (p) { return !taxi(p) && !unavailable(p); });
+    var projected = completeSum(active, projection);
+    var performance = completeSum(active, production);
+    var activeSalary = active.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var starterSalary = starters.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var taxiSalary = taxiPlayers.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var unavailableSalary = unavailablePlayers.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var benchSalary = bench.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var totalSalary = players.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var age = active.length && active.every(function (p) { return num(p.age) != null; }) ? mean(active.map(function (p) { return num(p.age); })) : null;
+    var value = projected != null && activeSalary > 0 ? projected / activeSalary * 100 : null;
+    var healthPool = bench.filter(function (p) { return !taxi(p); });
+    var health = healthPool.length ? active.length / healthPool.length * 100 : null;
+    var nextUp = active.filter(function (p) { return projection(p) != null; }).sort(function (a, b) { return projection(b) - projection(a); }).slice(0, 5);
+    return { starters: starters, bench: bench, active: active, taxi: taxiPlayers, unavailable: unavailablePlayers, projected: projected, performance: performance, age: age, value: value, health: health, activeSalary: activeSalary, starterSalary: starterSalary, benchSalary: benchSalary, taxiSalary: taxiSalary, unavailableSalary: unavailableSalary, totalSalary: totalSalary, nextUp: nextUp };
+  }
+
+  function leagueDepthGrades() {
+    var names = allTeamNames(), metrics = {};
+    names.forEach(function (name) { metrics[name] = depthMetrics(name); });
+    var fields = { projected: [], performance: [], value: [], age: [], health: [] };
+    names.forEach(function (name) {
+      var m = metrics[name]; fields.projected.push(m.projected); fields.performance.push(m.performance); fields.value.push(m.value); fields.age.push(m.age == null ? null : -m.age); fields.health.push(m.health);
+    });
+    var out = {};
+    names.forEach(function (name) {
+      var m = metrics[name];
+      var components = [
+        { name: "projection", score: percentile(m.projected, fields.projected), weight: 0.4 },
+        { name: "prior performance", score: percentile(m.performance, fields.performance), weight: 0.2 },
+        { name: "salary value", score: percentile(m.value, fields.value), weight: 0.15 },
+        { name: "age", score: percentile(m.age == null ? null : -m.age, fields.age), weight: 0.1 },
+        { name: "availability", score: percentile(m.health, fields.health), weight: 0.15 }
+      ].filter(function (component) { return component.score != null; });
+      var weight = components.reduce(function (sum, component) { return sum + component.weight; }, 0);
+      var score = weight ? components.reduce(function (sum, component) { return sum + component.score * component.weight; }, 0) / weight : null;
+      out[name] = { score: score, grade: grade(score), metrics: m, components: components, appliedWeight: weight };
+    });
+    return out;
+  }
+
+  function depthExplainer(depth) {
+    if (!depth.components || !depth.components.length) return "Depth grade unavailable because Fantrax has not returned enough comparable bench data.";
+    return "Depth grade uses " + depth.components.map(function (component) { return component.name + " " + Math.round(component.weight / depth.appliedWeight * 100) + "%"; }).join(", ") + "; missing Fantrax fields are excluded and the remaining weights are rebalanced.";
+  }
+
+  function available(value, formatter) { return value == null ? "unavailable" : formatter(value); }
 
   function teamMetrics(teamName) {
     var players = teamPlayers(teamName), opt = optimize(teamName);
@@ -253,11 +315,17 @@
   }
 
   function viewTeam() {
-    var g = leagueGrades()[MY_TEAM] || {}, opt = optimize(MY_TEAM), players = teamPlayers(MY_TEAM);
+    var g = leagueGrades()[MY_TEAM] || {}, depth = leagueDepthGrades()[MY_TEAM] || {}, dm = depth.metrics || {}, opt = optimize(MY_TEAM), players = teamPlayers(MY_TEAM);
     var html = '<div class="card"><div class="sectionhead"><h2>My Team</h2><span class="pill">' + esc(g.grade || "N/A") + '</span></div><div class="notice">Live grade combines Fantrax projection (40%), prior performance (20%), salary value (15%), age (10%), and injury availability (15%), reweighted when a field is missing.</div><div class="grid4"><div class="metric"><b>' + pts(g.metrics && g.metrics.projected) + '</b><span>Expected starters</span></div><div class="metric"><b>' + pts(g.metrics && g.metrics.performance) + '</b><span>Prior FP/G lineup</span></div><div class="metric"><b>' + (g.metrics && g.metrics.age != null ? g.metrics.age.toFixed(1) : "—") + '</b><span>Starter age</span></div><div class="metric"><b>' + (g.metrics ? g.metrics.injured : "—") + '</b><span>Unavailable</span></div></div></div>';
     html += '<div class="card"><div class="sectionhead"><h2>Roster optimizer</h2><button class="primary" onclick="GMS.sync()">Refresh optimizer</button></div><div class="notice">Selects the highest Fantrax weekly expectation for every Pride starter slot and excludes Fantrax OUT, IR, and suspended players.</div><div class="tableWrap"><table><thead><tr><th>Slot</th><th>Player</th><th>Opp</th><th>Weekly proj</th><th>Season proj</th><th>Prior FP/G</th><th>Injury</th></tr></thead><tbody>';
     opt.lineup.forEach(function (row) { var p = row.player; html += '<tr><td>' + esc(row.slot) + '</td>' + (p ? '<td><b>' + esc(p.name) + '</b></td><td>' + esc(p.opponent || "—") + '</td><td>' + pts(projection(p)) + '</td><td>' + pts(seasonProjection(p)) + '</td><td>' + pts(production(p)) + '</td><td>' + esc(p.injury || "—") + '</td>' : '<td colspan="6" class="bad">No eligible projected player</td>') + '</tr>'; });
     html += '</tbody></table></div></div>';
+    html += '<div class="card depth-card"><div class="sectionhead"><div><h2>Depth / Bench</h2><span class="small muted">Players outside the best projected Pride starting lineup</span></div><span class="pill">DEPTH GRADE ' + esc(depth.grade || "N/A") + '</span></div><div class="notice">' + esc(depthExplainer(depth)) + ' Active-depth projection and prior FP/G cover all usable bench players; a total is unavailable if any player in that group is missing the required Fantrax field.</div><div class="grid4"><div class="metric"><b>' + available(dm.projected, pts) + '</b><span>Active bench projection</span></div><div class="metric"><b>' + available(dm.performance, pts) + '</b><span>Active bench prior FP/G</span></div><div class="metric"><b>' + available(dm.benchSalary, money) + '</b><span>Total bench salary</span></div><div class="metric"><b>' + available(dm.age, function (value) { return value.toFixed(1); }) + '</b><span>Active depth age</span></div></div>';
+    html += '<div class="depth-split"><div class="depth-bucket"><b>Active depth</b><span>' + (dm.active ? dm.active.length : "—") + ' players · ' + money(dm.activeSalary) + '</span></div><div class="depth-bucket"><b>Taxi</b><span>' + (dm.taxi ? dm.taxi.length : "—") + ' players · ' + money(dm.taxiSalary) + '</span></div><div class="depth-bucket"><b>IR / unavailable</b><span>' + (dm.unavailable ? dm.unavailable.length : "—") + ' players · ' + money(dm.unavailableSalary) + '</span></div></div>';
+    html += '<div class="salary-check"><b>Salary reconciliation:</b> starters ' + money(dm.starterSalary) + ' + bench ' + money(dm.benchSalary) + ' = roster ' + money(dm.totalSalary) + '</div><h3 class="depth-heading">Next up by Fantrax weekly projection</h3>';
+    if (dm.nextUp && dm.nextUp.length) dm.nextUp.forEach(function (p, index) { html += '<div class="gate"><span><b>' + (index + 1) + '. ' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + ' · ' + (p.status || 'ACTIVE') + (p.injury ? ' · ' + p.injury : '')) + '</span></span><b>' + pts(projection(p)) + '</b></div>'; });
+    else html += '<div class="muted">Fantrax weekly projections are unavailable for active bench players.</div>';
+    html += '</div>';
     html += rosterTable(players, true);
     return html;
   }
@@ -405,6 +473,7 @@
 
   window.GMS = {
     sync: syncFantrax, news: function () { refreshNews(true); },
+    depth: function (teamName) { return depthMetrics(teamName || MY_TEAM); },
     show: function (view) { localStorage.setItem("gms_view", view); render(); },
     selectTeam: function (name) { state.selectedTeam = name; render(); },
     toggleCut: function (id) { var i = state.cutIds.indexOf(id); if (i >= 0) state.cutIds.splice(i, 1); else state.cutIds.push(id); render(); },

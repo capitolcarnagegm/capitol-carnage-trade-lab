@@ -231,6 +231,15 @@ a:hover { text-decoration: underline; }
 }
 .metric b { display: block; font-size: 1.25rem; color: var(--gold2); margin-bottom: 4px; }
 .metric span { font-size: 12px; color: var(--muted); }
+.depth-card { border-color: rgba(212,175,55,0.45); }
+.depth-split { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.depth-bucket { display: flex; flex-direction: column; gap: 3px; background: var(--bg3); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; }
+.depth-bucket b { color: var(--gold2); font-size: 13px; }
+.depth-bucket span { color: var(--muted); font-size: 12px; }
+.salary-check { margin: 10px 0; padding: 9px 11px; border-left: 3px solid var(--gold); background: rgba(212,175,55,0.05); color: var(--muted); font-size: 12px; }
+.salary-check b { color: var(--text); }
+.depth-heading { margin: 16px 0 4px; font-size: 14px; color: var(--gold2); }
+@media (max-width: 620px) { .depth-split { grid-template-columns: 1fr; } }
 .gate {
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px;
