@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.0";
+  var VERSION = "1.6.1";
   var API_BASE = "https://api.gmslocker.com";
   var COACH = localStorage.getItem("gms_coach") || "process";
 
@@ -354,12 +354,30 @@
     return '<div class="notice"><b>Bottom line:</b> ' + (Math.abs(a.value) <= 12 ? 'The deal is close on total value; decide by lineup fit and competitive window.' : (a.value > 0 ? esc(state.tradeTeamA) : esc(state.tradeTeamB)) + ' receives the stronger package on the current live inputs.') + '</div><div class="grid2">' + block(a) + block(b) + '</div>';
   }
 
-  function viewAnalysts() {
+  function rankingExplanation(name, ranking, position, total) {
+    var components = (ranking.components || []).slice().sort(function (a, b) { return b.score - a.score; });
+    var strongest = components[0], weakest = components[components.length - 1];
+    var players = teamPlayers(name).filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 3);
+    var summary = position <= 3 ? "Championship-tier profile" : position <= Math.ceil(total / 2) ? "Playoff-caliber profile" : "Needs improvement to climb the league";
+    var details = [];
+    if (strongest) details.push("best area: " + strongest.name.toLowerCase() + " (" + Math.round(strongest.score) + "th percentile)");
+    if (weakest) details.push("biggest concern: " + weakest.name.toLowerCase() + " (" + Math.round(weakest.score) + "th percentile)");
+    if (ranking.metrics.missing) details.push(ranking.metrics.missing + " projected starter slot" + (ranking.metrics.missing === 1 ? " is" : "s are") + " unfilled");
+    if (ranking.metrics.injured) details.push(ranking.metrics.injured + " unavailable player" + (ranking.metrics.injured === 1 ? "" : "s"));
+    return { summary: summary, details: details.join("; ") + ".", leaders: players };
+  }
+
+  function viewRankings() {
     var grades = leagueGrades(), ranked = Object.keys(grades).sort(function (a, b) { return (grades[b].score || -1) - (grades[a].score || -1); });
     var mineIndex = ranked.indexOf(MY_TEAM), mine = grades[MY_TEAM], above = ranked.slice(0, mineIndex);
-    var html = '<div class="card"><div class="sectionhead"><h2>Team vs Team / League Analysis</h2><span class="pill">CURRENT WEEK</span></div><div class="notice">Power ranking compares expected starter scoring, prior performance, salary value, age, and health. It refreshes with Fantrax.</div></div><div class="card"><div class="tableWrap"><table><thead><tr><th>Rank</th><th>Team</th><th>Grade</th><th>Score</th><th>Week expectation</th><th>Prior lineup FP/G</th><th>Salary value</th><th>Injured</th></tr></thead><tbody>';
-    ranked.forEach(function (name, i) { var g = grades[name]; html += '<tr><td>' + (i + 1) + '</td><td><b>' + esc(name) + '</b></td><td>' + g.grade + '</td><td>' + (g.score == null ? "—" : g.score.toFixed(1)) + '</td><td>' + pts(g.metrics.projected) + '</td><td>' + pts(g.metrics.performance) + '</td><td>' + (g.metrics.value == null ? "—" : g.metrics.value.toFixed(2)) + '</td><td>' + g.metrics.injured + '</td></tr>'; });
-    html += '</tbody></table></div></div><div class="card"><h2>Capitol Carnage vs league</h2><p>Ranked <b>' + (mineIndex + 1) + ' of ' + ranked.length + '</b> with grade <b>' + esc(mine && mine.grade || "N/A") + '</b>.</p><p class="muted">Teams currently ahead: ' + esc(above.join(", ") || "None") + '.</p></div>';
+    var html = '<div class="card"><div class="sectionhead"><h2>League Power Rankings</h2><div class="actions"><span class="pill">FANTRAX LIVE</span><button class="primary" onclick="GMS.sync()">Refresh rankings</button></div></div><div class="notice">Rankings use the live team ratings: current-week starter projections (40%), prior performance (20%), salary value (15%), roster age (10%), and health (15%). They change whenever Fantrax data changes.</div></div>';
+    html += '<div class="grid4"><div class="metric"><b>#' + (mineIndex + 1) + '</b><span>Capitol Carnage rank</span></div><div class="metric"><b>' + esc(mine && mine.grade || "N/A") + '</b><span>Team grade</span></div><div class="metric"><b>' + (mine && mine.score != null ? mine.score.toFixed(1) : "—") + '</b><span>Power score</span></div><div class="metric"><b>' + pts(mine && mine.metrics.projected) + '</b><span>Weekly expectation</span></div></div>';
+    html += '<div class="power-list">';
+    ranked.forEach(function (name, i) {
+      var g = grades[name], reason = rankingExplanation(name, g, i + 1, ranked.length);
+      html += '<div class="power-card' + (name === MY_TEAM ? ' my-power-card' : '') + '"><div class="power-rank">' + (i + 1) + '</div><div class="power-body"><div class="sectionhead"><div><h2>' + esc(name) + (name === MY_TEAM ? ' <span class="teamBadge">MY TEAM</span>' : '') + '</h2><div class="power-verdict">' + esc(reason.summary) + '</div></div><div><span class="grade">' + esc(g.grade) + '</span> <b class="power-score">' + (g.score == null ? "—" : g.score.toFixed(1)) + '</b></div></div><div class="power-metrics"><span><b>' + pts(g.metrics.projected) + '</b> weekly</span><span><b>' + pts(g.metrics.performance) + '</b> prior FP/G</span><span><b>' + (g.metrics.value == null ? "—" : g.metrics.value.toFixed(2)) + '</b> salary value</span><span><b>' + (g.metrics.age == null ? "—" : g.metrics.age.toFixed(1)) + '</b> starter age</span><span><b>' + g.metrics.injured + '</b> unavailable</span></div><p>' + esc(reason.details) + '</p><p class="muted"><b>Top projected players:</b> ' + esc(reason.leaders.map(function (p) { return p.name + " (" + pts(expectedScore(p)) + ")"; }).join(", ") || "Projection data unavailable") + '</p></div></div>';
+    });
+    html += '</div><div class="card"><h2>Capitol Carnage vs league</h2><p>Ranked <b>' + (mineIndex + 1) + ' of ' + ranked.length + '</b> with grade <b>' + esc(mine && mine.grade || "N/A") + '</b>.</p><p class="muted">Teams currently ahead: ' + esc(above.join(", ") || "None") + '.</p></div>';
     return html;
   }
 
@@ -374,7 +392,8 @@
   function render() {
     var root = document.getElementById("main"); if (!root) return;
     var view = localStorage.getItem("gms_view") || "war";
-    var views = { war: viewWar, team: viewTeam, teams: viewTeams, cap: viewCap, bhs: viewBhs, waivers: viewWaivers, trade: viewTrade, analysts: viewAnalysts, picks: viewPicks, news: viewNews, chat: viewChat, contact: viewContact, settings: viewSettings };
+    if (view === "analysts") { view = "rankings"; localStorage.setItem("gms_view", view); }
+    var views = { war: viewWar, team: viewTeam, teams: viewTeams, cap: viewCap, bhs: viewBhs, waivers: viewWaivers, trade: viewTrade, rankings: viewRankings, picks: viewPicks, news: viewNews, chat: viewChat, contact: viewContact, settings: viewSettings };
     document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); });
     var asof = document.getElementById("asof"); if (asof) asof.innerHTML = state.loading ? "<b>Refreshing Fantrax…</b>" : state.asOf ? "Updated <b>" + esc(new Date(state.asOf).toLocaleTimeString()) + "</b>" : "Not synced";
     if (state.loading && !Object.keys(state.teams).length) { root.innerHTML = '<div class="loading">Loading live Fantrax projections, performance, rosters, and cap penalties…</div>'; return; }
