@@ -11,10 +11,80 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
     if (url.pathname === "/chat") return handleChat(request, env);
     if (url.pathname === "/league-data") return handleLeagueData(request, url);
+    if (url.pathname === "/current-games") return handleCurrentGames(request, url);
     if (url.pathname === "/news") return handleNews(request);
+    if (url.pathname === "/waiver-context") return handleWaiverContext(request, url);
     return handleFantrax(request, url);
   }
 };
+
+function normalizedPlayerName(value) { return String(value || "").toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, "").replace(/[^a-z0-9]/g, ""); }
+function playerSlug(value) { return String(value || "").toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+
+async function handleWaiverContext(request, url) {
+  if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
+  const name = String(url.searchParams.get("name") || "").trim().slice(0, 80);
+  const team = String(url.searchParams.get("team") || "").trim().toUpperCase().slice(0, 4);
+  if (!name) return json({ error: "Player name is required" }, 400);
+  try {
+    const [espnResponse, nflResponse] = await Promise.all([
+      fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100", { headers: { Accept: "application/json", "User-Agent": "GMSLocker/1.6" }, cf: { cacheTtl: 300, cacheEverything: true } }),
+      fetch("https://www.nfl.com/players/" + encodeURIComponent(playerSlug(name)) + "/", { headers: { Accept: "text/html", "User-Agent": "GMSLocker/1.6" }, cf: { cacheTtl: 3600, cacheEverything: true } })
+    ]);
+    const espnData = espnResponse.ok ? await espnResponse.json() : { articles: [] };
+    const needle = normalizedPlayerName(name);
+    const espn = (espnData.articles || []).filter((article) => {
+      const text = normalizedPlayerName((article.headline || "") + " " + (article.description || ""));
+      const teams = (article.categories || []).map((category) => category.team?.abbreviation || "");
+      return text.includes(needle) || (team && teams.includes(team));
+    }).slice(0, 3).map((article) => ({ source: "ESPN", headline: plain(article.headline), summary: plain(article.description), published: article.published || article.lastModified || "", link: article.links?.web?.href || "" }));
+    let nfl = null;
+    if (nflResponse.ok) {
+      const html = await nflResponse.text();
+      const title = plain((html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i) || [])[1]);
+      const summary = plain((html.match(/<meta[^>]+(?:name|property)=["'](?:description|og:description)["'][^>]+content=["']([^"']+)/i) || [])[1]);
+      if (title && normalizedPlayerName(title).includes(needle)) nfl = { source: "NFL.com", headline: title, summary, link: "https://www.nfl.com/players/" + playerSlug(name) + "/" };
+    }
+    return json({ source: ["Fantrax", "ESPN", "NFL.com"], player: name, espn, nfl, syncedAt: new Date().toISOString() });
+  } catch (error) { return json({ error: "Player context request failed", detail: String(error?.message || error) }, 502); }
+}
+
+async function handleCurrentGames(request, url) {
+  if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
+  const season = String(url.searchParams.get("season") || new Date().getUTCFullYear()).replace(/[^0-9]/g, "").slice(0, 4);
+  const seasonType = url.searchParams.get("seasonType") === "1" ? "1" : "2";
+  const scoreboardUrl = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=100&dates=" + season + "&seasontype=" + seasonType;
+  try {
+    const scoreboardResponse = await fetch(scoreboardUrl, { headers: { Accept: "application/json", "User-Agent": "GMSLocker/1.6" }, cf: { cacheTtl: 20, cacheEverything: true } });
+    if (!scoreboardResponse.ok) throw new Error("NFL scoreboard HTTP " + scoreboardResponse.status);
+    const scoreboard = await scoreboardResponse.json();
+    const events = (scoreboard.events || []).filter((event) => event.status?.type?.state !== "pre").slice(0, 16);
+    const games = await Promise.all(events.map(async (event) => {
+      const summaryResponse = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=" + encodeURIComponent(event.id), { headers: { Accept: "application/json", "User-Agent": "GMSLocker/1.6" }, cf: { cacheTtl: 20, cacheEverything: true } });
+      if (!summaryResponse.ok) return { id: event.id, name: event.name || "NFL game", status: event.status?.type?.detail || "", players: [] };
+      const summary = await summaryResponse.json();
+      const players = [];
+      for (const team of summary.boxscore?.players || []) {
+        for (const category of team.statistics || []) {
+          const labels = category.labels || category.names || [];
+          for (const athleteRow of category.athletes || []) {
+            const athlete = athleteRow.athlete || {};
+            const stats = {};
+            (athleteRow.stats || []).forEach((value, index) => { if (labels[index]) stats[labels[index]] = numberFrom(value); });
+            players.push({ id: String(athlete.id || ""), name: athlete.displayName || athlete.fullName || "Unknown", team: team.team?.abbreviation || athlete.team?.abbreviation || "", position: athlete.position?.abbreviation || "", category: category.name || category.displayName || "", stats });
+          }
+        }
+      }
+      return { id: event.id, name: event.name || "NFL game", date: event.date || "", status: event.status?.type?.detail || "", state: event.status?.type?.state || "", seasonType: summary.header?.season?.type || Number(seasonType), players };
+    }));
+    const headers = corsHeaders();
+    headers.set("Content-Type", "application/json; charset=utf-8");
+    headers.set("Cache-Control", "public, max-age=15");
+    return new Response(JSON.stringify({ source: "NFL live box scores", season: Number(season), seasonType: Number(seasonType), games, syncedAt: new Date().toISOString() }), { headers });
+  } catch (error) {
+    return json({ error: "Current game feed failed", detail: String(error?.message || error) }, 502);
+  }
+}
 
 async function fantrax(endpoint, leagueId, extra = {}) {
   const upstream = new URL("https://www.fantrax.com/fxea/general/" + endpoint);
@@ -173,13 +243,15 @@ async function handleChat(request, env) {
     "Your visible personality is " + String(personality.name || "Process") + ": " + String(personality.lens || "evidence-first and direct") + ". Apply that style consistently without hiding contrary evidence.",
     "For fantasy football, use only supplied Fantrax facts. Never invent a projection, performance value, injury, salary, contract, ownership fact, or cap value.",
     "The league context contains all rosters, Fantrax season and weekly projections, prior performance, injuries, picks, matchups, standings, free agents, and Fantrax dead-cap penalties.",
-    "Explain recommendations with player names and specific supplied numbers. If data is unavailable, say so.",
+    "Every team evaluation must analyze the entire roster, including starters, active depth, Taxi, IR/unavailable, injuries, age, salary value, projections, prior performance, contracts, and picks when supplied. Only a current-week Game Day or matchup question may compare best legal projected starters versus best legal projected starters.",
+    "Explain every strength, weakness, recommendation, and verdict with the specific supplied facts that caused it. If data is unavailable, say so.",
+    "Do not reuse canned conclusions or repetitive wording. Make each explanation original to the exact player, team, transaction, and current evidence; vary both the facts emphasized and the sentence structure while preserving accuracy.",
     "Help with ordinary conversation too. You have no live web or maps access, so flag time-sensitive details that should be verified.",
     "Learn stable preferences from the conversation. Return only valid JSON with two strings: reply and preferences."
   ].join(" ");
   const history = Array.isArray(input.history) ? input.history.slice(-40) : [];
   const messages = [{ role: "system", content: system }].concat(history.map((entry) => ({ role: entry.role === "ai" ? "assistant" : "user", content: String(entry.text || "").slice(0, 2500) })));
-  const context = { league: input.league || {}, team: input.team || {}, leagueRosters: input.leagueRosters || [], freeAgents: input.freeAgents || [], draftPicks: input.draftPicks || [], standings: input.standings || [], matchups: input.matchups || {}, deadCap: input.deadCap || {}, savedPreferences: String(input.preferences || "").slice(0, 12000) };
+  const context = { evaluationPolicy: input.evaluationPolicy || {}, league: input.league || {}, team: input.team || {}, leagueRosters: input.leagueRosters || [], freeAgents: input.freeAgents || [], draftPicks: input.draftPicks || [], standings: input.standings || [], matchups: input.matchups || {}, deadCap: input.deadCap || {}, savedPreferences: String(input.preferences || "").slice(0, 12000) };
   messages.push({ role: "user", content: message + "\n\nCurrent live league context:\n" + JSON.stringify(context).slice(0, 90000) });
   try {
     const data = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", { messages, temperature: 0.35, max_tokens: 2400 });
