@@ -9,7 +9,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.1.0";
+  var VERSION = "1.2.0";
   var API_BASE = "https://api.gmslocker.com";
 
   var TIER = localStorage.getItem("gms_tier") || "free";
@@ -142,9 +142,17 @@
       var p = state.players[id];
       var pos = String(p.position || "").toUpperCase();
       if (!pos || /^(OL|OT|OG|C|LS|K)$/.test(pos)) return;
-      fa.push({ id: id, name: playerName(id), pos: pos, nfl: p.team || "" });
+      fa.push({ id: id, name: playerName(id), pos: pos, nfl: p.team || "", salary: 0, years: 0, status: "AVAILABLE", team: "Free Agent" });
     });
     return fa;
+  }
+
+  function allLeaguePlayers() {
+    var players = [];
+    Object.keys(state.teams).forEach(function (tid) {
+      players = players.concat(teamPlayers(state.teams[tid].name));
+    });
+    return players.concat(freeAgentsApprox());
   }
 
   function deadSchedule(salary, yearsRemaining) {
@@ -199,6 +207,7 @@
 
   function bhsSignal(p) {
     var score = 50, reasons = [];
+    if (p.team === "Free Agent") { score += 15; reasons.push("available without a trade"); }
     if (p.years >= 3 && p.salary < 30) { score += 15; reasons.push("cheap long control"); }
     if (p.years <= 1 && p.salary > 80) { score -= 20; reasons.push("expensive expiring deal"); }
     if (p.years >= 2 && p.salary > 120) { score -= 10; reasons.push("heavy cap commitment"); }
@@ -379,25 +388,34 @@
   }
 
   function viewBHS() {
-    var players = teamPlayers(MY_TEAM);
-    var html = '<div class="card"><div class="sectionhead"><h2>Buy / Hold / Sell</h2><span class="pill">YOUR ROSTER</span></div>';
-    html += '<div class="notice">Signals use contract length, salary, and status.</div></div>';
-    html += '<div class="card"><div class="tableWrap"><table><thead><tr><th>Signal</th><th>Player</th><th>Pos</th><th>Sal</th><th>Yrs</th><th>Why</th></tr></thead><tbody>';
+    var rosteredCount = Object.keys(state.teams).reduce(function (total, tid) {
+      return total + (state.teams[tid].items || []).length;
+    }, 0);
+    var freeAgentCount = freeAgentsApprox().length;
+    var players = allLeaguePlayers();
+    var html = '<div class="card"><div class="sectionhead"><h2>Buy / Hold / Sell</h2><span class="pill">ALL ' + players.length + ' PLAYERS</span></div>';
+    html += '<div class="notice">Every rostered player and every available free agent. ' + rosteredCount + ' rostered · ' + freeAgentCount + ' free agents. Signals use contract length, salary, availability, and status.</div></div>';
+    html += '<div class="card"><div class="tableWrap"><table><thead><tr><th>Signal</th><th>Player</th><th>Pos</th><th>Owner</th><th>Sal</th><th>Yrs</th><th>Why</th></tr></thead><tbody>';
     players.map(function (p) { return { p: p, s: bhsSignal(p) }; })
-      .sort(function (a, b) { return a.s.score - b.s.score; })
+      .sort(function (a, b) {
+        if (a.s.score !== b.s.score) return a.s.score - b.s.score;
+        return a.p.name.localeCompare(b.p.name);
+      })
       .forEach(function (row) {
-        html += '<tr><td><span class="bhs ' + row.s.label.toLowerCase() + '">' + row.s.label + '</span></td><td><b>' + esc(row.p.name) + '</b></td><td>' + esc(row.p.pos) + '</td><td>$' + row.p.salary.toFixed(1) + '</td><td>' + row.p.years + '</td><td class="muted">' + esc(row.s.reasons.join("; ") || "Neutral") + '</td></tr>';
+        html += '<tr><td><span class="bhs ' + row.s.label.toLowerCase() + '">' + row.s.label + '</span></td><td><b>' + esc(row.p.name) + '</b></td><td>' + esc(row.p.pos) + '</td><td>' + esc(row.p.team) + '</td><td>' + (row.p.team === "Free Agent" ? "—" : "$" + row.p.salary.toFixed(1)) + '</td><td>' + (row.p.team === "Free Agent" ? "—" : row.p.years) + '</td><td class="muted">' + esc(row.s.reasons.join("; ") || "Neutral") + '</td></tr>';
       });
+    if (!players.length) html += '<tr><td colspan="7">Refresh Fantrax to load the full league player pool</td></tr>';
     html += '</tbody></table></div></div>';
     return html;
   }
 
   function viewWaivers() {
-    var fa = freeAgentsApprox().filter(function (p) {
-      return /QB|RB|WR|TE|LB|DL|DB|DE|DT|CB|S|EDGE/.test(p.pos);
-    }).slice(0, 40);
-    var html = '<div class="card"><div class="sectionhead"><h2>Waivers</h2><span class="pill">AVAILABLE</span></div>';
-    html += '<div class="notice">Open pool sample. Paid unlocks FAAB ranking.</div></div>';
+    var fa = freeAgentsApprox().sort(function (a, b) {
+      if (a.pos !== b.pos) return a.pos.localeCompare(b.pos);
+      return a.name.localeCompare(b.name);
+    });
+    var html = '<div class="card"><div class="sectionhead"><h2>Free Agents</h2><span class="pill">' + fa.length + ' AVAILABLE</span></div>';
+    html += '<div class="notice">Full Fantrax free-agent pool: every unrostered player returned by the league sync.</div></div>';
     html += '<div class="card"><div class="tableWrap"><table><thead><tr><th>Player</th><th>Pos</th><th>NFL</th></tr></thead><tbody>';
     fa.forEach(function (p) {
       html += '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.pos) + '</td><td>' + esc(p.nfl) + '</td></tr>';
