@@ -36,7 +36,11 @@ async function handleChat(request,env) {
     const data=await env.AI.run("@cf/meta/llama-3.2-3b-instruct",{messages,temperature:0.65,max_tokens:2400});
     const raw=String(data&&data.response||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/,"");
     let parsed;
-    try{parsed=JSON.parse(raw);}catch(_){parsed={reply:raw,preferences:String(input.preferences||"")};}
+    try{parsed=JSON.parse(raw);}catch(_){
+      const replyMatch=raw.match(/(?:^|\n)\s*reply\s*=\s*"([\s\S]*?)"\s*(?:\n|$)/i);
+      const preferencesMatch=raw.match(/(?:^|\n)\s*preferences\s*=\s*"([\s\S]*?)"\s*(?:\n|$)/i);
+      parsed={reply:replyMatch?replyMatch[1].replace(/\\n/g,"\n").replace(/\\"/g,'"'):raw,preferences:preferencesMatch?preferencesMatch[1]:String(input.preferences||"")};
+    }
     let reply=String(parsed.reply||"").trim();
     if(!reply)return json({error:"Llama returned no answer"},502);
     return json({reply,preferences:String(parsed.preferences||input.preferences||"").slice(0,12000)});
