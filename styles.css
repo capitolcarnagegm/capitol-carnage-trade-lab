@@ -254,10 +254,10 @@ button.primary, .btn {
   color: #0a0a0a; border: none; border-radius: 8px;
   padding: 10px 14px; font-weight: 600; cursor: pointer; font-size: 13px;
 }
-button.secondary {
+button.secondary, a.secondary {
   background: transparent; color: var(--gold2);
   border: 1px solid var(--gold-dim); border-radius: 8px;
-  padding: 9px 12px; cursor: pointer; font-size: 13px;
+  padding: 9px 12px; cursor: pointer; font-size: 13px; text-decoration: none;
 }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 select, input[type="text"] {
