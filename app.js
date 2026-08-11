@@ -1,4 +1,4 @@
-/** GM's Locker 1.6 — Fantrax-authoritative league analysis. */
+/** GMS Locker 1.7 — multi-user, Fantrax-authoritative league analysis. */
 (function () {
   "use strict";
 
@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.21";
+  var VERSION = "1.7.0";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -26,6 +26,8 @@
   }
   if (window.addEventListener) window.addEventListener('load', renderPayPalButtons);
   var API_BASE = "https://api.gmslocker.com";
+  var SESSION_STORE = typeof sessionStorage !== "undefined" ? sessionStorage : { getItem: function () { return ""; }, setItem: function () {}, removeItem: function () {} };
+  var AUTH_TOKEN = SESSION_STORE.getItem("gms_session") || "";
   var COACH = localStorage.getItem("gms_coach") || "process";
 
   var COACHES = {
@@ -82,11 +84,30 @@
   };
 
   var state = {
+    account: null, workspaces: [], activeWorkspace: null, authEmail: "", authChallenge: "", authError: "", onboarding: null,
     teams: {}, players: {}, standings: [], picks: [], matchups: {}, leagueInfo: {}, teamData: {}, freeAgentData: {}, news: [], newsLoading: false, newsError: null, newsAsOf: null, games: [], gamesAsOf: null, gamesError: null, gamesLoading: false, gameSeasonType: 2,
     asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, selectedWaiverId: "", waiverAnalysisId: "", waiverAnalysisLoading: false, waiverContext: {}, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
     chat: safeJson(localStorage.getItem("gms_chat"), []), warChat: safeJson(localStorage.getItem("gms_war_chat"), []), tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: [],
     lineupSettingsDraft: null, lineupSettingsError: ""
   };
+
+  function authHeaders(extra) { var headers = extra || {}; if (AUTH_TOKEN) headers.Authorization = "Bearer " + AUTH_TOKEN; return headers; }
+  function scopedKey(name) { return name + "_" + (state.activeWorkspace && state.activeWorkspace.id || "none"); }
+  function applyWorkspace(workspace) {
+    state.activeWorkspace = workspace || null;
+    if (!workspace) return;
+    LEAGUE_ID = workspace.leagueId; MY_TEAM_ID = workspace.teamId; MY_TEAM = workspace.teamName;
+    localStorage.setItem("gms_active_workspace", workspace.id);
+    BYLAWS.name = workspace.leagueName || "Fantrax League";
+    BYLAWS.starters = sanitizeLineupRules(workspace.settings && workspace.settings.lineup) || savedLineupRules() || copyLineupRules(PRIDE_STARTERS);
+    state.chat = safeJson(localStorage.getItem(scopedKey("gms_chat")), []);
+    state.warChat = safeJson(localStorage.getItem(scopedKey("gms_war_chat")), []);
+    state.selectedTeam = MY_TEAM; state.tradeTeamA = MY_TEAM; state.tradeTeamB = "";
+    loadConversation("full"); loadConversation("war-room");
+  }
+
+  async function loadConversation(mode) { if (!state.activeWorkspace || !AUTH_TOKEN) return; try { var response = await fetch(API_BASE + "/account/conversation?workspaceId=" + encodeURIComponent(state.activeWorkspace.id) + "&mode=" + encodeURIComponent(mode), { headers: authHeaders({ Accept: "application/json" }), cache: "no-store" }); var data = await response.json(); if (!response.ok) return; var key = mode === "war-room" ? "warChat" : "chat"; state[key] = Array.isArray(data.history) ? data.history : []; if (data.preferences) localStorage.setItem(scopedKey("gms_preferences"), data.preferences); render(); } catch (_) {} }
+  function saveConversation(mode, history, preferences) { if (!state.activeWorkspace || !AUTH_TOKEN) return; postJson("/account/conversation", { workspaceId: state.activeWorkspace.id, mode: mode, history: history.slice(-40), preferences: preferences || localStorage.getItem(scopedKey("gms_preferences")) || "" }).catch(function () {}); }
 
   function safeJson(value, fallback) { try { return JSON.parse(value || "") || fallback; } catch (_) { return fallback; } }
   function esc(value) { return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
@@ -109,7 +130,7 @@
   async function syncFantrax() {
     state.loading = true; state.error = null; render();
     try {
-      var response = await fetch(API_BASE + "/league-data?leagueId=" + encodeURIComponent(LEAGUE_ID), { cache: "no-store", headers: { Accept: "application/json" } });
+      var response = await fetch(API_BASE + "/league-data?workspaceId=" + encodeURIComponent(state.activeWorkspace && state.activeWorkspace.id || ""), { cache: "no-store", headers: authHeaders({ Accept: "application/json" }) });
       var data = await response.json();
       if (!response.ok) throw new Error(data.detail || data.error || "Fantrax sync failed");
       state.players = data.players || {};
@@ -1002,11 +1023,18 @@
     return html + '</div><div class="actions"><button class="primary" onclick="GMS.saveLeagueLineupSettings()">Save league lineup</button><button class="secondary" onclick="GMS.loadPrideLineupSettings()">Load PRIDE bylaws</button><button class="secondary" onclick="GMS.cancelLeagueLineupChanges()">Cancel changes</button></div><p class="muted">These settings drive War Room, My Team, Start/Sit, team grades, rankings, waiver fit, and GM context. They simulate accepted lineups inside GMS Locker; they do not change Fantrax itself.</p></div>';
   }
 
-  function viewSettings() { var coach = COACHES[COACH] || COACHES.process, html = '<div class="card"><div class="sectionhead"><h2>App Personality</h2><span class="pill">CURRENT: ' + esc(coach.name) + '</span></div><div class="notice"><b>This is where the app’s personality lives.</b> It changes the tone and decision lens in War Room and GM Chat, while live Fantrax facts always remain the same.</div><div class="grid2">'; Object.keys(COACHES).forEach(function (key) { var c = COACHES[key]; html += '<button class="personality-card ' + (key === COACH ? "selected" : "") + '" onclick="GMS.setCoach(\'' + key + '\')"><b>' + esc(c.name) + '</b><span>' + esc(c.lens) + '</span></button>'; }); return html + '</div></div>' + lineupSettingsEditor() + mvpCheckout('settings') + '<div class="card"><h2>Data integrity</h2><div class="gate"><span>Projection source</span><b>Fantrax</b></div><div class="gate"><span>Performance source</span><b>Fantrax prior season</b></div><div class="gate"><span>Dead-cap source</span><b>Fantrax penalty table</b></div><div class="gate"><span>Last refresh</span><b>' + esc(state.asOf ? new Date(state.asOf).toLocaleString() : "Not synced") + '</b></div><div class="gate"><span>Version</span><b>' + VERSION + '</b></div><div class="actions"><button class="primary" onclick="GMS.sync()">Force live refresh</button></div></div>'; }
+  function accountCard() { return '<div class="card"><div class="sectionhead"><div><h2>Your account</h2><span class="small muted">' + esc(state.account && state.account.email) + '</span></div><button class="secondary" onclick="GMS.logout()">Sign out</button></div><div class="field"><label>Active league</label><select onchange="GMS.switchLeague(this.value)">' + state.workspaces.map(function (league) { return '<option value="' + esc(league.id) + '"' + (state.activeWorkspace && league.id === state.activeWorkspace.id ? ' selected' : '') + '>' + esc(league.leagueName + ' — ' + league.teamName) + '</option>'; }).join('') + '</select></div><div class="actions"><button class="primary" onclick="GMS.addLeague()">Add another league</button></div><p class="muted">Each league, team selection, lineup configuration, and chat history is private to this account. GMS Locker reads Fantrax only.</p></div>'; }
+  function viewSettings() { var coach = COACHES[COACH] || COACHES.process, html = accountCard() + '<div class="card"><div class="sectionhead"><h2>App Personality</h2><span class="pill">CURRENT: ' + esc(coach.name) + '</span></div><div class="notice"><b>This is where the app’s personality lives.</b> It changes the tone and decision lens in War Room and GM Chat, while live Fantrax facts always remain the same.</div><div class="grid2">'; Object.keys(COACHES).forEach(function (key) { var c = COACHES[key]; html += '<button class="personality-card ' + (key === COACH ? "selected" : "") + '" onclick="GMS.setCoach(\'' + key + '\')"><b>' + esc(c.name) + '</b><span>' + esc(c.lens) + '</span></button>'; }); return html + '</div></div>' + lineupSettingsEditor() + mvpCheckout('settings') + '<div class="card"><h2>Data integrity</h2><div class="gate"><span>Projection source</span><b>Fantrax</b></div><div class="gate"><span>Performance source</span><b>Fantrax prior season</b></div><div class="gate"><span>Dead-cap source</span><b>Fantrax penalty table</b></div><div class="gate"><span>Last refresh</span><b>' + esc(state.asOf ? new Date(state.asOf).toLocaleString() : "Not synced") + '</b></div><div class="gate"><span>Version</span><b>' + VERSION + '</b></div><div class="actions"><button class="primary" onclick="GMS.sync()">Force live refresh</button></div></div>'; }
   function viewContact() { return '<div class="card"><h2>Contact</h2><div class="contact-emails"><a class="email-card" href="mailto:gmslocker@gmail.com"><b>GMS Locker</b><span>gmslocker@gmail.com</span></a><a class="email-card" href="mailto:pinvaultcollectibles@gmail.com"><b>Pin Vault Collectibles</b><span>pinvaultcollectibles@gmail.com</span></a></div></div>'; }
+
+  function authScreen() { return '<div class="account-shell"><div class="card account-card"><span class="pill">PRIVATE ACCOUNT</span><h1>Sign in to GMS Locker</h1><p>Your leagues, teams, settings, and chats stay separated from every other GM.</p>' + (state.authError ? '<div class="error-banner">' + esc(state.authError) + '</div>' : '') + (!state.authChallenge ? '<div class="field"><label>Email address</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" value="' + esc(state.authEmail) + '"></div><button class="primary wide" onclick="GMS.requestCode()">Email my one-time code</button>' : '<p class="notice">A six-digit code was sent to <b>' + esc(state.authEmail) + '</b>.</p><div class="field"><label>One-time code</label><input id="authCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000"></div><button class="primary wide" onclick="GMS.verifyCode()">Sign in</button><button class="secondary wide" onclick="GMS.restartLogin()">Use another email</button>') + '<p class="small muted">New email addresses create an account automatically. GMS Locker never asks for your Fantrax password.</p></div></div>'; }
+  function onboardingScreen() { var found = state.onboarding && state.onboarding.teams; return '<div class="account-shell"><div class="card account-card"><span class="pill">LEAGUE SETUP</span><h1>Connect your Fantrax league</h1><p>Paste the league link or league ID. GMS Locker will verify read-only access, then you choose your team.</p>' + (state.authError ? '<div class="error-banner">' + esc(state.authError) + '</div>' : '') + '<div class="field"><label>Fantrax league link or ID</label><input id="leagueInput" placeholder="https://www.fantrax.com/... or league ID" value="' + esc(state.onboarding && state.onboarding.leagueId || '') + '"></div>' + (!found ? '<button class="primary wide" onclick="GMS.inspectLeague()">Find league</button>' : '<div class="field"><label>Your fantasy team</label><select id="teamInput"><option value="">Choose your team</option>' + found.map(function (team) { return '<option value="' + esc(team.id) + '">' + esc(team.name) + '</option>'; }).join('') + '</select></div><button class="primary wide" onclick="GMS.saveLeague()">Save league and open locker</button>') + (state.workspaces.length ? '<button class="secondary wide" onclick="GMS.cancelAddLeague()">Cancel</button>' : '') + '<p class="small muted">Fantrax remains read-only. Trades, bids, cuts, and lineup changes are simulations until you make them yourself in Fantrax.</p></div></div>'; }
 
   function render() {
     var root = document.getElementById("main"); if (!root) return;
+    document.body.classList.toggle("account-mode", !state.account || !state.activeWorkspace);
+    if (!state.account) { root.innerHTML = authScreen(); return; }
+    if (!state.activeWorkspace) { root.innerHTML = onboardingScreen(); return; }
     var view = localStorage.getItem("gms_view") || "war";
     if (view === "analysts") { view = "rankings"; localStorage.setItem("gms_view", view); }
     var views = { war: viewWar, team: viewTeam, startsit: viewStartSit, games: viewGames, teams: viewTeams, cap: viewCap, bhs: viewBhs, waivers: viewWaivers, trade: viewTrade, rankings: viewRankings, picks: viewPicks, news: viewNews, chat: viewChat, contact: viewContact, settings: viewSettings };
@@ -1027,19 +1055,37 @@
   function fullLeagueChatPayload(message, history, mode) {
     var grades = leagueGrades();
     var rosters = allTeamNames().map(function (name) { var g = grades[name]; return { team: name, grade: g && g.grade, score: g && g.score, metrics: g && g.metrics, players: teamPlayers(name).map(compactPlayer), picks: teamPicks(name), deadCap: existingDead(name), optimizedLineup: optimize(name) }; });
-    return { mode: mode, message: message, history: history, personality: COACHES[COACH], evaluationPolicy: EVALUATION_POLICY, league: BYLAWS, leagueInfo: state.leagueInfo, team: { name: MY_TEAM, opponent: opponentName(), gameDayStarters: lineupPreview(), optimizedStarters: optimize(MY_TEAM), fullRosterGrade: grades[MY_TEAM], cap: capProjection(MY_TEAM, []) }, leagueRosters: rosters, freeAgents: freeAgents().map(compactPlayer), draftPicks: state.picks, standings: state.standings, matchups: state.matchups, deadCap: existingDead(MY_TEAM), preferences: localStorage.getItem("gms_preferences") || "" };
+    return { workspaceId: state.activeWorkspace.id, mode: mode, message: message, history: history, personality: COACHES[COACH], evaluationPolicy: EVALUATION_POLICY, league: BYLAWS, leagueInfo: state.leagueInfo, team: { name: MY_TEAM, opponent: opponentName(), gameDayStarters: lineupPreview(), optimizedStarters: optimize(MY_TEAM), fullRosterGrade: grades[MY_TEAM], cap: capProjection(MY_TEAM, []) }, leagueRosters: rosters, freeAgents: freeAgents().map(compactPlayer), draftPicks: state.picks, standings: state.standings, matchups: state.matchups, deadCap: existingDead(MY_TEAM), preferences: localStorage.getItem(scopedKey("gms_preferences")) || "" };
   }
 
   async function sendScopedChat(inputId, stateKey, storageKey, mode) {
     var input = document.getElementById(inputId); if (!input || !input.value.trim()) return;
-    var text = input.value.trim(), thread = state[stateKey]; input.value = ""; thread.push({ role: "user", text: text }); localStorage.setItem(storageKey, JSON.stringify(thread.slice(-40))); render();
+    var text = input.value.trim(), thread = state[stateKey], scopedStorage = scopedKey(storageKey); input.value = ""; thread.push({ role: "user", text: text }); localStorage.setItem(scopedStorage, JSON.stringify(thread.slice(-40))); render();
     try {
-      var response = await fetch(API_BASE + "/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fullLeagueChatPayload(text, thread.slice(0, -1).slice(-40), mode)) });
+      var response = await fetch(API_BASE + "/chat", { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(fullLeagueChatPayload(text, thread.slice(0, -1).slice(-40), mode)) });
       var data = await response.json(); if (!response.ok) throw new Error(data.detail || data.error || "Chat failed");
-      thread.push({ role: "ai", text: data.reply || "I couldn't form a response." }); if (data.preferences) localStorage.setItem("gms_preferences", String(data.preferences).slice(0, 12000));
+      thread.push({ role: "ai", text: data.reply || "I couldn't form a response." }); if (data.preferences) localStorage.setItem(scopedKey("gms_preferences"), String(data.preferences).slice(0, 12000));
+      saveConversation(mode, thread, data.preferences);
     } catch (error) { thread.push({ role: "ai", text: "Chat could not answer: " + String(error.message || error) }); }
-    localStorage.setItem(storageKey, JSON.stringify(thread.slice(-40))); render();
+    localStorage.setItem(scopedStorage, JSON.stringify(thread.slice(-40))); render();
   }
+
+  async function loadAccount() {
+    if (!AUTH_TOKEN) { render(); return; }
+    try {
+      var me = await fetch(API_BASE + "/auth/me", { headers: authHeaders({ Accept: "application/json" }), cache: "no-store" });
+      if (!me.ok) throw new Error("Session expired");
+      state.account = (await me.json()).user;
+      var response = await fetch(API_BASE + "/account/leagues", { headers: authHeaders({ Accept: "application/json" }), cache: "no-store" });
+      var data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not load leagues");
+      state.workspaces = data.leagues || [];
+      var wanted = localStorage.getItem("gms_active_workspace");
+      applyWorkspace(state.workspaces.filter(function (league) { return league.id === wanted; })[0] || state.workspaces[0] || null);
+      render(); if (state.activeWorkspace) { refreshNews(true); syncFantrax(); }
+    } catch (_) { AUTH_TOKEN = ""; SESSION_STORE.removeItem("gms_session"); state.account = null; render(); }
+  }
+
+  async function postJson(path, body) { var response = await fetch(API_BASE + path, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(body || {}) }); var data = await response.json(); if (!response.ok) throw new Error(data.detail || data.error || "Request failed"); return data; }
 
   window.GMS = {
     sync: syncFantrax, news: function () { refreshNews(true); }, games: function (seasonType) { refreshGames(seasonType, true); },
@@ -1053,7 +1099,7 @@
       var player = freeAgents().filter(function (p) { return p.id === state.selectedWaiverId; })[0];
       state.waiverAnalysisId = state.selectedWaiverId; state.waiverAnalysisLoading = true; render();
       if (player) try {
-        var response = await fetch(API_BASE + "/waiver-context?name=" + encodeURIComponent(player.name) + "&team=" + encodeURIComponent(player.nfl || ""), { cache: "no-store", headers: { Accept: "application/json" } });
+        var response = await fetch(API_BASE + "/waiver-context?name=" + encodeURIComponent(player.name) + "&team=" + encodeURIComponent(player.nfl || ""), { cache: "no-store", headers: authHeaders({ Accept: "application/json" }) });
         state.waiverContext[player.id] = response.ok ? await response.json() : {};
       } catch (_) { state.waiverContext[player.id] = {}; }
       state.waiverAnalysisLoading = false; render();
@@ -1118,7 +1164,7 @@
       var rules = sanitizeLineupRules(state.lineupSettingsDraft), expected = (state.lineupSettingsDraft || []).reduce(function (sum, rule) { return sum + (Number(rule.count) || 0); }, 0);
       if (!rules || !expected) { state.lineupSettingsError = "Add at least one starter and accepted position before saving."; render(); return; }
       if (rules.reduce(function (sum, rule) { return sum + rule.count; }, 0) !== expected) { state.lineupSettingsError = "Every starter slot with a count must have at least one accepted position."; render(); return; }
-      BYLAWS.starters = copyLineupRules(rules); localStorage.setItem(lineupSettingsKey(), JSON.stringify(BYLAWS.starters)); state.lineupDraft = null; state.selectedLineupIndex = null; localStorage.removeItem("gms_lineup_preview"); state.lineupSettingsDraft = null; state.lineupSettingsError = ""; render();
+      BYLAWS.starters = copyLineupRules(rules); localStorage.setItem(lineupSettingsKey(), JSON.stringify(BYLAWS.starters)); if (state.activeWorkspace) { state.activeWorkspace.settings = state.activeWorkspace.settings || {}; state.activeWorkspace.settings.lineup = BYLAWS.starters; postJson("/account/league/settings", { workspaceId: state.activeWorkspace.id, settings: state.activeWorkspace.settings }).catch(function (error) { state.lineupSettingsError = "Saved on this device, but account sync failed: " + String(error.message || error); render(); }); } state.lineupDraft = null; state.selectedLineupIndex = null; localStorage.removeItem("gms_lineup_preview"); state.lineupSettingsDraft = null; state.lineupSettingsError = ""; render();
     },
     loadPrideLineupSettings: function () { state.lineupSettingsDraft = LINEUP_SLOT_CATALOG.map(function (base) { var pride = PRIDE_STARTERS.filter(function (rule) { return rule.slot === base.slot; })[0]; return { slot: base.slot, count: pride ? pride.count : 0, accept: (pride ? pride.accept : base.accept).slice() }; }); state.lineupSettingsError = ""; render(); },
     cancelLeagueLineupChanges: function () { state.lineupSettingsDraft = null; state.lineupSettingsError = ""; render(); },
@@ -1128,11 +1174,20 @@
     sendChat: async function () {
       return sendScopedChat("chatInput", "chat", "gms_chat", "full");
     },
-    sendWarRoomChat: async function () { return sendScopedChat("warChatInput", "warChat", "gms_war_chat", "war-room"); }
+    sendWarRoomChat: async function () { return sendScopedChat("warChatInput", "warChat", "gms_war_chat", "war-room"); },
+    requestCode: async function () { var input = document.getElementById("authEmail"); state.authEmail = String(input && input.value || "").trim(); state.authError = ""; try { var data = await postJson("/auth/request-code", { email: state.authEmail }); state.authChallenge = data.challengeId; } catch (error) { state.authError = String(error.message || error); } render(); },
+    verifyCode: async function () { var input = document.getElementById("authCode"); state.authError = ""; try { var data = await postJson("/auth/verify-code", { email: state.authEmail, challengeId: state.authChallenge, code: input && input.value }); AUTH_TOKEN = data.token; SESSION_STORE.setItem("gms_session", AUTH_TOKEN); state.account = data.user; state.authChallenge = ""; await loadAccount(); } catch (error) { state.authError = String(error.message || error); render(); } },
+    restartLogin: function () { state.authChallenge = ""; state.authError = ""; render(); },
+    logout: async function () { try { await postJson("/auth/logout", {}); } catch (_) {} AUTH_TOKEN = ""; SESSION_STORE.removeItem("gms_session"); state.account = null; state.activeWorkspace = null; state.workspaces = []; render(); },
+    inspectLeague: async function () { var input = document.getElementById("leagueInput"); state.authError = ""; try { state.onboarding = await postJson("/account/league/inspect", { league: input && input.value }); } catch (error) { state.authError = String(error.message || error); } render(); },
+    saveLeague: async function () { var select = document.getElementById("teamInput"), team = (state.onboarding && state.onboarding.teams || []).filter(function (item) { return item.id === String(select && select.value || ""); })[0]; state.authError = ""; if (!team) { state.authError = "Choose your fantasy team"; render(); return; } try { await postJson("/account/league", { leagueId: state.onboarding.leagueId, leagueName: state.onboarding.leagueName, teamId: team.id, teamName: team.name }); state.onboarding = null; await loadAccount(); } catch (error) { state.authError = String(error.message || error); render(); } },
+    addLeague: function () { state.activeWorkspace = null; state.onboarding = null; state.authError = ""; render(); },
+    cancelAddLeague: function () { applyWorkspace(state.workspaces[0] || null); state.onboarding = null; state.authError = ""; render(); },
+    switchLeague: function (id) { var league = state.workspaces.filter(function (item) { return item.id === id; })[0]; if (!league) return; applyWorkspace(league); state.teams = {}; state.asOf = null; state.lineupDraft = null; render(); syncFantrax(); }
   };
 
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".nav button").forEach(function (button) { button.addEventListener("click", function () { window.GMS.show(button.getAttribute("data-view")); }); });
-    render(); refreshNews(true); syncFantrax();
+    render(); loadAccount();
   });
 })();
