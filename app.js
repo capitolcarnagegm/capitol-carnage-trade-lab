@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.6.16";
+  var VERSION = "1.6.17";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -568,6 +568,38 @@
     return needs;
   }
 
+  function median(values) {
+    var good = values.filter(function (value) { return Number.isFinite(value); }).sort(function (a, b) { return a - b; });
+    if (!good.length) return null;
+    var middle = Math.floor(good.length / 2);
+    return good.length % 2 ? good[middle] : (good[middle - 1] + good[middle]) / 2;
+  }
+
+  function waiverMarket(p) {
+    var score = expectedScore(p);
+    if (score == null) return { valueCeiling: null, threats: [], marketBid: 0, facts: ["No Fantrax expectation was returned for a salary-value comparison"] };
+    var comparables = allRosteredPlayers().filter(function (x) {
+      return x.pos === p.pos && expectedScore(x) != null && x.salary > 0;
+    }).sort(function (a, b) { return Math.abs(expectedScore(a) - score) - Math.abs(expectedScore(b) - score); }).slice(0, 5);
+    var valueCeiling = median(comparables.map(function (x) { return x.salary; }));
+    var rooms = allTeamNames().map(function (name) { return Math.max(0, capProjection(name, []).currentRoom); });
+    var threats = allTeamNames().filter(function (name) { return name !== MY_TEAM; }).map(function (name) {
+      var roster = teamPlayers(name), same = roster.filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
+      var weakest = same[0] || null, need = (teamNeeds(name)[p.pos] || 0) > 0;
+      var upgrade = weakest ? score - expectedScore(weakest) : score;
+      var room = Math.max(0, capProjection(name, []).currentRoom);
+      var roomPct = percentile(room, rooms) || 0;
+      var interest = clamp((need ? 0.45 : 0.10) + (upgrade > 0 ? Math.min(0.35, upgrade / Math.max(1, Math.abs(score)) * 0.35) : 0) + roomPct / 100 * 0.20, 0, 1);
+      var estimatedBid = valueCeiling == null ? 0 : Math.min(room, valueCeiling * interest);
+      return { team: name, room: room, need: need, upgrade: upgrade, interest: interest, estimatedBid: estimatedBid };
+    }).filter(function (row) { return row.room > 0 && (row.need || row.upgrade > 0); }).sort(function (a, b) { return b.estimatedBid - a.estimatedBid; });
+    var facts = [];
+    if (valueCeiling != null) facts.push("Salary-value ceiling: " + money(valueCeiling) + " from the median of " + comparables.length + " closest same-position Fantrax comparables");
+    if (threats.length) facts.push("Likely competition: " + threats.slice(0, 3).map(function (row) { return row.team + " (" + money(row.room) + " room" + (row.need ? ", roster need" : ", projected upgrade") + ")"; }).join("; "));
+    else facts.push("No rival has both positive cap room and a detected " + p.pos + " need or projected upgrade");
+    return { valueCeiling: valueCeiling, threats: threats, marketBid: threats.length ? threats[0].estimatedBid : 0, facts: facts };
+  }
+
   function waiverReason(p) {
     var needs = teamNeeds(MY_TEAM), need = needs[p.pos] || 0, score = expectedScore(p), mine = teamPlayers(MY_TEAM).filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
     var replace = mine[0]; var pieces = [];
@@ -590,13 +622,14 @@
     else if (verdict === "MONITOR") reason = "Not a current projected upgrade or identified depth need. " + reason;
     else reason = "Recommended pickup. " + reason;
 
-    if (score == null) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: "Fantrax expectation unavailable" };
-    var comparables = allRosteredPlayers().filter(function (x) { return x.pos === p.pos && expectedScore(x) != null && x.salary > 0; }).sort(function (a, b) { return Math.abs(expectedScore(a) - score) - Math.abs(expectedScore(b) - score); });
-    var comparable = comparables[0] || null;
-    if (!comparable) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: "No salaried Fantrax comparable available" };
+    if (score == null) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: "Fantrax expectation unavailable", market: waiverMarket(p) };
+    var market = waiverMarket(p);
+    if (market.valueCeiling == null) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: market.facts.join(" · "), market: market };
     var room = capProjection(MY_TEAM, []).currentRoom;
-    var maxBid = verdict === "PASS" ? 0 : Math.max(0, Math.min(room, comparable.salary));
-    return { verdict: verdict, reason: reason, maxBid: maxBid, bidBasis: "Capped by " + comparable.name + " (" + money(comparable.salary) + ") and current room" };
+    var competitiveBid = market.threats.length ? market.marketBid + 0.1 : market.valueCeiling * 0.25;
+    var maxBid = verdict === "PASS" ? 0 : Math.max(0, Math.min(room, market.valueCeiling, competitiveBid));
+    var basis = market.facts.join(" · ") + " · Recommended ceiling respects Capitol Carnage room (" + money(room) + ") and never exceeds player value";
+    return { verdict: verdict, reason: reason, maxBid: maxBid, bidBasis: basis, market: market };
   }
 
   function waiverFitEvaluation(p) {
@@ -624,7 +657,7 @@
       answer("4. Do his projections support adding him?", call(projectionSupports && (hasNeed || improvesDepth), !projectionSupports ? "Fantrax returned no weekly or season projection to support the move." : (hasNeed || improvesDepth) ? "His returned projection supports a documented position need or depth upgrade." : "Fantrax projects him, but the projection does not solve a detected need or beat current depth."), [projection(p) == null ? "No weekly projection returned" : "Weekly projection: " + pts(projection(p)), seasonProjection(p) == null ? "No season projection returned" : "Season projection: " + pts(seasonProjection(p)), p.opponent ? "Opponent: " + p.opponent : "No opponent returned"]),
       answer("5. Does prior production support adding him?", call(productionSupports, production(p) == null ? "Fantrax returned no prior FP/G to support the move." : productionSupports ? "His " + pts(production(p)) + " prior FP/G beats the available same-position production comparator or no lower comparator was returned." : "His " + pts(production(p)) + " prior FP/G does not beat the same-position comparator."), [production(p) == null ? "No prior FP/G returned" : "Prior FP/G: " + pts(production(p)), p.age == null ? "No age returned" : "Age: " + p.age]),
       answer("6. Does live market evidence support the move?", call(marketSupports, marketSupports ? "Fantrax shows positive acquisition movement or at least 25% roster exposure." : "Fantrax shows neither positive acquisition movement nor at least 25% roster exposure."), [p.rosteredPct == null ? "No roster percentage returned" : "Rostered: " + p.rosteredPct.toFixed(0) + "%", p.rosterTrend == null ? "No roster trend returned" : "Roster trend: " + (p.rosterTrend > 0 ? "+" : "") + p.rosterTrend.toFixed(0) + "%"]),
-      answer("7. Final decision: will he help Capitol Carnage?", call(overallHelps, overallHelps ? advice.reason + " Maximum bid: " + (advice.maxBid == null ? "$0 because Fantrax returned no defensible salary comparable." : money(advice.maxBid) + ".") : "The live evidence does not show both a roster/depth benefit and supporting projection or production. Do not spend a blind bid on him."), [advice.bidBasis, "Current calculated cap room: " + money(cap.currentRoom), espnFact, nflFact])
+      answer("7. Final decision: will he help Capitol Carnage?", call(overallHelps, overallHelps ? advice.reason + " Recommended maximum blind bid: " + (advice.maxBid == null ? "$0 because Fantrax returned no defensible salary comparison." : money(advice.maxBid) + ".") : "The live evidence does not show both a roster/depth benefit and supporting projection or production. Do not spend a blind bid on him."), [advice.bidBasis, "Current calculated cap room: " + money(cap.currentRoom)].concat(advice.market ? advice.market.facts : []).concat([espnFact, nflFact]))
     ];
   }
 
@@ -647,8 +680,7 @@
       var weight = components.reduce(function (sum, component) { return sum + component.weight; }, 0);
       var evidenceScore = weight ? components.reduce(function (sum, component) { return sum + component.score * component.weight; }, 0) / weight : null;
       var projectionRank = percentile(expectedScore(p), same.map(expectedScore));
-      var overlooked = num(p.rosteredPct) != null ? num(p.rosteredPct) <= 50 : num(p.rosterTrend) > 0;
-      var qualifies = evidenceScore != null && projectionRank != null && projectionRank >= 60 && overlooked;
+      var qualifies = evidenceScore != null && projectionRank != null && projectionRank >= 60;
       var fitBonus = needs[p.pos] ? 5 : 0;
       var advice = waiverAdvice(p);
       var facts = [];
@@ -681,7 +713,7 @@
     html += '<div class="grid4"><div class="metric"><b>' + esc(mine.grade || "N/A") + '</b><span>Live roster grade</span></div><div class="metric"><b>' + pts(myOpt.total) + '</b><span>Expected lineup</span></div><div class="metric"><b>' + pts(oppOpt.total) + '</b><span>' + esc(opp) + '</span></div><div class="metric"><b class="' + (myOpt.total >= oppOpt.total ? "good" : "bad") + '">' + (myOpt.total >= oppOpt.total ? "+" : "") + pts(myOpt.total - oppOpt.total) + '</b><span>Current-week edge</span></div></div>';
     html += warRoomLineupControls();
     html += warRoomChat();
-    html += '<div class="card hidden-gems"><div class="sectionhead"><div><h2>Top 10 Hidden Gems in Free Agency</h2><span class="small muted">Live Fantrax value targets for Capitol Carnage</span></div><span class="pill">BUY WATCHLIST</span></div><div class="notice">Up to 10 players are shown. A hidden gem must rank at or above the 60th projection percentile among available players at his position and also be overlooked (50% rostered or less, or rising when roster percentage is unavailable). Ranking then uses Fantrax expectation 40%, prior production 20%, low roster rate 15%, trend 15%, and age 10%, reweighted when fields are missing, with a small roster-need tiebreaker.</div>';
+    html += '<div class="card hidden-gems"><div class="sectionhead"><div><h2>Top 10 Free-Agent Targets</h2><span class="small muted">Live Fantrax value targets for Capitol Carnage</span></div><span class="pill">BUY WATCHLIST</span></div><div class="notice">Every player available in PRIDE can qualify, regardless of ownership in other Fantrax leagues. Targets must rank at or above the 60th projection percentile at their position. Ranking uses Fantrax expectation 40%, prior production 20%, roster rate 15%, trend 15%, and age 10%, reweighted when fields are missing, with roster need as a tiebreaker. Blind bids account for every rival team’s remaining cap room, position need, and projected upgrade.</div>';
     if (!gems.length) html += '<div class="muted">No free agent currently clears the live hidden-gem evidence rules.</div>';
     gems.forEach(function (gem, index) { var p = gem.player, bid = gem.advice.maxBid == null ? "unavailable" : money(gem.advice.maxBid); html += '<div class="gem-card"><div class="gem-rank">' + (index + 1) + '</div><div class="gem-body"><div class="sectionhead"><div><h3>' + esc(p.name) + ' <span class="teamBadge">' + esc(p.pos) + '</span></h3><span class="small">' + esc(p.nfl || "NFL team unavailable") + (p.injury ? ' · ' + esc(p.injury) : '') + '</span></div><div class="gem-bid"><b>' + bid + '</b><span>Max blind bid</span></div></div><p><b>Why buy:</b> ' + esc(gem.facts.join("; ")) + '.</p><p class="muted">Evidence score ' + gem.evidenceScore.toFixed(1) + ' · ' + esc(gem.advice.bidBasis) + '</p></div></div>'; });
     html += '</div><div class="card"><h2>Opponent threats</h2>' + threats.map(function (p) { return '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + " · " + (p.injury || "No Fantrax injury flag")) + '</span></span><b>' + pts(expectedScore(p)) + '</b></div>'; }).join("") + '</div>';
@@ -793,7 +825,7 @@
       waiverFitEvaluation(analyzedPlayer).forEach(function (item) { html += '<article class="waiver-question"><h3>' + esc(item.question) + '</h3><p>' + esc(item.answer) + '</p><ul>' + item.facts.map(function (fact) { return '<li>' + esc(fact) + '</li>'; }).join('') + '</ul></article>'; });
       html += '</div>';
     }
-    html += '</div><div class="card"><div class="sectionhead"><h2>Waivers / Free Agency by Position</h2><button class="primary" onclick="GMS.sync()">Refresh free agents</button></div><div class="notice">Players are grouped by their primary Fantrax position and ranked within that position using live Fantrax expectation plus Capitol Carnage roster need. Pickup advice compares each player with your same-position depth. The blind-bid maximum uses the salary of the closest live projected, same-position rostered player and never exceeds current cap room; it shows unavailable when no Fantrax comparable exists.</div><div class="actions">';
+    html += '</div><div class="card"><div class="sectionhead"><h2>Waivers / Free Agency by Position</h2><button class="primary" onclick="GMS.sync()">Refresh free agents</button></div><div class="notice">Players are grouped by their primary Fantrax position and ranked within that position using live Fantrax expectation plus Capitol Carnage roster need. Pickup advice compares each player with your same-position depth. Recommended blind bids use the median salary of the five closest same-position players as a value ceiling, then model every rival team’s remaining cap room, position need, and projected upgrade. No unrelated player is described as an NFL-team cap.</div><div class="actions">';
     positionOrder.forEach(function (pos) { if (grouped[pos] && grouped[pos].length) html += '<a class="secondary" href="#free-agents-' + esc(pos.toLowerCase()) + '">' + esc(pos) + ' (' + grouped[pos].length + ')</a>'; });
     html += '</div></div>';
     positionOrder.forEach(function (pos) {
@@ -980,7 +1012,7 @@
     depth: function (teamName) { return depthMetrics(teamName || MY_TEAM); },
     power: function (teamName) { return leaguePowerGrades()[teamName || MY_TEAM]; },
     cap: function (teamName, cutIds) { return capProjection(teamName || MY_TEAM, cutIds || []); },
-    gems: hiddenGems, weeklyRisk: weeklyRisk, waiverFit: waiverFitEvaluation, waiverPlayers: freeAgents,
+    gems: hiddenGems, weeklyRisk: weeklyRisk, waiverFit: waiverFitEvaluation, waiverPlayers: freeAgents, waiverMarket: waiverMarket, waiverAdvice: waiverAdvice,
     selectWaiverPlayer: function (id) { state.selectedWaiverId = id || ""; state.waiverAnalysisId = ""; render(); },
     analyzeWaiverPlayer: async function () {
       if (!state.selectedWaiverId) return;
