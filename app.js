@@ -322,7 +322,7 @@
     var html = '<div class="card"><div class="sectionhead"><h2>League Teams</h2><span class="pill">' + names.length + ' TEAMS</span></div>';
     html += '<div class="field"><label>Team</label><select onchange="GMS.selectTeam(this.value)">';
     names.forEach(function (n) {
-      html += '<option value="' + esc(n) + '"' + (n === sel ? " selected" : "") + ">" + esc(n) + (n === MY_TEAM ? " (YOU)" : "") + "</option>';
+      html += '<option value="' + esc(n) + '"' + (n === sel ? " selected" : "") + '>' + esc(n) + (n === MY_TEAM ? " (YOU)" : "") + '</option>';
     });
     html += '</select></div>';
     html += '<div class="grid4" style="margin-top:10px">';
