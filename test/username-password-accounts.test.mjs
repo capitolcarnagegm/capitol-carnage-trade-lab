@@ -38,3 +38,12 @@ test("failed password attempts are rate limited", () => {
   assert.match(worker, /Too many sign-in attempts/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS password_login_attempts/);
 });
+
+test("legacy email-only accounts require email proof before credentials are attached", () => {
+  assert.match(worker, /LEGACY_VERIFICATION_REQUIRED/);
+  assert.match(worker, /login_codes/);
+  assert.match(worker, /RESEND_API_KEY/);
+  assert.match(worker, /username IS NULL AND password_hash IS NULL AND password_salt IS NULL/);
+  assert.match(app, /Six-digit email code/);
+  assert.match(app, /Verify and keep my account/);
+});
