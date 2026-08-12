@@ -653,6 +653,7 @@
     var result = {}; (info.salaryInfo || []).forEach(function (row) { result[row.key] = num(row.value); }); return result;
   }
 
+  function prideLeagueYear(now) { var date = now instanceof Date ? now : new Date(); return date.getFullYear() - (date.getMonth() < 2 ? 1 : 0); }
   function prideCapForYear(year) { return Math.round(CAP_NOW * Math.pow(1 + BYLAWS.capInflation, Math.max(0, Number(year) - 2026)) * 100) / 100; }
 
   function deadSchedule(salary, years) {
@@ -667,7 +668,7 @@
       var dead = offset === 0 ? currentDeadCharge : (offset === 1 ? salary * (BYLAWS.dead[remaining] == null ? 0 : BYLAWS.dead[remaining]) : 0);
       var roomChange = keptSalary - dead;
       return {
-        offset: offset, year: new Date().getFullYear() + offset, leagueCap: prideCapForYear(new Date().getFullYear() + offset),
+        offset: offset, year: prideLeagueYear(new Date()) + offset, leagueCap: prideCapForYear(prideLeagueYear(new Date()) + offset),
         keptSalaryAvoided: keptSalary, addedDeadCap: dead, netRoomChange: roomChange,
         outcome: roomChange > 0 ? "creates cap room" : roomChange < 0 ? "reduces cap room" : "no cap-room change"
       };
@@ -677,7 +678,7 @@
   function capProjection(teamName, cutIds) {
     var players = teamPlayers(teamName), penalties = existingDead(teamName), cuts = {};
     (cutIds || []).forEach(function (id) { cuts[id] = true; });
-    var currentYear = new Date().getFullYear();
+    var currentYear = prideLeagueYear(new Date());
     var dated = penalties.some(function (row) { return num(row.year) != null; });
     var currentDead = penalties.filter(function (row) { return !dated || num(row.year) == null || num(row.year) === currentYear; }).reduce(function (sum, row) { return sum + row.amount; }, 0);
     var existingNextDead = penalties.filter(function (row) { return num(row.year) === currentYear + 1; }).reduce(function (sum, row) { return sum + row.amount; }, 0);
