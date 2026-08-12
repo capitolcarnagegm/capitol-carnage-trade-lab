@@ -1,20 +1,18 @@
-name = "gmslocker-fantrax-proxy"
-main = "cloudflare-router.js"
-compatibility_date = "2026-08-11"
-compatibility_flags = ["nodejs_compat"]
+name = "gmslocker-api"
+main = "src/worker.js"
+compatibility_date = "2024-11-01"
 workers_dev = true
-
-[ai]
-binding = "AI"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "gms-locker-db"
 database_id = "4d3b93c6-25cf-42cc-9458-8fe6deb20c17"
-migrations_dir = "migrations"
+
+[ai]
+binding = "AI"
 
 [vars]
-AUTH_FROM_EMAIL = "GMS Locker <login@login.gmslocker.com>"
+OWNER_EMAIL = "gmslocker@gmail.com"
 
 [[routes]]
 pattern = "api.gmslocker.com"
