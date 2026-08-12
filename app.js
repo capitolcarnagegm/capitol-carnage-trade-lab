@@ -145,6 +145,8 @@
   }
   function eligibleForSlot(p, slot) { return playerPositions(p).some(function (pos) { return slot.accept.indexOf(pos) >= 0; }); }
   function unavailable(p) { return /OUT|INJURED_RESERVE|\bIR\b|SUSPEND/i.test(String(p.status) + " " + String(p.rosterSlot) + " " + String(p.injury)); }
+  function ir(p) { return /INJURED_RESERVE|(^|\b)IR(\b|$)/i.test(String(p.status) + " " + String(p.rosterSlot)); }
+  function capSalary(p) { return ir(p) ? 0 : Number(p.salary) || 0; }
   function taxi(p) { return /TAXI|MINOR/i.test(String(p.status) + " " + String(p.rosterSlot)); }
 
   async function syncFantrax() {
@@ -662,8 +664,8 @@
     var existingNextDead = penalties.filter(function (row) { return num(row.year) === currentYear + 1; }).reduce(function (sum, row) { return sum + row.amount; }, 0);
     var selectedCuts = players.filter(function (p) { return cuts[p.id]; });
     var team = teamByName(teamName), cap = team && team.salaryCap != null ? team.salaryCap : CAP_NOW;
-    var rosterSalary = players.reduce(function (sum, p) { return sum + p.salary; }, 0);
-    var cutSalary = selectedCuts.reduce(function (sum, p) { return sum + p.salary; }, 0);
+    var rosterSalary = players.reduce(function (sum, p) { return sum + capSalary(p); }, 0);
+    var cutSalary = selectedCuts.reduce(function (sum, p) { return sum + capSalary(p); }, 0);
     var newDeadNow = selectedCuts.reduce(function (sum, p) { return sum + deadSchedule(p.salary, p.years).now; }, 0);
     var newDeadNext = selectedCuts.reduce(function (sum, p) { return sum + deadSchedule(p.salary, p.years).next; }, 0);
     var expiring = players.filter(function (p) { return !cuts[p.id] && p.years <= 1; });
@@ -673,6 +675,7 @@
     var nextDead = existingNextDead + newDeadNext;
     return {
       cap: cap, nextCap: cap * (1 + BYLAWS.capInflation), rosterSalary: rosterSalary, currentDead: currentDead,
+      irSalaryExcluded: players.filter(ir).reduce(function (sum, p) { return sum + (Number(p.salary) || 0); }, 0),
       currentUsed: rosterSalary + currentDead, currentRoom: cap - rosterSalary - currentDead,
       cutSalary: cutSalary, newDeadNow: newDeadNow, newDeadNext: newDeadNext,
       afterRosterSalary: rosterSalary - cutSalary, afterDead: currentDead + newDeadNow,
@@ -1117,19 +1120,84 @@
   function evaluateTradeHtml() {
     var giveA = selectedAssets("A", state.tradeTeamA), giveB = selectedAssets("B", state.tradeTeamB);
     if (!giveA.length && !giveB.length) return '<div class="error-banner">Select at least one player or pick.</div>';
+
+    function knownAverage(players, selector) {
+      var values = players.map(selector).filter(function (value) { return value != null && Number.isFinite(Number(value)); }).map(Number);
+      return values.length ? mean(values) : null;
+    }
+
     function summary(receivingTeam, outgoing, incoming) {
       var outPlayers = outgoing.filter(function (a) { return a.type === "player"; }).map(function (a) { return a.player; });
       var inPlayers = incoming.filter(function (a) { return a.type === "player"; }).map(function (a) { return a.player; });
-      var valueOut = outgoing.reduce(function (s, a) { return s + tradeAssetValue(a); }, 0), valueIn = incoming.reduce(function (s, a) { return s + tradeAssetValue(a); }, 0);
-      var weeklyOut = outPlayers.reduce(function (s, p) { return s + (expectedScore(p) || 0); }, 0), weeklyIn = inPlayers.reduce(function (s, p) { return s + (expectedScore(p) || 0); }, 0);
-      var seasonOut = outPlayers.reduce(function (s, p) { return s + (seasonProjection(p) || 0); }, 0), seasonIn = inPlayers.reduce(function (s, p) { return s + (seasonProjection(p) || 0); }, 0);
-      var salaryOut = outPlayers.reduce(function (s, p) { return s + p.salary; }, 0), salaryIn = inPlayers.reduce(function (s, p) { return s + p.salary; }, 0);
-      var needs = teamNeeds(receivingTeam), needFits = inPlayers.filter(function (p) { return needs[p.pos]; }).map(function (p) { return p.name + " fills " + p.pos; });
-      return { team: receivingTeam, outgoing: outgoing, incoming: incoming, value: valueIn - valueOut, weekly: weeklyIn - weeklyOut, season: seasonIn - seasonOut, salary: salaryIn - salaryOut, needFits: needFits };
+      var outgoingIds = {}; outPlayers.forEach(function (p) { outgoingIds[p.id] = true; });
+      var beforeRoster = teamPlayers(receivingTeam);
+      var afterRoster = beforeRoster.filter(function (p) { return !outgoingIds[p.id]; }).concat(inPlayers);
+      var beforeLineup = optimizePlayers(beforeRoster), afterLineup = optimizePlayers(afterRoster);
+      var valueOut = outgoing.reduce(function (sum, asset) { return sum + tradeAssetValue(asset); }, 0);
+      var valueIn = incoming.reduce(function (sum, asset) { return sum + tradeAssetValue(asset); }, 0);
+      var weeklyOut = outPlayers.reduce(function (sum, p) { return sum + (expectedScore(p) || 0); }, 0);
+      var weeklyIn = inPlayers.reduce(function (sum, p) { return sum + (expectedScore(p) || 0); }, 0);
+      var seasonOut = outPlayers.reduce(function (sum, p) { return sum + (seasonProjection(p) || 0); }, 0);
+      var seasonIn = inPlayers.reduce(function (sum, p) { return sum + (seasonProjection(p) || 0); }, 0);
+      var capOut = outPlayers.reduce(function (sum, p) { return sum + capSalary(p); }, 0);
+      var capIn = inPlayers.reduce(function (sum, p) { return sum + capSalary(p); }, 0);
+      var cap = capProjection(receivingTeam, []);
+      var capChange = capIn - capOut;
+      var postTradeRoom = cap.currentRoom - capChange;
+      var needProfile = teamNeedProfile(receivingTeam);
+      var affected = {};
+      outPlayers.concat(inPlayers).forEach(function (p) { playerPositions(p).forEach(function (pos) { affected[pos] = true; }); });
+      var depthChanges = Object.keys(affected).map(function (pos) {
+        function usable(roster) { return roster.filter(function (p) { return playerPositions(p).indexOf(pos) >= 0 && !taxi(p) && !unavailable(p) && expectedScore(p) != null; }).length; }
+        var before = usable(beforeRoster), after = usable(afterRoster), delta = after - before;
+        return pos + " usable depth " + before + "→" + after + (delta ? " (" + (delta > 0 ? "+" : "") + delta + ")" : " (no change)");
+      });
+      var needFits = inPlayers.map(function (p) {
+        var profile = needProfile[p.pos];
+        if (!profile || profile.score == null) return null;
+        return p.name + " enters a " + Math.round(profile.score) + "/100 " + p.pos + " need (" + profile.reasons.join(", ") + ")";
+      }).filter(Boolean);
+      var ageOut = knownAverage(outPlayers, function (p) { return p.age; });
+      var ageIn = knownAverage(inPlayers, function (p) { return p.age; });
+      var yearsOut = knownAverage(outPlayers, function (p) { return p.years; });
+      var yearsIn = knownAverage(inPlayers, function (p) { return p.years; });
+      var window = teamWindow(receivingTeam);
+      var dynastyFacts = [];
+      dynastyFacts.push("Competitive window: " + window + ".");
+      dynastyFacts.push("Best legal lineup: " + beforeLineup.total.toFixed(1) + "→" + afterLineup.total.toFixed(1) + " FP/G (" + ((afterLineup.total - beforeLineup.total) >= 0 ? "+" : "") + (afterLineup.total - beforeLineup.total).toFixed(1) + ").");
+      dynastyFacts.push(depthChanges.length ? depthChanges.join("; ") + "." : "No scored position group changes in the selected package.");
+      if (ageIn != null || ageOut != null) dynastyFacts.push("Average player age: send " + (ageOut == null ? "unavailable" : ageOut.toFixed(1)) + ", receive " + (ageIn == null ? "unavailable" : ageIn.toFixed(1)) + ".");
+      if (yearsIn != null || yearsOut != null) dynastyFacts.push("Average contract control: send " + (yearsOut == null ? "unavailable" : yearsOut.toFixed(1) + " years") + ", receive " + (yearsIn == null ? "unavailable" : yearsIn.toFixed(1) + " years") + ".");
+      dynastyFacts.push("Cap after trade: " + money(postTradeRoom) + " room. Existing cut-player dead cap of " + money(cap.currentDead) + " remains charged; IR salary is excluded.");
+      return {
+        team: receivingTeam, outgoing: outgoing, incoming: incoming, value: valueIn - valueOut,
+        weekly: weeklyIn - weeklyOut, season: seasonIn - seasonOut,
+        lineup: afterLineup.total - beforeLineup.total, capChange: capChange, postTradeRoom: postTradeRoom,
+        currentDead: cap.currentDead, capLegal: postTradeRoom >= 0, needFits: needFits,
+        dynastyFacts: dynastyFacts, window: window
+      };
     }
+
     var a = summary(state.tradeTeamA, giveA, giveB), b = summary(state.tradeTeamB, giveB, giveA);
-    function block(s) { var verdict = s.value > 12 ? "Favorable" : s.value < -12 ? "Unfavorable" : "Close / needs-based"; return '<div class="card"><h3>' + esc(s.team) + ': ' + verdict + '</h3><div class="grid4"><div class="metric"><b class="' + (s.value >= 0 ? "good" : "bad") + '">' + (s.value >= 0 ? "+" : "") + s.value.toFixed(1) + '</b><span>Composite value</span></div><div class="metric"><b>' + (s.weekly >= 0 ? "+" : "") + s.weekly.toFixed(1) + '</b><span>Weekly expectation</span></div><div class="metric"><b>' + (s.season >= 0 ? "+" : "") + s.season.toFixed(1) + '</b><span>Season projection</span></div><div class="metric"><b>' + (s.salary >= 0 ? "+" : "") + money(s.salary) + '</b><span>Salary change</span></div></div><p><b>Receives:</b> ' + esc(s.incoming.map(function (x) { return x.name; }).join(", ") || "Nothing") + '</p><p><b>Sends:</b> ' + esc(s.outgoing.map(function (x) { return x.name; }).join(", ") || "Nothing") + '</p><p><b>Roster fit:</b> ' + esc(s.needFits.join("; ") || "No direct thin-position fit identified") + '.</p><p class="muted">Composite value uses Fantrax expectations and prior production, salary, contract years, age, injury availability, and pick round/year. It is a decision aid, not a fabricated market price.</p></div>'; }
-    return '<div class="notice"><b>Bottom line:</b> ' + (Math.abs(a.value) <= 12 ? 'The deal is close on total value; decide by lineup fit and competitive window.' : (a.value > 0 ? esc(state.tradeTeamA) : esc(state.tradeTeamB)) + ' receives the stronger package on the current live inputs.') + '</div><div class="grid2">' + block(a) + block(b) + '</div>';
+    function block(s) {
+      var verdict = !s.capLegal ? "Illegal under current cap" : s.value > 12 ? "Favorable" : s.value < -12 ? "Unfavorable" : "Close — roster and dynasty context decides";
+      var fit = s.needFits.length ? s.needFits.join("; ") : "No incoming player directly addresses a measured positional need.";
+      return '<div class="card"><h3>' + esc(s.team) + ': ' + esc(verdict) + '</h3><div class="grid4">' +
+        '<div class="metric"><b class="' + (s.value >= 0 ? "good" : "bad") + '">' + (s.value >= 0 ? "+" : "") + s.value.toFixed(1) + '</b><span>Composite dynasty value</span></div>' +
+        '<div class="metric"><b>' + (s.lineup >= 0 ? "+" : "") + s.lineup.toFixed(1) + '</b><span>Legal-lineup FP/G</span></div>' +
+        '<div class="metric"><b>' + (s.capChange <= 0 ? "" : "+") + money(s.capChange) + '</b><span>Counted salary change</span></div>' +
+        '<div class="metric"><b class="' + (s.capLegal ? "good" : "bad") + '">' + money(s.postTradeRoom) + '</b><span>Post-trade cap room</span></div></div>' +
+        '<p><b>Receives:</b> ' + esc(s.incoming.map(function (x) { return x.name; }).join(", ") || "Nothing") + '</p>' +
+        '<p><b>Sends:</b> ' + esc(s.outgoing.map(function (x) { return x.name; }).join(", ") || "Nothing") + '</p>' +
+        '<p><b>Roster fit:</b> ' + esc(fit) + '</p>' +
+        s.dynastyFacts.map(function (fact) { return '<div class="gate"><span>' + esc(fact) + '</span></div>'; }).join("") +
+        '<p class="muted">The recommendation weighs legal-lineup production, position-by-position usable depth, age, contract control, injury availability, draft capital, competitive window, and cap efficiency together. Cap space is a legality constraint, not a reason by itself to make the trade.</p></div>';
+    }
+    var bottomLine;
+    if (!a.capLegal || !b.capLegal) bottomLine = "The trade is not currently legal for " + [!a.capLegal ? a.team : "", !b.capLegal ? b.team : ""].filter(Boolean).join(" and ") + " after counted salaries and existing dead cap.";
+    else if (Math.abs(a.value) <= 12) bottomLine = "The packages are close on composite dynasty value. Use the legal-lineup, depth, age, contract, and competitive-window changes below to decide.";
+    else bottomLine = (a.value > 0 ? a.team : b.team) + " receives the stronger total dynasty package on the current live inputs.";
+    return '<div class="notice"><b>Bottom line:</b> ' + esc(bottomLine) + '</div><div class="grid2">' + block(a) + block(b) + '</div>';
   }
 
   function rankingExplanation(name, ranking, position, total) {
