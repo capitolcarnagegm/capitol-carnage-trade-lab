@@ -317,17 +317,36 @@ async function handleLeagueData(request, url, auth) {
   if (!workspace) return json({ error: "League not found in your account" }, 404);
   const leagueId = workspace.fantrax_league_id;
   try {
-    const [rosters, players, standings, picks, matchups, leagueInfo] = await Promise.all([
-      fantrax("getTeamRosters", leagueId), fantrax("getPlayerIds", leagueId), fantrax("getStandings", leagueId),
-      fantrax("getDraftPicks", leagueId), fantrax("getMatchupScores", leagueId), fantrax("getLeagueInfo", leagueId)
+    // Rosters are the only response required to render the app. Fantrax can
+    // temporarily reject offseason matchups, picks, or an individual stats
+    // request; those optional failures must not erase every successful feed.
+    const rosters = await fantrax("getTeamRosters", leagueId);
+    const warnings = [];
+    async function optional(label, request, fallback) {
+      try { return await request(); }
+      catch (error) { warnings.push(label + ": " + String(error?.message || error)); return fallback; }
+    }
+    const [players, standings, picks, matchups, leagueInfo] = await Promise.all([
+      optional("Player IDs", () => fantrax("getPlayerIds", leagueId), {}),
+      optional("Standings", () => fantrax("getStandings", leagueId), []),
+      optional("Draft picks", () => fantrax("getDraftPicks", leagueId), { futureDraftPicks: [] }),
+      optional("Matchups", () => fantrax("getMatchupScores", leagueId), {}),
+      optional("League info", () => fantrax("getLeagueInfo", leagueId), {})
     ]);
     const teamIds = Object.keys(rosters.rosters || {});
-    const teamResponses = await Promise.all(teamIds.map(async (teamId) => {
-      const result = await fantraxPa(leagueId, [statsMessage(leagueId, teamId, SEASON_PROJ), statsMessage(leagueId, teamId, WEEKLY_PROJ), statsMessage(leagueId, teamId, LAST_SEASON)]);
-      const responses = result.responses || [];
-      return { teamId, season: parseStatsResponse(responses[0]), weekly: parseStatsResponse(responses[1]), performance: parseStatsResponse(responses[2]) };
-    }));
-    const poolResult = await fantraxPa(leagueId, [poolMessage(leagueId, SEASON_PROJ), poolMessage(leagueId, WEEKLY_PROJ), poolMessage(leagueId, LAST_SEASON)]);
+    const teamResponses = [];
+    // Small batches avoid bursting Fantrax with every roster request at once.
+    for (let index = 0; index < teamIds.length; index += 3) {
+      const batch = await Promise.all(teamIds.slice(index, index + 3).map(async (teamId) => {
+        return optional("Team stats " + teamId, async () => {
+          const result = await fantraxPa(leagueId, [statsMessage(leagueId, teamId, SEASON_PROJ), statsMessage(leagueId, teamId, WEEKLY_PROJ), statsMessage(leagueId, teamId, LAST_SEASON)]);
+          const responses = result.responses || [];
+          return { teamId, season: parseStatsResponse(responses[0]), weekly: parseStatsResponse(responses[1]), performance: parseStatsResponse(responses[2]) };
+        }, { teamId, season: parseStatsResponse(null), weekly: parseStatsResponse(null), performance: parseStatsResponse(null) });
+      }));
+      teamResponses.push(...batch);
+    }
+    const poolResult = await optional("Free agents", () => fantraxPa(leagueId, [poolMessage(leagueId, SEASON_PROJ), poolMessage(leagueId, WEEKLY_PROJ), poolMessage(leagueId, LAST_SEASON)]), { responses: [] });
     const poolResponses = poolResult.responses || [];
     const poolSeason = parseStatsResponse(poolResponses[0]);
     const poolWeekly = parseStatsResponse(poolResponses[1]);
@@ -335,7 +354,7 @@ async function handleLeagueData(request, url, auth) {
     const teamData = {};
     for (const result of teamResponses) teamData[result.teamId] = result;
     return json({
-      ok: true, source: "Fantrax live", syncedAt: new Date().toISOString(), workspace: { id: workspace.id, leagueId, leagueName: workspace.league_name, teamId: workspace.team_id, teamName: workspace.team_name }, rosters, players, standings, picks, matchups, leagueInfo,
+      ok: true, partial: warnings.length > 0, warnings, source: "Fantrax live", syncedAt: new Date().toISOString(), workspace: { id: workspace.id, leagueId, leagueName: workspace.league_name, teamId: workspace.team_id, teamName: workspace.team_name }, rosters, players, standings, picks, matchups, leagueInfo,
       teamData,
       freeAgents: {
         season: poolSeason.players,
