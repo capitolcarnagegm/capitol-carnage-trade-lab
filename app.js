@@ -1,4 +1,4 @@
-/** GMS Locker 1.11.1 — resilient browser startup and navigation. */
+/** GMS Locker 1.11.2 — responsive startup and non-blocking refresh. */
 (function () {
   "use strict";
 
@@ -26,7 +26,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.11.1";
+  var VERSION = "1.11.2";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -108,7 +108,7 @@
     teams: {}, players: {}, standings: [], picks: [], matchups: {}, leagueInfo: {}, teamData: {}, freeAgentData: {}, supplementalProjections: {}, news: [], newsLoading: false, newsError: null, newsAsOf: null, games: [], gamesAsOf: null, gamesError: null, gamesLoading: false, gameSeasonType: 2,
     asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, warTeam: MY_TEAM, warTeamId: MY_TEAM_ID, selectedWaiverIds: [], waiverAnalysisIds: [], waiverAnalysisLoading: false, waiverContext: {}, waiverPage: 1, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
     chat: safeJson(localStorage.getItem("gms_chat"), []), warChat: safeJson(localStorage.getItem("gms_war_chat"), []), tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: [],
-    lineupSettingsDraft: null, lineupSettingsError: ""
+    lineupSettingsDraft: null, lineupSettingsError: "", currentView: "leagues"
   };
 
   function authHeaders(extra) { var headers = extra || {}; if (AUTH_TOKEN) headers.Authorization = "Bearer " + AUTH_TOKEN; return headers; }
@@ -148,7 +148,10 @@
   function taxi(p) { return /TAXI|MINOR/i.test(String(p.status) + " " + String(p.rosterSlot)); }
 
   async function syncFantrax() {
-    state.loading = true; state.error = null; render();
+    state.loading = true; state.error = null;
+    var syncButton = document.getElementById("syncBtn"), asof = document.getElementById("asof");
+    if (syncButton) { syncButton.disabled = true; syncButton.textContent = "Refreshing…"; }
+    if (asof) asof.innerHTML = "<b>Refreshing Fantrax…</b>";
     try {
       var response = await fetch(API_BASE + "/league-data?workspaceId=" + encodeURIComponent(state.activeWorkspace && state.activeWorkspace.id || ""), { cache: "no-store", headers: authHeaders({ Accept: "application/json" }) });
       var data = await response.json();
@@ -171,6 +174,7 @@
     } catch (error) {
       state.loading = false; state.error = String(error.message || error);
     }
+    if (syncButton) { syncButton.disabled = false; syncButton.textContent = "Refresh"; }
     render();
   }
 
@@ -1228,7 +1232,7 @@
     if (!state.account) { root.innerHTML = authScreen(); return; }
     if (state.access && !state.access.allowed) { root.innerHTML = paymentScreen(); renderPayPalButtons(); return; }
     if (!state.activeWorkspace) { root.innerHTML = onboardingScreen(); return; }
-    var view = localStorage.getItem("gms_view") || "war";
+    var view = state.currentView || "leagues";
     if (view === "analysts") { view = "rankings"; localStorage.setItem("gms_view", view); }
     var views = { war: viewWar, leagues: viewLeagues, team: viewTeam, startsit: viewStartSit, games: viewGames, teams: viewTeams, cap: viewCap, bhs: viewBhs, waivers: viewWaivers, trade: viewTrade, rankings: viewRankings, picks: viewPicks, news: viewNews, chat: viewChat, contact: viewContact, settings: viewSettings };
     document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); });
@@ -1354,7 +1358,7 @@
         target += direction;
       }
     },
-    show: function (view) { if (view === "addleague") { GMS.addLeague(); return; } localStorage.setItem("gms_view", view); document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); }); var root = document.getElementById("main"); if (root) root.setAttribute("aria-busy", "true"); requestAnimationFrame(function () { if (view === "games" && !state.gamesLoading && !state.gamesAsOf) refreshGames(state.gameSeasonType, true); else if (view === "news" && !state.newsLoading && !state.newsAsOf) refreshNews(true); else render(); if (root) root.removeAttribute("aria-busy"); }); },
+    show: function (view) { if (view === "addleague") { GMS.addLeague(); return; } state.currentView = view; localStorage.setItem("gms_view", view); document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); }); var root = document.getElementById("main"); if (root) { root.setAttribute("aria-busy", "true"); root.innerHTML = '<div class="loading compact-loading">Opening page…</div>'; } setTimeout(function () { if (view !== state.currentView) return; if (view === "games" && !state.gamesLoading && !state.gamesAsOf) refreshGames(state.gameSeasonType, true); else if (view === "news" && !state.newsLoading && !state.newsAsOf) refreshNews(true); else render(); if (root) root.removeAttribute("aria-busy"); }, 0); },
     waiverPage: function (page) { state.waiverPage = Math.max(1, Number(page) || 1); render(); window.scrollTo({ top: document.getElementById("nav").offsetTop, behavior: "smooth" }); },
     selectTeam: function (name) { state.selectedTeam = name; render(); },
     selectWarTeam: function (teamId) { var team = state.teams[String(teamId || "")]; if (team) { state.warTeamId = team.id; state.warTeam = team.name; state.warChat = []; } render(); },
@@ -1397,6 +1401,8 @@
   };
 
   function boot() {
+    function requestedView() { var saved = localStorage.getItem("gms_view"); return saved && ["leagues", "team", "startsit", "games", "teams", "cap", "bhs", "trade", "rankings", "picks", "news", "chat", "contact", "settings"].indexOf(saved) >= 0 ? saved : "leagues"; }
+    state.currentView = requestedView();
     document.querySelectorAll(".nav button").forEach(function (button) { button.addEventListener("click", function () { window.GMS.show(button.getAttribute("data-view")); }); });
     try { render(); loadAccount(); }
     catch (error) {
