@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.9.0";
+  var VERSION = "1.9.1";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -86,7 +86,7 @@
   var state = {
     account: null, access: null, ownerAccounts: [], workspaces: [], activeWorkspace: null, authMode: "login", authUsername: "", authEmail: "", authLegacy: false, authError: "", onboarding: null,
     teams: {}, players: {}, standings: [], picks: [], matchups: {}, leagueInfo: {}, teamData: {}, freeAgentData: {}, news: [], newsLoading: false, newsError: null, newsAsOf: null, games: [], gamesAsOf: null, gamesError: null, gamesLoading: false, gameSeasonType: 2,
-    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, warTeam: MY_TEAM, selectedWaiverId: "", waiverAnalysisId: "", waiverAnalysisLoading: false, waiverContext: {}, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
+    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, warTeam: MY_TEAM, warTeamId: MY_TEAM_ID, selectedWaiverId: "", waiverAnalysisId: "", waiverAnalysisLoading: false, waiverContext: {}, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
     chat: safeJson(localStorage.getItem("gms_chat"), []), warChat: safeJson(localStorage.getItem("gms_war_chat"), []), tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: [],
     lineupSettingsDraft: null, lineupSettingsError: ""
   };
@@ -102,7 +102,7 @@
     BYLAWS.starters = sanitizeLineupRules(workspace.settings && workspace.settings.lineup) || savedLineupRules() || copyLineupRules(PRIDE_STARTERS);
     state.chat = safeJson(localStorage.getItem(scopedKey("gms_chat")), []);
     state.warChat = safeJson(localStorage.getItem(scopedKey("gms_war_chat")), []);
-    state.selectedTeam = MY_TEAM; state.warTeam = MY_TEAM; state.tradeTeamA = MY_TEAM; state.tradeTeamB = "";
+    state.selectedTeam = MY_TEAM; state.warTeam = MY_TEAM; state.warTeamId = MY_TEAM_ID; state.tradeTeamA = MY_TEAM; state.tradeTeamB = "";
     loadConversation("full"); loadConversation("war-room");
   }
 
@@ -787,12 +787,14 @@
   }
 
   function viewWar() {
-    var names = allTeamNames(), teamName = names.indexOf(state.warTeam) >= 0 ? state.warTeam : MY_TEAM, profile = leagueRatingProfile();
-    state.warTeam = teamName;
+    var teams = Object.keys(state.teams).map(function (id) { return state.teams[id]; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+    var selected = state.teams[state.warTeamId] || teamByName(state.warTeam) || state.teams[MY_TEAM_ID] || teams[0];
+    var teamName = selected ? selected.name : MY_TEAM, profile = leagueRatingProfile();
+    state.warTeam = teamName; state.warTeamId = selected ? selected.id : "";
     var grades = leagueGrades(), mine = grades[teamName] || {}, opp = opponentName(teamName), myOpt = optimize(teamName), oppOpt = optimize(opp);
     var gems = hiddenGems(teamName), needs = teamNeeds(teamName), picks = teamPicks(teamName), cap = capProjection(teamName, []);
     var threats = teamPlayers(opp).filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 5);
-    var html = '<div class="card"><div class="sectionhead"><div><h2>' + esc(teamName) + ' War Room</h2><span class="small muted">Every recommendation below is recalculated for this team</span></div><span class="pill">' + esc(profile.source) + '</span></div><div class="field"><label>Analyze team</label><select onchange="GMS.selectWarTeam(this.value)">' + names.map(function (name) { return '<option value="' + esc(name) + '"' + (name === teamName ? ' selected' : '') + '>' + esc(name) + '</option>'; }).join('') + '</select></div><div class="notice"><b>League-specific rating:</b> live Fantrax projections already reflect this league’s scoring. The optimizer uses this league’s saved lineup (' + BYLAWS.starters.reduce(function (sum, slot) { return sum + slot.count; }, 0) + ' starters), ' + (profile.idp ? 'including IDP' : 'offense only') + (profile.superflex ? ', Superflex' : '') + (profile.tePremium ? ', TE premium' : '') + (profile.sackPremium ? ', sack premium' : '') + '. No generic roster template is substituted.</div><div class="actions"><button class="primary" onclick="GMS.sync()">Refresh analysis</button><button class="secondary" onclick="GMS.news()">Refresh news</button></div></div>';
+    var html = '<div class="card"><div class="sectionhead"><div><h2>' + esc(teamName) + ' War Room</h2><span class="small muted">Every recommendation below is recalculated for this team</span></div><span class="pill">' + esc(profile.source) + '</span></div><div class="field"><label>Analyze team</label><select id="warTeamSelect">' + teams.map(function (team) { return '<option value="' + esc(team.id) + '"' + (selected && team.id === selected.id ? ' selected' : '') + '>' + esc(team.name) + '</option>'; }).join('') + '</select></div><div class="notice"><b>League-specific rating:</b> live Fantrax projections already reflect this league’s scoring. The optimizer uses this league’s saved lineup (' + BYLAWS.starters.reduce(function (sum, slot) { return sum + slot.count; }, 0) + ' starters), ' + (profile.idp ? 'including IDP' : 'offense only') + (profile.superflex ? ', Superflex' : '') + (profile.tePremium ? ', TE premium' : '') + (profile.sackPremium ? ', sack premium' : '') + '. No generic roster template is substituted.</div><div class="actions"><button class="primary" onclick="GMS.sync()">Refresh analysis</button><button class="secondary" onclick="GMS.news()">Refresh news</button></div></div>';
     html += '<div class="grid4"><div class="metric"><b>' + esc(mine.grade || "N/A") + '</b><span>Live roster grade</span></div><div class="metric"><b>' + pts(myOpt.total) + '</b><span>Expected lineup</span></div><div class="metric"><b>' + pts(oppOpt.total) + '</b><span>' + esc(opp) + '</span></div><div class="metric"><b class="' + (myOpt.total >= oppOpt.total ? "good" : "bad") + '">' + (myOpt.total >= oppOpt.total ? "+" : "") + pts(myOpt.total - oppOpt.total) + '</b><span>Current-week edge</span></div></div>';
     html += '<div class="card"><div class="sectionhead"><h2>Team-specific priorities</h2><span class="pill">' + esc(teamName) + '</span></div><div class="gate"><span>Detected lineup/depth needs</span><b>' + esc(Object.keys(needs).map(function (pos) { return pos + ' ×' + needs[pos]; }).join(', ') || 'No open need detected') + '</b></div><div class="gate"><span>Current cap room</span><b>' + money(cap.currentRoom) + '</b></div><div class="gate"><span>Draft capital held</span><b>' + picks.length + ' picks</b></div><p class="muted">Targets, bids, opponent threats, and chat context use this selected team’s roster and assets.</p></div>';
     if (teamName === MY_TEAM) html += warRoomLineupControls();
@@ -1080,6 +1082,8 @@
     root.innerHTML = body;
     renderPayPalButtons();
     var chatLog = document.getElementById("chatLog"); if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+    var warTeamSelect = document.getElementById("warTeamSelect");
+    if (warTeamSelect) warTeamSelect.addEventListener("change", function () { window.GMS.selectWarTeam(warTeamSelect.value); });
     var warChatLog = document.getElementById("warChatLog"); if (warChatLog) warChatLog.scrollTop = warChatLog.scrollHeight;
   }
 
@@ -1189,7 +1193,7 @@
     },
     show: function (view) { if (view === "addleague") { GMS.addLeague(); return; } localStorage.setItem("gms_view", view); if (view === "games" && !state.gamesLoading && !state.gamesAsOf) refreshGames(state.gameSeasonType, true); else render(); },
     selectTeam: function (name) { state.selectedTeam = name; render(); },
-    selectWarTeam: function (name) { if (teamByName(name)) { state.warTeam = name; state.warChat = []; } render(); },
+    selectWarTeam: function (teamId) { var team = state.teams[String(teamId || "")]; if (team) { state.warTeamId = team.id; state.warTeam = team.name; state.warChat = []; } render(); },
     toggleCut: function (id) { var i = state.cutIds.indexOf(id); if (i >= 0) state.cutIds.splice(i, 1); else state.cutIds.push(id); render(); },
     simulateCuts: function () { state.simulatedCutIds = state.cutIds.slice(); render(); },
     clearCuts: function () { state.cutIds = []; state.simulatedCutIds = []; render(); },
