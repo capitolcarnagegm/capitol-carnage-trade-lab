@@ -1,11 +1,20 @@
 /** GMS Locker analysis engine. Missing data remains null; open spots are not weaknesses. */
-function prideSalaryCap(now=new Date()){
+const PRIDE_CAP_ANCHOR = 1403.90;
+const PRIDE_CAP_ANCHOR_YEAR = 2026;
+const PRIDE_CAP_ANNUAL_INCREASE = 0.05;
+const PRIDE_CONTRACT_ANNUAL_INCREASE = 0.20;
+
+function prideLeagueYear(now=new Date()){
   const currentYear=now.getUTCFullYear();
   const marchOnePassed=now.getUTCMonth()>1||(now.getUTCMonth()===2&&now.getUTCDate()>=1);
-  const effectiveYear=currentYear-(marchOnePassed?0:1);
-  let cap=1403.90;
-  for(let year=2027;year<=effectiveYear;year+=1)cap=Math.round(cap*1.05*100)/100;
-  return cap;
+  return currentYear-(marchOnePassed?0:1);
+}
+function prideSalaryCap(now=new Date()){
+  const effectiveYear=prideLeagueYear(now);
+  return Math.round(PRIDE_CAP_ANCHOR*Math.pow(1+PRIDE_CAP_ANNUAL_INCREASE,Math.max(0,effectiveYear-PRIDE_CAP_ANCHOR_YEAR))*100)/100;
+}
+function prideCapForLeagueYear(year){
+  return Math.round(PRIDE_CAP_ANCHOR*Math.pow(1+PRIDE_CAP_ANNUAL_INCREASE,Math.max(0,Number(year)-PRIDE_CAP_ANCHOR_YEAR))*100)/100;
 }
 export class GMSAnalysisEngine {
   constructor(leagueRules = {}) {
@@ -15,7 +24,10 @@ export class GMSAnalysisEngine {
       { slot:"RWT",count:1,accept:["RB","WR","TE"]},{slot:"DL",count:3,accept:["DL"]},
       { slot:"LB",count:2,accept:["LB"]},{slot:"DB",count:3,accept:["DB"]},{slot:"ID",count:2,accept:["DL","LB","DB"]}
     ];
-    this.cap = leagueRules.capOverride ?? prideSalaryCap(leagueRules.now instanceof Date?leagueRules.now:new Date());
+    this.now = leagueRules.now instanceof Date?leagueRules.now:new Date();
+    this.capAnnualIncrease = PRIDE_CAP_ANNUAL_INCREASE;
+    this.contractAnnualIncrease = PRIDE_CONTRACT_ANNUAL_INCREASE;
+    this.cap = leagueRules.capOverride ?? prideSalaryCap(this.now);
   }
   _n(v){ const x=Number(v); return Number.isFinite(x)?x:null; }
   _safeSum(arr,fn){ const v=arr.map(fn).filter(x=>x!=null); return v.length?v.reduce((a,b)=>a+b,0):null; }
@@ -28,18 +40,35 @@ export class GMSAnalysisEngine {
   _taxi(p){ return /TAXI|MINOR/i.test(String(p.status||"")+" "+String(p.rosterSlot||"")); }
   _ir(p){return /(^|\b)(IR|INJURED RESERVE)(\b|$)/i.test(String(p.rosterSlot||"")+" "+String(p.status||""));}
   _capSalary(p){if(this._ir(p))return 0;return this._n(p.salary);}
+  financialProjection(team,seasons=5){
+    const players=team.players||[],leagueYear=prideLeagueYear(this.now),count=Math.max(1,Math.min(5,Number(seasons)||5));
+    return Array.from({length:count},(_,offset)=>{
+      const cap=prideCapForLeagueYear(leagueYear+offset);
+      const salaries=players.map(p=>{
+        const salary=this._n(p.salary),years=this._n(p.contract??p.years);
+        if(salary==null||years==null)return null;
+        if(years<=offset)return 0;
+        if(offset===0&&this._ir(p))return 0;
+        return Math.round(salary*Math.pow(1+this.contractAnnualIncrease,offset)*100)/100;
+      });
+      const rosterSalary=salaries.some(value=>value==null)?null:salaries.reduce((sum,value)=>sum+value,0);
+      const deadCap=offset===0?this._n(team.deadCap):null;
+      const used=rosterSalary==null||deadCap==null?null:rosterSalary+deadCap;
+      return{leagueYear:leagueYear+offset,cap,rosterSalary,deadCap,used,room:used==null?null:cap-used,contractIncrease:this.contractAnnualIncrease,capIncrease:this.capAnnualIncrease,deadCapScope:offset===0?"current Fantrax penalties":"future dead cap unavailable"};
+    });
+  }
   optimalLineup(players){ const pool=players.filter(p=>!this._unavailable(p)&&this._score(p)!=null),used=new Set(),lineup=[],slots=[];this.starters.forEach((s,i)=>{for(let n=0;n<s.count;n++)slots.push({slot:s.slot,accept:s.accept,order:i*100+n});});slots.sort((a,b)=>a.accept.length-b.accept.length||a.order-b.order).forEach(s=>{const pick=pool.filter(p=>!used.has(p.id)&&s.accept.includes(this._pos(p))).sort((a,b)=>this._score(b)-this._score(a))[0];if(pick)used.add(pick.id);lineup.push({slot:s.slot,player:pick||null});});return{lineup,total:this._safeSum(lineup.filter(r=>r.player),r=>this._score(r.player)),filled:lineup.filter(r=>r.player).length,open:lineup.filter(r=>!r.player).length}; }
   usableDepth(players,ids){ return players.filter(p=>!ids.has(p.id)&&!this._taxi(p)&&!this._unavailable(p)&&this._score(p)!=null); }
   teamPillars(team){
     const players=team.players||[],opt=this.optimalLineup(players),ids=new Set(opt.lineup.filter(r=>r.player).map(r=>r.player.id)),depth=this.usableDepth(players,ids),starters=opt.lineup.filter(r=>r.player).map(r=>r.player);
-    const salary=this._completeSum(players,p=>this._capSalary(p)),dead=this._n(team.deadCap),used=salary==null&&dead==null?null:(salary==null||dead==null?null:salary+dead),room=used==null?null:this.cap-used,ages=starters.map(p=>this._n(p.age)).filter(a=>a!=null),age=ages.length?ages.reduce((a,b)=>a+b,0)/ages.length:null,picks=team.picks||[],draft=picks.reduce((s,p)=>s+(Number(p.round)===1?3:Number(p.round)===2?2:1),0);
+    const salary=this._completeSum(players,p=>this._capSalary(p)),dead=this._n(team.deadCap),used=salary==null&&dead==null?null:(salary==null||dead==null?null:salary+dead),room=used==null?null:this.cap-used,financialProjection=this.financialProjection(team,5),ages=starters.map(p=>this._n(p.age)).filter(a=>a!=null),age=ages.length?ages.reduce((a,b)=>a+b,0)/ages.length:null,picks=team.picks||[],draft=picks.reduce((s,p)=>s+(Number(p.round)===1?3:Number(p.round)===2?2:1),0);
     const positions=["QB","RB","WR","TE","DL","LB","DB"],byPos={};positions.forEach(pos=>{const demand=this.starters.filter(s=>s.accept.includes(pos)).reduce((n,s)=>n+s.count/s.accept.length,0),need=Math.max(1,Math.ceil(demand)),pool=players.filter(p=>this._pos(p)===pos&&this._score(p)!=null&&!this._unavailable(p)).sort((a,b)=>this._score(b)-this._score(a));byPos[pos]=this._safeAvg(pool.slice(0,need),p=>this._score(p));});
     const known=Object.values(byPos).filter(v=>v!=null),balance=known.length>=3?100-Math.min(100,this._std(known)*10):null;
     const mode=this._windowMode(age,draft,opt.total);
     return{teamId:team.id,teamName:team.name,pillars:{
       legalStarters:{value:opt.total,filled:opt.filled,open:opt.open,reason:opt.total==null?"No reliable scoring input exists for enough eligible starters to calculate lineup strength.":`Best legal lineup totals ${opt.total.toFixed(1)} FP/G using ${opt.filled} scored starters. ${opt.open} lineup slot(s) are open, but open spots are not scored as weaknesses.`},
       usableDepth:{value:this._safeAvg(depth,p=>this._score(p)),count:depth.length,reason:depth.length?`There are ${depth.length} non-starter players with usable scoring data who are not taxi/minor or unavailable. Their average usable score is ${this._safeAvg(depth,p=>this._score(p))?.toFixed(1)??"unavailable"} FP/G.`:"No non-starter currently has enough usable scoring data to measure depth. This is treated as unavailable evidence, not automatic bad depth."},
-      capHealth:{value:room==null?null:(room/this.cap)*100,room,used,cap:this.cap,reason:used==null?`Cap health is unavailable because one or more required salary/dead-cap values are missing. Under the Pride bylaws, IR salary counts 0%, taxi salary counts 100%, and missing salary is never treated as $0. The active league cap is $${this.cap.toFixed(2)}, increasing 5% each March 1.`:`Known bylaw-adjusted cap usage is $${used.toFixed(2)} against the current $${this.cap.toFixed(2)} Pride cap, leaving $${room.toFixed(2)}. IR salaries count 0%; taxi salaries count 100%. The cap rises 5% each March 1.`},
+      capHealth:{value:room==null?null:(room/this.cap)*100,room,used,cap:this.cap,leagueYear:prideLeagueYear(this.now),annualCapIncrease:this.capAnnualIncrease,annualContractIncrease:this.contractAnnualIncrease,fiveYear:financialProjection,reason:used==null?`Cap health is unavailable because one or more required salary/dead-cap values are missing. Under the Pride bylaws, IR salary counts 0%, taxi salary counts 100%, and missing salary is never treated as $0. The active league cap is $${this.cap.toFixed(2)}, increasing 5% each March 1.`:`Known bylaw-adjusted cap usage is $${used.toFixed(2)} against the current $${this.cap.toFixed(2)} Pride cap, leaving $${room.toFixed(2)}. IR salaries count 0%; taxi salaries count 100%. The cap rises 5% each March 1 and active contracts rise 20% each league year.`},
       competitiveWindow:{starterAge:age,mode,reason:age==null?"Competitive window is uncertain because starter ages are incomplete.":`Starter age averages ${age.toFixed(1)}. Draft-capital score is ${draft}. Combined with known lineup strength, the roster currently profiles as ${mode}.`},
       positionalBalance:{value:balance,byPos,reason:balance==null?"Positional balance needs at least three position groups with reliable scoring data.":`Balance compares known scoring strength across QB, RB, WR, TE, DL, LB and DB groups. Lower spread between position groups produces a higher score.`},
       draftCapital:{value:draft,picks:picks.length,reason:picks.length?`${picks.length} known future pick(s) contribute a weighted draft-capital score of ${draft}; first-round picks carry the most weight, then seconds, then later rounds.`:"No future draft picks were returned in the synced data. This is reported as no known picks, not proof the team owns none."}
