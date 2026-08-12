@@ -1,37 +1,29 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#050505">
-  <title>GMS Locker — GM Sports Assistant</title>
-  <meta name="description" content="Fantasy football GM sports assistant for rosters, cap, waivers, trades, picks and league analysis.">
-  <link rel="stylesheet" href="styles.css?v=1.12.1">
-  <link rel="stylesheet" href="sponsor-page.css?v=1.0.0">
-  <link rel="stylesheet" href="league-ux.css?v=1.0.0">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%23050505' width='64' height='64' rx='12'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' font-family='system-ui' font-weight='800' fill='%23d4af37'%3EGMS%3C/text%3E%3C/svg%3E">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0f14" />
+  <title>GMS Locker</title>
+  <meta name="description" content="Fantasy football GM workspace powered by live Fantrax league data." />
+  <link rel="stylesheet" href="public/styles.css" />
 </head>
 <body>
-  <div class="top-banner"><img id="bannerImg" src="gms-locker-brand.jpeg" alt="GMS Locker — GM Sports Assistant" class="banner-logo"></div>
-  <aside class="sponsor-banner" aria-label="Sponsored by Pin Vault Collectibles">
-    <img src="pin-vault-collectibles.jpeg" alt="Pin Vault Collectibles" class="sponsor-logo">
-    <div class="sponsor-copy"><span>Official GMS Locker Sponsor</span><strong>Sponsored by Pin Vault Collectibles</strong><small>Unlock the vault. Chase the rare.</small></div>
-    <a class="sponsor-store-button" href="https://pinvaultcollectibles.com" target="_blank" rel="noopener noreferrer">Live Store →</a>
-  </aside>
-  <header class="site-header">
-    <div class="brand"><img id="brandImg" src="gms-locker-brand.jpeg" alt="GMS Locker" class="brand-logo"><div class="brand-text"><div class="brand-title">GMS Locker</div><div class="brand-sub">GM SPORTS ASSISTANT · PRIDE DYNASTY · FANTRAX</div></div></div>
-    <div class="header-right"><div class="asof" id="asof">Connecting…</div><button type="button" class="secondary" id="syncBtn" title="Refresh Fantrax league data">Refresh</button><button type="button" class="secondary" id="loginBtn">Login</button><a class="pv-top" href="https://pinvaultcollectibles.com" target="_blank" rel="noopener noreferrer" title="Pin Vault Collectibles live store"><img id="pvImg" src="pinvault-collectibles-logo.svg" alt="Pin Vault Collectibles" class="pv-top-logo"><span class="pv-top-label">Live Store →</span></a></div>
+  <header>
+    <div><strong>GMS Locker</strong><small>GM Sports Assistant</small></div>
+    <span id="asof">Not synced</span>
+    <button id="syncBtn" type="button">Refresh League</button>
   </header>
-  <nav class="nav" id="nav" aria-label="GMS Locker tools">
-    <button type="button" data-view="war">War Room</button><button type="button" data-view="leagues">Leagues</button><button type="button" data-view="addleague">Add New League</button><button type="button" data-view="team">My Team</button><button type="button" data-view="startsit">Start / Sit</button><button type="button" data-view="games">Game Day</button><button type="button" data-view="teams">Teams</button><button type="button" data-view="cap">Cap / Dead</button><button type="button" data-view="bhs">Buy / Hold / Sell</button><button type="button" data-view="waivers">Waivers</button><button type="button" data-view="trade">Trade Lab</button><button type="button" data-view="rankings">Power Rankings</button><button type="button" data-view="picks">Picks</button><button type="button" data-view="news">News</button><button type="button" data-view="chat">GM Chat</button><a class="nav-link sponsor-nav-link" href="sponsor.html">Sponsor</a><button type="button" data-view="contact">Contact</button><button type="button" data-view="settings">Settings</button>
+  <nav id="nav">
+    <button data-view="leagues" type="button">Leagues</button>
+    <button data-view="team" type="button">My Team</button>
+    <button data-view="trade" type="button">Trade</button>
+    <button data-view="waivers" type="button">Waivers</button>
+    <button data-view="games" type="button">Game Day</button>
+    <button data-view="rankings" type="button">Rankings</button>
+    <button data-view="settings" type="button">Settings</button>
   </nav>
-  <main class="main" id="main"><div class="loading">Loading GMS Locker…</div></main>
-  <footer class="site-footer"><div><span class="gold">GMS Locker</span> · Simulate here · Execute in Fantrax</div><div style="margin-top:6px">Pride ain't cheap. · Bylaws-aware · O + IDP</div><div style="margin-top:8px"><a href="mailto:gmslocker@gmail.com">gmslocker@gmail.com</a> · <a href="mailto:pinvaultcollectibles@gmail.com">pinvaultcollectibles@gmail.com</a></div></footer>
-  <script src="https://www.paypal.com/sdk/js?client-id=BAAz3FfFBvgvOsglS86_LIp1ahIUHGwHOjn38UKyhbS26v-z_Fzpw35xIQvPIh6d4VBevWp7r87Ac2RHXo&components=hosted-buttons&enable-funding=venmo&currency=USD"></script>
-  <script src="fantrax-proxy.js?v=1.12.0"></script>
-  <script src="live-fixes.js?v=1.12.0"></script>
-  <script src="app.js?v=1.12.0"></script>
-  <script src="league-ux.js?v=1.0.0"></script>
-  <script>(function(){var btn=document.getElementById("syncBtn");if(btn)btn.addEventListener("click",function(){if(window.GMS&&typeof window.GMS.sync==="function")window.GMS.sync();});var login=document.getElementById("loginBtn");if(login)login.addEventListener("click",function(){if(window.GMS)window.GMS.loginOrLogout();});})();</script>
+  <main id="main"><div class="card"><p class="muted">Loading GMS Locker…</p></div></main>
+  <script type="module" src="public/app.js"></script>
 </body>
 </html>
