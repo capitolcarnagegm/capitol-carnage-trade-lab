@@ -109,6 +109,34 @@ export class GMSAnalysisEngine {
       return result;
     });
   }
+  suggestTradeOffers(myTeam,targetTeam,targetPlayer,targetPick,context={}){
+    const leagueTeams=context.leagueTeams||[myTeam,targetTeam],targetScore=this._score(targetPlayer),targetPos=this._pos(targetPlayer),pickRound=this._n(targetPick?.round??targetPick?.draftRound),pickYear=this._n(targetPick?.year??targetPick?.season??targetPick?.draftYear);
+    const leagueYear=prideLeagueYear(this.now),yearsOut=pickYear==null?null:Math.max(0,pickYear-leagueYear),pickBase=pickRound==null?null:({1:24,2:14,3:8,4:5,5:3}[pickRound]??2),pickValue=pickBase==null?null:pickBase*Math.pow(.88,yearsOut??0);
+    const playerValue=p=>{const score=this._score(p),age=this._n(p.age),salary=this._n(p.salary),contract=this._n(p.contract??p.years);if(score==null)return null;const ageValue=age==null?0:age<=23?10:age<=26?7:age<=29?3:age>=32?-5:0,control=contract==null?0:Math.min(6,contract*2),efficiency=salary==null?0:Math.min(6,score/Math.max(1,salary)*5);return score*2+ageValue+control+efficiency;};
+    const targetPlayerValue=playerValue(targetPlayer),targetValue=targetPlayerValue==null?null:targetPlayerValue+(pickValue??0);
+    const targetReport=this.teamPillars(targetTeam),myReport=this.teamPillars(myTeam),targetGroups=targetReport.pillars.positionalBalance.byPos||{};
+    const targetSalary=this._n(targetPlayer.salary),targetDead=this._n(targetTeam.deadCap),myDead=this._n(myTeam.deadCap),mySalary=this._completeSum(myTeam.players||[],p=>this._capSalary(p));
+    const currentRoom=mySalary==null||myDead==null?null:this.cap-mySalary-myDead;
+    const nextYear=leagueYear+1,nextCap=prideCapForLeagueYear(nextYear),myNextDead=this._n(myTeam.nextYearDeadCap),nextCommitted=this._completeSum(myTeam.players||[],p=>{const salary=this._n(p.salary),years=this._n(p.contract??p.years);if(salary==null||years==null)return null;return years>=2?salary*(1+this.contractAnnualIncrease):0;});
+    const targetNextSalary=targetSalary==null||this._n(targetPlayer.contract??targetPlayer.years)==null?null:(this._n(targetPlayer.contract??targetPlayer.years)>=2?targetSalary*(1+this.contractAnnualIncrease):0);
+    const nextRoom=nextCommitted==null||myNextDead==null?null:nextCap-nextCommitted-myNextDead;
+    return(myTeam.players||[]).filter(p=>!this._ir(p)&&this._score(p)!=null).map(player=>{
+      const offerValue=playerValue(player),gap=targetValue==null||offerValue==null?null:offerValue-targetValue,pos=this._pos(player),recipientStrength=targetGroups[pos],salary=this._n(player.salary),contract=this._n(player.contract??player.years);
+      const afterPlayers=[...(myTeam.players||[]).filter(p=>String(p.id)!==String(player.id)),targetPlayer],after={...myTeam,players:afterPlayers},afterLineup=this.optimalLineup(afterPlayers),beforeLineup=this.optimalLineup(myTeam.players||[]),lineupDelta=afterLineup.total==null||beforeLineup.total==null?null:afterLineup.total-beforeLineup.total;
+      const postRoom=currentRoom==null||salary==null||targetSalary==null?null:currentRoom+salary-targetSalary;
+      const outgoingNext=salary==null||contract==null?null:(contract>=2?salary*(1+this.contractAnnualIncrease):0),postNext=nextRoom==null||outgoingNext==null||targetNextSalary==null?null:nextRoom+outgoingNext-targetNextSalary;
+      const targetNeed=recipientStrength==null?null:100-recipientStrength,acceptanceFit=(targetNeed??0)+(gap==null?0:-Math.abs(gap))+Math.max(0,offerValue??0)/10;
+      const overpay=gap==null?null:gap>8,verdict=gap==null?"VALUE UNAVAILABLE":Math.abs(gap)<=6?"START HERE":gap<-6?"ADD TO OFFER":overpay?"OVERPAY":"FAIR RANGE";
+      const reasons=[
+        gap==null?`Value gap is unavailable because the target player, pick, or offer asset lacks scoring/round data.`:`${player.name} carries an evidence value ${gap>=0?"+":""}${gap.toFixed(1)} from the requested ${targetPlayer.name} plus ${pickYear??"unknown year"} Round ${pickRound??"unknown"} pick package.`,
+        recipientStrength==null?`${targetTeam.name}'s ${pos} strength is unavailable.`:`${targetTeam.name}'s measured ${pos} group scores ${recipientStrength.toFixed(1)} FP/G, so this offer is ranked against that roster's actual need.`,
+        lineupDelta==null?`${myTeam.name}'s legal-lineup change is unavailable.`:`The swap changes ${myTeam.name}'s best legal lineup by ${lineupDelta>=0?"+":""}${lineupDelta.toFixed(1)} FP/G.`,
+        postRoom==null?`Current post-trade cap room is unavailable.`:`Known post-trade room would be $${postRoom.toFixed(2)} after exchanging the listed salaries.`
+      ];
+      return{verdict,offer:[player],offerValue,targetValue,valueGap:gap,acceptanceFit,lineupDelta,postTradeRoom:postRoom,postNextYearRoom:postNext,targetNeedScore:targetNeed,reasons,warning:overpay?`This offer projects as an overpay by ${gap.toFixed(1)} evidence points.`:null,evidence:{targetPlayerValue,pickValue,pickRound,pickYear,yearsOut,currentRoom,nextYearRoom:nextRoom,targetPosition:targetPos,myWindow:myReport.pillars.competitiveWindow.mode,targetWindow:targetReport.pillars.competitiveWindow.mode,outgoingSalary:salary,incomingSalary:targetSalary}};
+    }).sort((a,b)=>{const rank={"START HERE":4,"FAIR RANGE":3,"ADD TO OFFER":2,"VALUE UNAVAILABLE":1,"OVERPAY":0};return rank[b.verdict]-rank[a.verdict]||b.acceptanceFit-a.acceptanceFit;}).slice(0,8);
+  }
+
   recommendFreeAgents(team,freeAgents,limit=10,context={}){
     const players=team.players||[],leagueTeams=context.leagueTeams||[team],base=this.optimalLineup(players),teamReport=this.teamPillars(team);
     const window=teamReport.pillars.competitiveWindow.mode,dead=this._n(team.deadCap),salary=this._completeSum(players,p=>this._capSalary(p)),capRoom=salary==null||dead==null?null:this.cap-salary-dead;
