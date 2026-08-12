@@ -8,14 +8,15 @@ const LAST_SEASON = "SEASON_23j_YEAR_TO_DATE";
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/health") {
+      return healthCheck(env);
+    }
+
     const response = await app.fetch(request, env, ctx);
 
-    // Always attach NFL schedule for Game Day, even when upstream is partial/empty.
-    // Auth failures still pass through unchanged.
     if (request.method === "GET" && url.pathname === "/current-games") {
-      if (response.status === 401 || response.status === 402 || response.status === 403) {
-        return response;
-      }
+      if (response.status === 401 || response.status === 402 || response.status === 403) return response;
       return enrichCurrentGames(response, url);
     }
 
@@ -26,6 +27,43 @@ export default {
     return response;
   }
 };
+
+async function healthCheck(env) {
+  const checks = {
+    worker: true,
+    d1Binding: Boolean(env.DB),
+    aiBinding: Boolean(env.AI),
+    fantrax: false,
+    espnSchedule: false
+  };
+  const errors = [];
+
+  try {
+    const fantrax = await fetch("https://www.fantrax.com/fxea/general/getPlayerIds?sport=NFL", {
+      headers: { Accept: "application/json", "User-Agent": "GMSLocker/2.2" },
+      cf: { cacheTtl: 60, cacheEverything: true }
+    });
+    checks.fantrax = fantrax.ok;
+    if (!fantrax.ok) errors.push("Fantrax HTTP " + fantrax.status);
+  } catch (error) {
+    errors.push("Fantrax: " + String(error?.message || error));
+  }
+
+  try {
+    const season = new Date().getUTCFullYear();
+    const espn = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=2&dates=" + season + "&seasontype=1", {
+      headers: { Accept: "application/json", "User-Agent": "GMSLocker/2.2" },
+      cf: { cacheTtl: 60, cacheEverything: true }
+    });
+    checks.espnSchedule = espn.ok;
+    if (!espn.ok) errors.push("ESPN HTTP " + espn.status);
+  } catch (error) {
+    errors.push("ESPN: " + String(error?.message || error));
+  }
+
+  const ok = Object.values(checks).every(Boolean);
+  return output({ ok, checks, errors, version: "2.2-health", checkedAt: new Date().toISOString() }, ok ? 200 : 503);
+}
 
 async function enrichLeagueData(response) {
   const data = await response.json();
@@ -43,7 +81,6 @@ async function enrichLeagueData(response) {
     ...Object.keys(freeAgents.performance)
   ]);
 
-  // Fantrax caps AVAILABLE results per page. Load pages 2–8 so the waiver pool is real.
   for (let page = 2; page <= 8; page += 1) {
     try {
       const batch = await fetchPoolPage(leagueId, page);
@@ -59,9 +96,7 @@ async function enrichLeagueData(response) {
 
       Object.assign(freeAgents.season, season.players);
       Object.assign(freeAgents.weekly, weekly.players);
-      if (performance.selection === LAST_SEASON) {
-        Object.assign(freeAgents.performance, performance.players);
-      }
+      if (performance.selection === LAST_SEASON) Object.assign(freeAgents.performance, performance.players);
 
       let added = 0;
       pageIds.forEach((id) => {
@@ -72,9 +107,7 @@ async function enrichLeagueData(response) {
       });
       if (!added) break;
     } catch (error) {
-      data.warnings = (data.warnings || []).concat(
-        "Additional free-agent pages: " + String(error?.message || error)
-      );
+      data.warnings = (data.warnings || []).concat("Additional free-agent pages: " + String(error?.message || error));
       break;
     }
   }
@@ -92,15 +125,10 @@ async function enrichCurrentGames(response, url) {
     data = { ok: false, games: [] };
   }
 
-  // Preserve upstream games (live box scores) when present.
   data.games = Array.isArray(data.games) ? data.games : [];
 
-  const season = String(url.searchParams.get("season") || new Date().getUTCFullYear())
-    .replace(/[^0-9]/g, "")
-    .slice(0, 4);
+  const season = String(url.searchParams.get("season") || new Date().getUTCFullYear()).replace(/[^0-9]/g, "").slice(0, 4);
   const seasonType = url.searchParams.get("seasonType") === "1" ? "1" : "2";
-
-  // Pull both regular season and preseason so August is not empty.
   const types = seasonType === "1" ? ["1", "2"] : ["2", "1"];
   let schedule = [];
   const errors = [];
@@ -108,39 +136,27 @@ async function enrichCurrentGames(response, url) {
   for (const type of types) {
     try {
       const espn = await fetch(
-        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=100&dates=" +
-          season +
-          "&seasontype=" +
-          type,
-        {
-          headers: { Accept: "application/json", "User-Agent": "GMSLocker/2.1" },
-          cf: { cacheTtl: 60, cacheEverything: true }
-        }
+        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=100&dates=" + season + "&seasontype=" + type,
+        { headers: { Accept: "application/json", "User-Agent": "GMSLocker/2.2" }, cf: { cacheTtl: 60, cacheEverything: true } }
       );
       if (!espn.ok) throw new Error("NFL schedule HTTP " + espn.status + " (type " + type + ")");
       const board = await espn.json();
       const events = (board.events || []).map(scheduleEvent).filter(Boolean);
       schedule = schedule.concat(events);
-      if (events.length) break; // prefer the first type that has games
+      if (events.length) break;
     } catch (error) {
       errors.push(String(error?.message || error));
     }
   }
 
-  // De-dupe by id
   const byId = new Map();
-  schedule.forEach((g) => {
-    if (g && g.id) byId.set(g.id, g);
-  });
+  schedule.forEach((g) => { if (g && g.id) byId.set(g.id, g); });
   data.schedule = Array.from(byId.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   data.scheduleSource = "ESPN NFL scoreboard";
   data.scheduleCount = data.schedule.length;
-  if (!data.schedule.length && errors.length) {
-    data.scheduleError = errors.join(" · ");
-  }
+  if (!data.schedule.length && errors.length) data.scheduleError = errors.join(" · ");
   data.syncedAt = data.syncedAt || new Date().toISOString();
 
-  // Return 200 when we at least have a schedule, even if upstream box scores failed.
   const status = data.schedule.length || response.ok ? 200 : response.status || 502;
   return output(data, status);
 }
@@ -178,18 +194,8 @@ function teamSummary(row) {
 async function fetchPoolPage(leagueId, pageNumber) {
   const response = await fetch(FANTRAX_PA + "?leagueId=" + encodeURIComponent(leagueId), {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "User-Agent": "GMSLocker/2.1"
-    },
-    body: JSON.stringify({
-      msgs: [
-        poolMessage(leagueId, SEASON_PROJ, pageNumber),
-        poolMessage(leagueId, WEEKLY_PROJ, pageNumber),
-        poolMessage(leagueId, LAST_SEASON, pageNumber)
-      ]
-    })
+    headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": "GMSLocker/2.2" },
+    body: JSON.stringify({ msgs: [poolMessage(leagueId, SEASON_PROJ, pageNumber), poolMessage(leagueId, WEEKLY_PROJ, pageNumber), poolMessage(leagueId, LAST_SEASON, pageNumber)] })
   });
   if (!response.ok) throw new Error("Fantrax free-agent page " + pageNumber + " HTTP " + response.status);
   return response.json();
@@ -216,9 +222,7 @@ function parseStatsResponse(response) {
   const headers = data.tableHeader?.cells || data.tables?.[0]?.header?.cells || [];
   const rows = data.statsTable || data.tables?.flatMap((table) => table.rows || []) || [];
   const index = {};
-  headers.forEach((header, i) => {
-    index[header.key || header.shortName || String(i)] = i;
-  });
+  headers.forEach((header, i) => { index[header.key || header.shortName || String(i)] = i; });
   const cell = (row, key, fallback) => row.cells?.[index[key] == null ? fallback : index[key]]?.content;
   const players = {};
 
@@ -243,22 +247,14 @@ function parseStatsResponse(response) {
       bye: numberFrom(cell(row, "bye", 8)),
       rosteredPct: numberFrom(cell(row, "OVERVIEW_PERCENT_OWNED_2", 9)),
       rosterTrend: numberFrom(cell(row, "OVERVIEW_PLUS_MINUS_PERCENT_OWNED_2", 10)),
-      injury:
-        notes.find((note) =>
-          /questionable|doubtful|out|injur|ir|suspend|concussion|hamstring|knee|ankle|groin|shoulder/i.test(
-            note
-          )
-        ) || "",
+      injury: notes.find((note) => /questionable|doubtful|out|injur|ir|suspend|concussion|hamstring|knee|ankle|groin|shoulder/i.test(note)) || "",
       notes
     };
   }
 
   return {
     players,
-    selection:
-      data.displayedSeasonOrProjection?.code ||
-      data.displayedSelections?.displayedSeasonOrProjection?.code ||
-      ""
+    selection: data.displayedSeasonOrProjection?.code || data.displayedSelections?.displayedSeasonOrProjection?.code || ""
   };
 }
 
@@ -268,10 +264,7 @@ function numberFrom(value) {
 }
 
 function plain(value) {
-  return String(value == null ? "" : value)
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .trim();
+  return String(value == null ? "" : value).replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
 }
 
 function output(value, status = 200) {
