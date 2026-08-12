@@ -10,14 +10,17 @@ export default {
     const url = new URL(request.url);
     const response = await app.fetch(request, env, ctx);
 
-    if (request.method !== "GET" || !response.ok) return response;
-
-    if (url.pathname === "/league-data") {
-      return enrichLeagueData(response);
+    // Always attach NFL schedule for Game Day, even when upstream is partial/empty.
+    // Auth failures still pass through unchanged.
+    if (request.method === "GET" && url.pathname === "/current-games") {
+      if (response.status === 401 || response.status === 402 || response.status === 403) {
+        return response;
+      }
+      return enrichCurrentGames(response, url);
     }
 
-    if (url.pathname === "/current-games") {
-      return enrichCurrentGames(response, url);
+    if (request.method === "GET" && response.ok && url.pathname === "/league-data") {
+      return enrichLeagueData(response);
     }
 
     return response;
@@ -40,27 +43,38 @@ async function enrichLeagueData(response) {
     ...Object.keys(freeAgents.performance)
   ]);
 
-  // Fantrax commonly caps an AVAILABLE player-stat response well below the
-  // requested page size. Pull additional pages rather than presenting page 1
-  // as the entire waiver wire.
+  // Fantrax caps AVAILABLE results per page. Load pages 2–8 so the waiver pool is real.
   for (let page = 2; page <= 8; page += 1) {
     try {
       const batch = await fetchPoolPage(leagueId, page);
       const season = parseStatsResponse(batch.responses?.[0]);
       const weekly = parseStatsResponse(batch.responses?.[1]);
       const performance = parseStatsResponse(batch.responses?.[2]);
-      const pageIds = new Set([...Object.keys(season.players), ...Object.keys(weekly.players), ...Object.keys(performance.players)]);
+      const pageIds = new Set([
+        ...Object.keys(season.players),
+        ...Object.keys(weekly.players),
+        ...Object.keys(performance.players)
+      ]);
       if (!pageIds.size) break;
 
       Object.assign(freeAgents.season, season.players);
       Object.assign(freeAgents.weekly, weekly.players);
-      if (performance.selection === LAST_SEASON) Object.assign(freeAgents.performance, performance.players);
+      if (performance.selection === LAST_SEASON) {
+        Object.assign(freeAgents.performance, performance.players);
+      }
 
       let added = 0;
-      pageIds.forEach((id) => { if (!seen.has(id)) { seen.add(id); added += 1; } });
+      pageIds.forEach((id) => {
+        if (!seen.has(id)) {
+          seen.add(id);
+          added += 1;
+        }
+      });
       if (!added) break;
     } catch (error) {
-      data.warnings = (data.warnings || []).concat("Additional free-agent pages: " + String(error?.message || error));
+      data.warnings = (data.warnings || []).concat(
+        "Additional free-agent pages: " + String(error?.message || error)
+      );
       break;
     }
   }
@@ -71,25 +85,64 @@ async function enrichLeagueData(response) {
 }
 
 async function enrichCurrentGames(response, url) {
-  const data = await response.json();
-  const season = String(url.searchParams.get("season") || new Date().getUTCFullYear()).replace(/[^0-9]/g, "").slice(0, 4);
-  const seasonType = url.searchParams.get("seasonType") === "1" ? "1" : "2";
-
+  let data = {};
   try {
-    const espn = await fetch(
-      "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=100&dates=" + season + "&seasontype=" + seasonType,
-      { headers: { Accept: "application/json", "User-Agent": "GMSLocker/2.0" }, cf: { cacheTtl: 60, cacheEverything: true } }
-    );
-    if (!espn.ok) throw new Error("NFL schedule HTTP " + espn.status);
-    const board = await espn.json();
-    data.schedule = (board.events || []).map(scheduleEvent).filter(Boolean).sort((a, b) => new Date(a.date) - new Date(b.date));
-    data.scheduleSource = "ESPN NFL scoreboard";
-  } catch (error) {
-    data.schedule = [];
-    data.scheduleError = String(error?.message || error);
+    data = await response.json();
+  } catch (_) {
+    data = { ok: false, games: [] };
   }
 
-  return output(data, response.status);
+  // Preserve upstream games (live box scores) when present.
+  data.games = Array.isArray(data.games) ? data.games : [];
+
+  const season = String(url.searchParams.get("season") || new Date().getUTCFullYear())
+    .replace(/[^0-9]/g, "")
+    .slice(0, 4);
+  const seasonType = url.searchParams.get("seasonType") === "1" ? "1" : "2";
+
+  // Pull both regular season and preseason so August is not empty.
+  const types = seasonType === "1" ? ["1", "2"] : ["2", "1"];
+  let schedule = [];
+  const errors = [];
+
+  for (const type of types) {
+    try {
+      const espn = await fetch(
+        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=100&dates=" +
+          season +
+          "&seasontype=" +
+          type,
+        {
+          headers: { Accept: "application/json", "User-Agent": "GMSLocker/2.1" },
+          cf: { cacheTtl: 60, cacheEverything: true }
+        }
+      );
+      if (!espn.ok) throw new Error("NFL schedule HTTP " + espn.status + " (type " + type + ")");
+      const board = await espn.json();
+      const events = (board.events || []).map(scheduleEvent).filter(Boolean);
+      schedule = schedule.concat(events);
+      if (events.length) break; // prefer the first type that has games
+    } catch (error) {
+      errors.push(String(error?.message || error));
+    }
+  }
+
+  // De-dupe by id
+  const byId = new Map();
+  schedule.forEach((g) => {
+    if (g && g.id) byId.set(g.id, g);
+  });
+  data.schedule = Array.from(byId.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
+  data.scheduleSource = "ESPN NFL scoreboard";
+  data.scheduleCount = data.schedule.length;
+  if (!data.schedule.length && errors.length) {
+    data.scheduleError = errors.join(" · ");
+  }
+  data.syncedAt = data.syncedAt || new Date().toISOString();
+
+  // Return 200 when we at least have a schedule, even if upstream box scores failed.
+  const status = data.schedule.length || response.ok ? 200 : response.status || 502;
+  return output(data, status);
 }
 
 function scheduleEvent(event) {
@@ -125,12 +178,18 @@ function teamSummary(row) {
 async function fetchPoolPage(leagueId, pageNumber) {
   const response = await fetch(FANTRAX_PA + "?leagueId=" + encodeURIComponent(leagueId), {
     method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": "GMSLocker/2.0" },
-    body: JSON.stringify({ msgs: [
-      poolMessage(leagueId, SEASON_PROJ, pageNumber),
-      poolMessage(leagueId, WEEKLY_PROJ, pageNumber),
-      poolMessage(leagueId, LAST_SEASON, pageNumber)
-    ] })
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "GMSLocker/2.1"
+    },
+    body: JSON.stringify({
+      msgs: [
+        poolMessage(leagueId, SEASON_PROJ, pageNumber),
+        poolMessage(leagueId, WEEKLY_PROJ, pageNumber),
+        poolMessage(leagueId, LAST_SEASON, pageNumber)
+      ]
+    })
   });
   if (!response.ok) throw new Error("Fantrax free-agent page " + pageNumber + " HTTP " + response.status);
   return response.json();
@@ -157,7 +216,9 @@ function parseStatsResponse(response) {
   const headers = data.tableHeader?.cells || data.tables?.[0]?.header?.cells || [];
   const rows = data.statsTable || data.tables?.flatMap((table) => table.rows || []) || [];
   const index = {};
-  headers.forEach((header, i) => { index[header.key || header.shortName || String(i)] = i; });
+  headers.forEach((header, i) => {
+    index[header.key || header.shortName || String(i)] = i;
+  });
   const cell = (row, key, fallback) => row.cells?.[index[key] == null ? fallback : index[key]]?.content;
   const players = {};
 
@@ -182,14 +243,22 @@ function parseStatsResponse(response) {
       bye: numberFrom(cell(row, "bye", 8)),
       rosteredPct: numberFrom(cell(row, "OVERVIEW_PERCENT_OWNED_2", 9)),
       rosterTrend: numberFrom(cell(row, "OVERVIEW_PLUS_MINUS_PERCENT_OWNED_2", 10)),
-      injury: notes.find((note) => /questionable|doubtful|out|injur|ir|suspend|concussion|hamstring|knee|ankle|groin|shoulder/i.test(note)) || "",
+      injury:
+        notes.find((note) =>
+          /questionable|doubtful|out|injur|ir|suspend|concussion|hamstring|knee|ankle|groin|shoulder/i.test(
+            note
+          )
+        ) || "",
       notes
     };
   }
 
   return {
     players,
-    selection: data.displayedSeasonOrProjection?.code || data.displayedSelections?.displayedSeasonOrProjection?.code || ""
+    selection:
+      data.displayedSeasonOrProjection?.code ||
+      data.displayedSelections?.displayedSeasonOrProjection?.code ||
+      ""
   };
 }
 
@@ -199,7 +268,10 @@ function numberFrom(value) {
 }
 
 function plain(value) {
-  return String(value == null ? "" : value).replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+  return String(value == null ? "" : value)
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
 }
 
 function output(value, status = 200) {
@@ -212,7 +284,7 @@ function output(value, status = 200) {
       "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Accept, Content-Type, Authorization",
       "X-Content-Type-Options": "nosniff",
-      "Vary": "Origin"
+      Vary: "Origin"
     }
   });
 }
