@@ -26,6 +26,7 @@ export default {
       if (url.pathname === "/account/league/inspect") return inspectLeague(request);
       if (url.pathname === "/league-data") return leagueData(url, env, auth);
       if (url.pathname === "/trade-analysis") return tradeAnalysis(request, env, auth);
+      if (url.pathname === "/trade-suggestion") return tradeSuggestion(request, env, auth);
       if (url.pathname === "/current-games") return currentGames(url);
       if (url.pathname === "/news") return news();
       return json({ error: "Not found" }, 404);
@@ -404,6 +405,25 @@ function buildTeams(rosters, playerMap, picksPayload) {
 
 function prideFinancialRules() {
   return { now: new Date() };
+}
+
+async function tradeSuggestion(request, env, auth) {
+  if (request.method !== "POST") return json({ error: "POST only" }, 405);
+  const body = await request.json().catch(() => ({}));
+  const ws = await ownedLeague(env, auth, body.workspaceId);
+  if (!ws) return json({ error: "League not found" }, 404);
+  const snapshot = await leagueSnapshot(ws);
+  const myTeam = snapshot.teams.find((team) => String(team.id) === String(ws.team_id)) || snapshot.teams.find((team) => team.name === ws.team_name);
+  const targetTeam = snapshot.teams.find((team) => String(team.id) === String(body.targetTeamId));
+  if (!myTeam || !targetTeam || String(myTeam.id) === String(targetTeam.id)) return json({ error: "Choose another team as the trade partner" }, 400);
+  const targetPlayer = targetTeam.players.find((player) => String(player.id) === String(body.targetPlayerId));
+  if (!targetPlayer) return json({ error: "Choose a live player from the other team's roster" }, 400);
+  const pickKey = (pick) => String(pick?.id || pick?.pickId || [pick?.year ?? pick?.season ?? pick?.draftYear, pick?.round ?? pick?.draftRound, pick?.originalTeamId ?? pick?.originalOwnerTeamId ?? pick?.teamId].join("-"));
+  const targetPick = targetTeam.picks.find((pick) => pickKey(pick) === String(body.targetPickKey));
+  if (!targetPick) return json({ error: "Choose a live pick currently owned by that team" }, 400);
+  const engine = new GMSAnalysisEngine(prideFinancialRules());
+  const suggestions = engine.suggestTradeOffers(myTeam, targetTeam, targetPlayer, targetPick, { leagueTeams: snapshot.teams });
+  return json({ myTeam:{id:myTeam.id,name:myTeam.name},targetTeam:{id:targetTeam.id,name:targetTeam.name},targetPlayer,targetPick,suggestions,note:"Suggestions rank who to offer; they do not guarantee acceptance. Missing Fantrax salary, contract, pick round/year, dead money, or scoring evidence remains unavailable." });
 }
 
 async function tradeAnalysis(request, env, auth) {
