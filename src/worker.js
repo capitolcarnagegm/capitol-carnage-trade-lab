@@ -26,6 +26,7 @@ export default {
       if (url.pathname === "/account/league/inspect") return inspectLeague(request);
       if (url.pathname === "/league-data") return leagueData(url, env, auth);
       if (url.pathname === "/trade-analysis") return tradeAnalysis(request, env, auth);
+      if (url.pathname === "/trade-suggestion") return tradeSuggestion(request, env, auth);
       if (url.pathname === "/current-games") return currentGames(url);
       if (url.pathname === "/news") return news();
       return json({ error: "Not found" }, 404);
@@ -219,10 +220,10 @@ async function leagueSnapshot(ws) {
   const playerMap = mergePlayerData(playerIds, allPool);
   const freeAgents = mergeStatGroups(availablePool);
   const teams = buildTeams(rosters, playerMap, picks);
-  const engine = new GMSAnalysisEngine(rulesFromLeagueInfo(leagueInfo));
+  const engine = new GMSAnalysisEngine(prideFinancialRules());
   const rankings = engine.analyzeLeague(teams).sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
   const myTeam = teams.find((team) => String(team.id) === String(ws.team_id)) || teams.find((team) => team.name === ws.team_name) || null;
-  const recommendations = myTeam ? engine.recommendFreeAgents(myTeam, freeAgents, 15) : [];
+  const recommendations = myTeam ? engine.recommendFreeAgents(myTeam, freeAgents, 15, { leagueTeams: teams, leagueInfo }) : [];
 
   return {
     ok: true,
@@ -346,6 +347,9 @@ function mergeOne(id, pool) {
     performancePpg: performance.ppg ?? null,
     ppg: performance.ppg ?? null,
     salary: weekly.salary ?? season.salary ?? performance.salary ?? null,
+    contract: weekly.contract ?? season.contract ?? performance.contract ?? null,
+    rosteredPct: weekly.rosteredPct ?? season.rosteredPct ?? performance.rosteredPct ?? null,
+    rosterTrend: weekly.rosterTrend ?? season.rosterTrend ?? performance.rosterTrend ?? null,
     age: weekly.age ?? season.age ?? performance.age ?? null,
     position: weekly.position || season.position || performance.position || null,
     nflTeam: weekly.nflTeam || season.nflTeam || performance.nflTeam || null,
@@ -399,9 +403,28 @@ function buildTeams(rosters, playerMap, picksPayload) {
   });
 }
 
-function rulesFromLeagueInfo(info) {
-  const cap = num(info?.salaryCap ?? info?.cap ?? info?.leagueSalaryCap);
-  return cap != null ? { cap } : {};
+function prideFinancialRules() {
+  return { now: new Date() };
+}
+
+function tradePickKey(pick) { return String(pick?.id || pick?.pickId || [pick?.year ?? pick?.season ?? pick?.draftYear, pick?.round ?? pick?.draftRound, pick?.originalTeamId ?? pick?.originalOwnerTeamId ?? pick?.teamId].join("-")); }
+
+async function tradeSuggestion(request, env, auth) {
+  if (request.method !== "POST") return json({ error: "POST only" }, 405);
+  const body = await request.json().catch(() => ({}));
+  const ws = await ownedLeague(env, auth, body.workspaceId);
+  if (!ws) return json({ error: "League not found" }, 404);
+  const snapshot = await leagueSnapshot(ws);
+  const myTeam = snapshot.teams.find((team) => String(team.id) === String(ws.team_id)) || snapshot.teams.find((team) => team.name === ws.team_name);
+  const targetTeam = snapshot.teams.find((team) => String(team.id) === String(body.targetTeamId));
+  if (!myTeam || !targetTeam || String(myTeam.id) === String(targetTeam.id)) return json({ error: "Choose another team as the trade partner" }, 400);
+  const targetPlayer = targetTeam.players.find((player) => String(player.id) === String(body.targetPlayerId));
+  if (!targetPlayer) return json({ error: "Choose a live player from the other team's roster" }, 400);
+  const targetPick = body.targetPickKey ? targetTeam.picks.find((pick) => tradePickKey(pick) === String(body.targetPickKey)) : null;
+  if (body.targetPickKey && !targetPick) return json({ error: "The selected pick is not currently owned by that team" }, 400);
+  const engine = new GMSAnalysisEngine(prideFinancialRules());
+  const suggestions = engine.suggestTradeOffers(myTeam, targetTeam, targetPlayer, targetPick, { leagueTeams: snapshot.teams });
+  return json({ myTeam:{id:myTeam.id,name:myTeam.name},targetTeam:{id:targetTeam.id,name:targetTeam.name},targetPlayer,targetPick,suggestions,note:"Suggestions rank who to offer; they do not guarantee acceptance. Missing Fantrax salary, contract, pick round/year, dead money, or scoring evidence remains unavailable." });
 }
 
 async function tradeAnalysis(request, env, auth) {
@@ -415,25 +438,30 @@ async function tradeAnalysis(request, env, auth) {
   if (!teamA || !teamB || teamA.id === teamB.id) return json({ error: "Choose two different synced teams" }, 400);
   const giveA = new Set((body.giveA || []).map(String));
   const giveB = new Set((body.giveB || []).map(String));
+  const pickKeysA = new Set((body.picksA || []).map(String));
+  const pickKeysB = new Set((body.picksB || []).map(String));
   const playersA = teamA.players.filter((p) => giveA.has(String(p.id)));
   const playersB = teamB.players.filter((p) => giveB.has(String(p.id)));
-  if (!playersA.length && !playersB.length) return json({ error: "Select at least one player in the trade" }, 400);
+  const picksA = teamA.picks.filter((pick) => pickKeysA.has(tradePickKey(pick)));
+  const picksB = teamB.picks.filter((pick) => pickKeysB.has(tradePickKey(pick)));
+  if (picksA.length !== pickKeysA.size || picksB.length !== pickKeysB.size) return json({ error: "One or more selected picks are not owned by that team" }, 400);
+  if (!playersA.length && !playersB.length && !picksA.length && !picksB.length) return json({ error: "Select at least one player or pick in the trade" }, 400);
 
   const beforeTeams = snapshot.teams;
-  const afterA = { ...teamA, players: [...teamA.players.filter((p) => !giveA.has(String(p.id))), ...playersB] };
-  const afterB = { ...teamB, players: [...teamB.players.filter((p) => !giveB.has(String(p.id))), ...playersA] };
+  const afterA = { ...teamA, players: [...teamA.players.filter((p) => !giveA.has(String(p.id))), ...playersB], picks: [...teamA.picks.filter((pick) => !pickKeysA.has(tradePickKey(pick))), ...picksB] };
+  const afterB = { ...teamB, players: [...teamB.players.filter((p) => !giveB.has(String(p.id))), ...playersA], picks: [...teamB.picks.filter((pick) => !pickKeysB.has(tradePickKey(pick))), ...picksA] };
   const afterTeams = beforeTeams.map((team) => team.id === teamA.id ? afterA : team.id === teamB.id ? afterB : team);
-  const engine = new GMSAnalysisEngine(rulesFromLeagueInfo(snapshot.leagueInfo));
+  const engine = new GMSAnalysisEngine(prideFinancialRules());
   const before = engine.analyzeLeague(beforeTeams);
   const after = engine.analyzeLeague(afterTeams);
   const beforeA = before.find((r) => r.teamId === teamA.id); const beforeB = before.find((r) => r.teamId === teamB.id);
   const afterAReport = after.find((r) => r.teamId === teamA.id); const afterBReport = after.find((r) => r.teamId === teamB.id);
   const deltaA = delta(afterAReport?.score, beforeA?.score); const deltaB = delta(afterBReport?.score, beforeB?.score);
   return json({
-    teamA: { id: teamA.id, name: teamA.name, sends: playersA, receives: playersB, before: beforeA, after: afterAReport, delta: deltaA },
-    teamB: { id: teamB.id, name: teamB.name, sends: playersB, receives: playersA, before: beforeB, after: afterBReport, delta: deltaB },
+    teamA: { id: teamA.id, name: teamA.name, sends: playersA, receives: playersB, sendsPicks: picksA, receivesPicks: picksB, before: beforeA, after: afterAReport, delta: deltaA },
+    teamB: { id: teamB.id, name: teamB.name, sends: playersB, receives: playersA, sendsPicks: picksB, receivesPicks: picksA, before: beforeB, after: afterBReport, delta: deltaB },
     verdict: tradeVerdict(deltaA, deltaB),
-    note: "Scores use only available Fantrax inputs. Missing projections or salary fields are not treated as zero."
+    note: "Scores use only available Fantrax inputs. The Pride cap is anchored at $1,403.90 for 2026, rises 5% each March 1, and active contracts rise 20% each league year. IR salary is excluded; cut-player dead cap remains charged. Missing projections, contracts, salary, or penalties are not treated as zero."
   });
 }
 
