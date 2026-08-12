@@ -178,6 +178,11 @@ a:hover { text-decoration: underline; }
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 .nav button {
   background: transparent;
@@ -196,6 +201,9 @@ a:hover { text-decoration: underline; }
   border-color: var(--gold);
   font-weight: 600;
 }
+.compact-loading { min-height: auto; padding: 14px; margin-bottom: 14px; }
+.waiver-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.waiver-pager span { color: var(--muted); font-size: 13px; text-align: center; }
 
 .main { max-width: 1100px; margin: 0 auto; padding: 16px 14px 40px; }
 .account-mode .nav, .account-mode .site-header .asof, .account-mode #syncBtn { display: none; }
@@ -497,6 +505,13 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: upp
 }
 
 @media (max-width: 720px) {
+  .nav { flex-wrap: nowrap; padding: 8px; }
+  .nav button { min-height: 42px; padding: 9px 13px; }
+  .main { padding: 12px 9px 32px; }
+  .card { padding: 13px 11px; }
+  .waiver-pager { flex-wrap: wrap; }
+  .waiver-pager span { order: -1; flex-basis: 100%; }
+  .waiver-pager button { flex: 1; min-height: 42px; }
   .pv-top-label { display: none; }
   .pv-top { padding: 4px; }
   .header-right { gap: 8px; }
