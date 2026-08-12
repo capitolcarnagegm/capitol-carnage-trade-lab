@@ -25,3 +25,23 @@ test('trade analysis treats cap as legality and explains dynasty roster impact',
   assert.match(app, /Cap space is a legality constraint, not a reason by itself to make the trade/);
   assert.match(app, /Illegal under current cap/);
 });
+
+test('cut simulator applies the five-season Pride bylaw schedule', async () => {
+  const app = await readFile(appPath, 'utf8');
+  assert.match(app, /fiveYearCutOutcome/);
+  assert.match(app, /\[0, 1, 2, 3, 4\]/);
+  assert.match(app, /BYLAWS\.dead\[remaining\]/);
+  assert.match(app, /irRoomRemaining/);
+  assert.match(app, /Math\.min\(salary, irRoomRemaining\)/);
+  assert.match(app, /There is no cut penalty in the third season or later/);
+  assert.match(app, /Five-season combined projection/);
+});
+
+test('every team cap is recalculated from Pride rules and team-specific charges', async () => {
+  const app = await readFile(appPath, 'utf8');
+  assert.match(app, /prideCapForYear/);
+  assert.match(app, /rosterSalary = players\.reduce\(function \(sum, p\) \{ return sum \+ capSalary\(p\); \}, 0\)/);
+  assert.match(app, /currentDead = penalties/);
+  assert.match(app, /League-wide cap audit/);
+  assert.doesNotMatch(app, /team && team\.salaryCap != null \? team\.salaryCap/);
+});
