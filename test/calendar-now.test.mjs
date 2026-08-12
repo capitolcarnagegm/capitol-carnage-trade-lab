@@ -23,8 +23,9 @@ test("August 12 command-center status identifies the current phase and next dead
   assert.equal(status.upcoming[1].title, "Last-year extension deadline");
 });
 
-test("calendar status uses Central Time around midnight", () => {
-  const status = currentCalendarStatus(new Date("2026-08-16T04:30:00Z"));
+test("calendar status uses Indiana Eastern Time around midnight", () => {
+  const status = currentCalendarStatus(new Date("2026-08-16T03:30:00Z"));
   assert.equal(status.today, "2026-08-15");
   assert.equal(status.todayEvents[0].title, "Claims become available");
+  assert.equal(PRIDE_CALENDAR_2026.find(event => event.title === "Claims become available").at, "2026-08-15T17:00:00Z");
 });
