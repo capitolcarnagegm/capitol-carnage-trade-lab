@@ -1,0 +1,13 @@
+{
+  "name": "gmslocker",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "db:init": "wrangler d1 execute gms-locker-db --remote --file=./src/schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
