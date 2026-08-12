@@ -83,7 +83,7 @@ export class GMSAnalysisEngine {
     const weakest=groups[0]?.[0],window=p.competitiveWindow.mode||"unknown",starter=p.legalStarters.value,dead=p.capHealth.deadCap,room=p.capHealth.room;
     const strengths=starter==null?"lineup production is unavailable":`${starter.toFixed(1)} FP/G from the best legal lineup`;
     const concern=weakest?`${weakest} is the weakest measured position group`:"no position group has enough evidence to name a weakest unit";
-    const finance=room==null?"cap flexibility is unconfirmed":`${dead!=null&&dead>0?`${dead.toFixed(2)} in dead cap leaves `:""}${room.toFixed(2)} of current room`;
+    const finance=room==null?"cap flexibility is unconfirmed":(dead!=null&&dead>0?"$"+dead.toFixed(2)+" in dead cap leaves ":"")+"$"+room.toFixed(2)+" of current room";
     return `${report.teamName} has a ${window} profile with ${strengths}; ${concern}, and ${finance}.`;
   }
   analyzeLeague(teams){
