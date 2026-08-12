@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "cloudflare-worker.js"
+      - "cloudflare-router.js"
       - "wrangler.toml"
       - "migrations/**"
       - ".github/workflows/deploy-cloudflare-worker.yml"
