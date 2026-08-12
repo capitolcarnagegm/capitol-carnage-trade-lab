@@ -1,4 +1,4 @@
-/** GMS Locker 1.10.2 — username/password accounts and Fantrax-authoritative league analysis. */
+/** GMS Locker 1.11.0 — responsive navigation and on-demand league analysis. */
 (function () {
   "use strict";
 
@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.10.2";
+  var VERSION = "1.11.0";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -86,7 +86,7 @@
   var state = {
     account: null, access: null, ownerAccounts: [], workspaces: [], activeWorkspace: null, authMode: "login", authUsername: "", authEmail: "", authLegacy: false, authError: "", onboarding: null,
     teams: {}, players: {}, standings: [], picks: [], matchups: {}, leagueInfo: {}, teamData: {}, freeAgentData: {}, supplementalProjections: {}, news: [], newsLoading: false, newsError: null, newsAsOf: null, games: [], gamesAsOf: null, gamesError: null, gamesLoading: false, gameSeasonType: 2,
-    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, warTeam: MY_TEAM, warTeamId: MY_TEAM_ID, selectedWaiverIds: [], waiverAnalysisIds: [], waiverAnalysisLoading: false, waiverContext: {}, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
+    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, warTeam: MY_TEAM, warTeamId: MY_TEAM_ID, selectedWaiverIds: [], waiverAnalysisIds: [], waiverAnalysisLoading: false, waiverContext: {}, waiverPage: 1, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
     chat: safeJson(localStorage.getItem("gms_chat"), []), warChat: safeJson(localStorage.getItem("gms_war_chat"), []), tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: [],
     lineupSettingsDraft: null, lineupSettingsError: ""
   };
@@ -148,7 +148,6 @@
       });
       state.asOf = data.syncedAt || new Date().toISOString();
       state.loading = false;
-      await refreshNews(false);
     } catch (error) {
       state.loading = false; state.error = String(error.message || error);
     }
@@ -1038,7 +1037,11 @@
     state.waiverAnalysisIds = state.waiverAnalysisIds.filter(function (id) { return availableIds[id]; });
     var selected = {}; state.selectedWaiverIds.forEach(function (id) { selected[id] = true; });
     var analyzedPlayers = state.waiverAnalysisIds.map(function (id) { return everyPlayer.filter(function (p) { return p.id === id; })[0]; }).filter(Boolean);
-    var list = freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { var needA = needs[a.pos] || 0, needB = needs[b.pos] || 0; return (needB * 10 + expectedScore(b)) - (needA * 10 + expectedScore(a)); }).slice(0, 150);
+    var ranked = freeAgents().filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { var needA = needs[a.pos] || 0, needB = needs[b.pos] || 0; return (needB * 10 + expectedScore(b)) - (needA * 10 + expectedScore(a)); });
+    var pageSize = 30, pageCount = Math.max(1, Math.ceil(ranked.length / pageSize));
+    state.waiverPage = Math.max(1, Math.min(state.waiverPage || 1, pageCount));
+    var pageStart = (state.waiverPage - 1) * pageSize;
+    var list = ranked.slice(pageStart, pageStart + pageSize);
     var positionOrder = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
     var grouped = {};
     list.forEach(function (p) { (grouped[p.pos] || (grouped[p.pos] = [])).push(p); });
@@ -1048,7 +1051,7 @@
     if (analyzedPlayers.length && !state.waiverAnalysisLoading) html += '<div class="waiver-analysis">' + analyzedPlayers.map(waiverComparisonCard).join("") + '</div>';
     html += '</div><div class="card"><div class="sectionhead"><h2>Waivers / Free Agency by Position</h2><button class="primary" onclick="GMS.sync()">Refresh free agents</button></div><div class="notice">Players are grouped by their primary Fantrax position and ranked within that position using live Fantrax expectation plus Capitol Carnage roster need. Pickup advice compares each player with your same-position depth. Recommended blind bids use the median salary of the five closest same-position players as a value ceiling, then model every rival team’s remaining cap room, position need, and projected upgrade. No unrelated player is described as an NFL-team cap.</div><div class="actions">';
     positionOrder.forEach(function (pos) { if (grouped[pos] && grouped[pos].length) html += '<a class="secondary" href="#free-agents-' + esc(pos.toLowerCase()) + '">' + esc(pos) + ' (' + grouped[pos].length + ')</a>'; });
-    html += '</div></div>';
+    html += '</div><div class="waiver-pager"><button class="secondary" onclick="GMS.waiverPage(' + (state.waiverPage - 1) + ')"' + (state.waiverPage <= 1 ? ' disabled' : '') + '>Previous</button><span>Showing ' + (ranked.length ? pageStart + 1 : 0) + '–' + Math.min(pageStart + pageSize, ranked.length) + ' of ' + ranked.length + ' · Page ' + state.waiverPage + ' of ' + pageCount + '</span><button class="secondary" onclick="GMS.waiverPage(' + (state.waiverPage + 1) + ')"' + (state.waiverPage >= pageCount ? ' disabled' : '') + '>Next</button></div></div>';
     positionOrder.forEach(function (pos) {
       var players = grouped[pos] || [];
       if (!players.length) return;
@@ -1210,8 +1213,8 @@
     var views = { war: viewWar, leagues: viewLeagues, team: viewTeam, startsit: viewStartSit, games: viewGames, teams: viewTeams, cap: viewCap, bhs: viewBhs, waivers: viewWaivers, trade: viewTrade, rankings: viewRankings, picks: viewPicks, news: viewNews, chat: viewChat, contact: viewContact, settings: viewSettings };
     document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); });
     var asof = document.getElementById("asof"); if (asof) asof.innerHTML = state.loading ? "<b>Refreshing Fantrax…</b>" : state.asOf ? "Updated <b>" + esc(new Date(state.asOf).toLocaleTimeString()) + "</b>" : "Not synced";
-    if (state.loading && !Object.keys(state.teams).length) { root.innerHTML = '<div class="loading">Loading live Fantrax projections, performance, rosters, and cap penalties…</div>'; return; }
     var body = '<div class="notice evaluation-policy"><b>Evaluation standard:</b> Full Fantrax rosters drive every team judgment. Only Game Day is best legal starters vs best legal starters. Reasons must be original to the subject, specific to live facts, and show unavailable instead of invented data.</div>';
+    if (state.loading && !Object.keys(state.teams).length) body += '<div class="loading compact-loading">Loading league data… You can open account, contact, or another page while this finishes.</div>';
     if (state.error) body += '<div class="error-banner"><b>Refresh failed:</b> ' + esc(state.error) + '</div>';
     try { body += (views[view] || viewWar)(); } catch (error) { body += '<div class="error-banner"><b>Screen error:</b> ' + esc(error.message || error) + '</div>'; }
     root.innerHTML = body;
@@ -1249,16 +1252,20 @@
       var me = await fetch(API_BASE + "/auth/me", { headers: authHeaders({ Accept: "application/json" }), cache: "no-store" });
       if (!me.ok) throw new Error("Session expired");
       state.account = (await me.json()).user;
-      var accessResponse = await fetch(API_BASE + "/account/access", { headers: authHeaders({ Accept: "application/json" }), cache: "no-store" });
+      var startup = await Promise.all([
+        fetch(API_BASE + "/account/access", { headers: authHeaders({ Accept: "application/json" }), cache: "no-store" }),
+        fetch(API_BASE + "/account/leagues", { headers: authHeaders({ Accept: "application/json" }), cache: "no-store" })
+      ]);
+      var accessResponse = startup[0];
       if (!accessResponse.ok) throw new Error("Could not verify access");
       state.access = (await accessResponse.json()).access;
       if (!state.access.allowed) { render(); return; }
-      var response = await fetch(API_BASE + "/account/leagues", { headers: authHeaders({ Accept: "application/json" }), cache: "no-store" });
+      var response = startup[1];
       var data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not load leagues");
       state.workspaces = data.leagues || [];
       var wanted = localStorage.getItem("gms_active_workspace");
       applyWorkspace(state.workspaces.filter(function (league) { return league.id === wanted; })[0] || state.workspaces[0] || null);
-      render(); if (state.activeWorkspace) { refreshNews(true); syncFantrax(); }
+      render(); if (state.activeWorkspace) syncFantrax();
     } catch (_) { AUTH_TOKEN = ""; SESSION_STORE.removeItem("gms_session"); state.account = null; render(); }
   }
 
@@ -1327,7 +1334,8 @@
         target += direction;
       }
     },
-    show: function (view) { if (view === "addleague") { GMS.addLeague(); return; } localStorage.setItem("gms_view", view); if (view === "games" && !state.gamesLoading && !state.gamesAsOf) refreshGames(state.gameSeasonType, true); else render(); },
+    show: function (view) { if (view === "addleague") { GMS.addLeague(); return; } localStorage.setItem("gms_view", view); document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); }); var root = document.getElementById("main"); if (root) root.setAttribute("aria-busy", "true"); requestAnimationFrame(function () { if (view === "games" && !state.gamesLoading && !state.gamesAsOf) refreshGames(state.gameSeasonType, true); else if (view === "news" && !state.newsLoading && !state.newsAsOf) refreshNews(true); else render(); if (root) root.removeAttribute("aria-busy"); }); },
+    waiverPage: function (page) { state.waiverPage = Math.max(1, Number(page) || 1); render(); window.scrollTo({ top: document.getElementById("nav").offsetTop, behavior: "smooth" }); },
     selectTeam: function (name) { state.selectedTeam = name; render(); },
     selectWarTeam: function (teamId) { var team = state.teams[String(teamId || "")]; if (team) { state.warTeamId = team.id; state.warTeam = team.name; state.warChat = []; } render(); },
     toggleCut: function (id) { var i = state.cutIds.indexOf(id); if (i >= 0) state.cutIds.splice(i, 1); else state.cutIds.push(id); render(); },
