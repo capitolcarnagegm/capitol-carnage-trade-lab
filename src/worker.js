@@ -222,7 +222,7 @@ async function leagueSnapshot(ws) {
   const engine = new GMSAnalysisEngine(prideFinancialRules());
   const rankings = engine.analyzeLeague(teams).sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
   const myTeam = teams.find((team) => String(team.id) === String(ws.team_id)) || teams.find((team) => team.name === ws.team_name) || null;
-  const recommendations = myTeam ? engine.recommendFreeAgents(myTeam, freeAgents, 15) : [];
+  const recommendations = myTeam ? engine.recommendFreeAgents(myTeam, freeAgents, 15, { leagueTeams: teams, leagueInfo }) : [];
 
   return {
     ok: true,
@@ -346,6 +346,9 @@ function mergeOne(id, pool) {
     performancePpg: performance.ppg ?? null,
     ppg: performance.ppg ?? null,
     salary: weekly.salary ?? season.salary ?? performance.salary ?? null,
+    contract: weekly.contract ?? season.contract ?? performance.contract ?? null,
+    rosteredPct: weekly.rosteredPct ?? season.rosteredPct ?? performance.rosteredPct ?? null,
+    rosterTrend: weekly.rosterTrend ?? season.rosterTrend ?? performance.rosterTrend ?? null,
     age: weekly.age ?? season.age ?? performance.age ?? null,
     position: weekly.position || season.position || performance.position || null,
     nflTeam: weekly.nflTeam || season.nflTeam || performance.nflTeam || null,
