@@ -653,7 +653,24 @@
     var result = {}; (info.salaryInfo || []).forEach(function (row) { result[row.key] = num(row.value); }); return result;
   }
 
-  function deadSchedule(salary, years) { var y = Math.max(1, Number(years) || 1), s = Number(salary) || 0; return { now: s, next: s * (BYLAWS.dead[y] == null ? 0 : BYLAWS.dead[y]) }; }
+  function deadSchedule(salary, years) {
+    var remaining = Math.max(1, Math.min(5, Number(years) || 1)), amount = Number(salary) || 0;
+    return { now: amount, next: amount * (BYLAWS.dead[remaining] == null ? 0 : BYLAWS.dead[remaining]) };
+  }
+
+  function fiveYearCutOutcome(player, currentCap) {
+    var salary = Number(player.salary) || 0, remaining = Math.max(1, Math.min(5, Number(player.years) || 1));
+    return [0, 1, 2, 3, 4].map(function (offset) {
+      var keptSalary = offset === 0 ? capSalary(player) : (remaining > offset ? salary * Math.pow(1 + BYLAWS.salaryRaise, offset) : 0);
+      var dead = offset === 0 ? salary : (offset === 1 ? salary * (BYLAWS.dead[remaining] == null ? 0 : BYLAWS.dead[remaining]) : 0);
+      var roomChange = keptSalary - dead;
+      return {
+        offset: offset, year: new Date().getFullYear() + offset, leagueCap: currentCap * Math.pow(1 + BYLAWS.capInflation, offset),
+        keptSalaryAvoided: keptSalary, addedDeadCap: dead, netRoomChange: roomChange,
+        outcome: roomChange > 0 ? "creates cap room" : roomChange < 0 ? "reduces cap room" : "no cap-room change"
+      };
+    });
+  }
 
   function capProjection(teamName, cutIds) {
     var players = teamPlayers(teamName), penalties = existingDead(teamName), cuts = {};
@@ -664,22 +681,30 @@
     var existingNextDead = penalties.filter(function (row) { return num(row.year) === currentYear + 1; }).reduce(function (sum, row) { return sum + row.amount; }, 0);
     var selectedCuts = players.filter(function (p) { return cuts[p.id]; });
     var team = teamByName(teamName), cap = team && team.salaryCap != null ? team.salaryCap : CAP_NOW;
+    var cutOutcomes = selectedCuts.map(function (p) { return { player: p, seasons: fiveYearCutOutcome(p, cap) }; });
     var rosterSalary = players.reduce(function (sum, p) { return sum + capSalary(p); }, 0);
-    var cutSalary = selectedCuts.reduce(function (sum, p) { return sum + capSalary(p); }, 0);
-    var newDeadNow = selectedCuts.reduce(function (sum, p) { return sum + deadSchedule(p.salary, p.years).now; }, 0);
-    var newDeadNext = selectedCuts.reduce(function (sum, p) { return sum + deadSchedule(p.salary, p.years).next; }, 0);
+    var cutSalary = cutOutcomes.reduce(function (sum, row) { return sum + row.seasons[0].keptSalaryAvoided; }, 0);
+    var newDeadNow = cutOutcomes.reduce(function (sum, row) { return sum + row.seasons[0].addedDeadCap; }, 0);
+    var newDeadNext = cutOutcomes.reduce(function (sum, row) { return sum + row.seasons[1].addedDeadCap; }, 0);
     var expiring = players.filter(function (p) { return !cuts[p.id] && p.years <= 1; });
     var returning = players.filter(function (p) { return !cuts[p.id] && p.years > 1; });
     var expiringSalary = expiring.reduce(function (sum, p) { return sum + p.salary; }, 0);
     var nextRosterSalary = returning.reduce(function (sum, p) { return sum + p.salary * (1 + BYLAWS.salaryRaise); }, 0);
     var nextDead = existingNextDead + newDeadNext;
+    var fiveYearCutProjection = [0, 1, 2, 3, 4].map(function (offset) {
+      var rows = cutOutcomes.map(function (outcome) { return outcome.seasons[offset]; });
+      return { offset: offset, year: currentYear + offset, leagueCap: cap * Math.pow(1 + BYLAWS.capInflation, offset),
+        salaryAvoided: rows.reduce(function (sum, row) { return sum + row.keptSalaryAvoided; }, 0),
+        addedDeadCap: rows.reduce(function (sum, row) { return sum + row.addedDeadCap; }, 0),
+        netRoomChange: rows.reduce(function (sum, row) { return sum + row.netRoomChange; }, 0) };
+    });
     return {
       cap: cap, nextCap: cap * (1 + BYLAWS.capInflation), rosterSalary: rosterSalary, currentDead: currentDead,
       irSalaryExcluded: players.filter(ir).reduce(function (sum, p) { return sum + (Number(p.salary) || 0); }, 0),
       currentUsed: rosterSalary + currentDead, currentRoom: cap - rosterSalary - currentDead,
-      cutSalary: cutSalary, newDeadNow: newDeadNow, newDeadNext: newDeadNext,
+      cutSalary: cutSalary, newDeadNow: newDeadNow, newDeadNext: newDeadNext, cutOutcomes: cutOutcomes, fiveYearCutProjection: fiveYearCutProjection,
       afterRosterSalary: rosterSalary - cutSalary, afterDead: currentDead + newDeadNow,
-      afterUsed: rosterSalary - cutSalary + currentDead + newDeadNow,
+      afterUsed: rosterSalary - cutSalary + currentDead + newDeadNow, afterRoom: cap - (rosterSalary - cutSalary + currentDead + newDeadNow),
       expiringCount: expiring.length, expiringSalary: expiringSalary, returningCount: returning.length,
       nextRosterSalary: nextRosterSalary, existingNextDead: existingNextDead, nextDead: nextDead,
       nextUsed: nextRosterSalary + nextDead, nextRoom: cap * (1 + BYLAWS.capInflation) - nextRosterSalary - nextDead
@@ -1039,9 +1064,16 @@
     state.simulatedCutIds.forEach(function (id) { simulated[id] = true; });
     var simulatedCuts = players.filter(function (p) { return simulated[p.id]; });
     var capData = capProjection(MY_TEAM, state.simulatedCutIds);
-    var html = '<div class="card"><div class="sectionhead"><h2>Cap / Dead</h2><span class="pill">FANTRAX PENALTIES</span></div><div class="notice"><b>Current cap used includes existing dead money.</b> It is calculated as live Fantrax roster salary plus the current Cap Hit Penalties table. A cut does not create current-year room because 100% of that salary becomes new dead cap.</div><div class="grid4"><div class="metric"><b>' + money(capData.rosterSalary) + '</b><span>Current roster salary</span></div><div class="metric"><b>' + money(capData.currentDead) + '</b><span>Existing current dead cap</span></div><div class="metric"><b>' + money(capData.currentUsed) + '</b><span>Total current cap used</span></div><div class="metric"><b>' + money(capData.currentRoom) + '</b><span>Current cap room</span></div></div></div>';
-    html += '<div class="card"><div class="sectionhead"><h2>Cut simulation result</h2><span class="pill">' + simulatedCuts.length + ' CUT' + (simulatedCuts.length === 1 ? '' : 'S') + '</span></div>' + (!simulatedCuts.length ? '<div class="muted">Select players below, then press Simulate Cuts.</div>' : '<div class="grid4"><div class="metric"><b>' + money(capData.afterRosterSalary) + '</b><span>Roster salary after cuts</span></div><div class="metric"><b>' + money(capData.afterDead) + '</b><span>Dead cap after cuts</span></div><div class="metric"><b>' + money(capData.afterUsed) + '</b><span>Total used after cuts</span></div><div class="metric"><b>' + money(capData.newDeadNext) + '</b><span>New next-year dead</span></div></div><div class="notice"><b>Current-year change: ' + money(capData.afterUsed - capData.currentUsed) + '.</b> This simulation is advice only and does not submit cuts to Fantrax.</div>') + '</div>';
-    html += '<div class="card"><div class="sectionhead"><h2>Next-year cap outlook</h2><span class="pill">PRIDE +5% CAP</span></div><div class="notice">Next year removes expiring contracts, applies the Pride 20% salary increase to returning contracts, and includes both Fantrax-recorded next-year penalties and dead money created by simulated cuts.</div><div class="grid4"><div class="metric"><b>' + money(capData.nextCap) + '</b><span>Next-year salary cap</span></div><div class="metric"><b>' + money(capData.nextRosterSalary) + '</b><span>Returning-contract salary</span></div><div class="metric"><b>' + money(capData.nextDead) + '</b><span>Total next-year dead cap</span></div><div class="metric"><b>' + money(capData.nextRoom) + '</b><span>Projected next-year room</span></div></div><div class="depth-split"><div class="depth-bucket"><b>Expiring contracts</b><span>' + capData.expiringCount + ' players · ' + money(capData.expiringSalary) + ' current salary</span></div><div class="depth-bucket"><b>Existing next-year dead</b><span>' + money(capData.existingNextDead) + '</span></div><div class="depth-bucket"><b>New dead from cuts</b><span>' + money(capData.newDeadNext) + '</span></div></div></div>';
+    var html = '<div class="card"><div class="sectionhead"><h2>Cap / Dead</h2><span class="pill">PRIDE BYLAWS</span></div><div class="notice"><b>Current cap used includes existing cut-player dead money.</b> Active and Taxi salaries count; IR salary is excluded. A cut creates current dead cap equal to 100% of salary. Because an IR salary was already excluded, cutting an IR player can reduce current cap room when the dead charge is added.</div><div class="grid4"><div class="metric"><b>' + money(capData.rosterSalary) + '</b><span>Counted roster salary</span></div><div class="metric"><b>' + money(capData.currentDead) + '</b><span>Existing dead cap</span></div><div class="metric"><b>' + money(capData.irSalaryExcluded) + '</b><span>IR salary excluded</span></div><div class="metric"><b>' + money(capData.currentRoom) + '</b><span>Current cap room</span></div></div></div>';
+    html += '<div class="card"><div class="sectionhead"><h2>Cut outcome analysis</h2><span class="pill">' + simulatedCuts.length + ' CUT' + (simulatedCuts.length === 1 ? '' : 'S') + '</span></div>';
+    if (!simulatedCuts.length) html += '<div class="muted">Select players below, then press Simulate Cuts for a five-season bylaw projection.</div>';
+    else {
+      html += '<div class="grid4"><div class="metric"><b>' + money(capData.afterRosterSalary) + '</b><span>Roster salary after cuts</span></div><div class="metric"><b>' + money(capData.afterDead) + '</b><span>Dead cap after cuts</span></div><div class="metric"><b>' + money(capData.afterRoom) + '</b><span>Current room after cuts</span></div><div class="metric"><b>' + money(capData.afterRoom - capData.currentRoom) + '</b><span>Current room change</span></div></div>';
+      html += '<h3>Five-season combined projection</h3><div class="tableWrap"><table><thead><tr><th>Season</th><th>Projected league cap</th><th>Salary avoided</th><th>Added dead cap</th><th>Net room change</th></tr></thead><tbody>' + capData.fiveYearCutProjection.map(function (row) { return '<tr><td><b>' + row.year + '</b></td><td>' + money(row.leagueCap) + '</td><td>' + money(row.salaryAvoided) + '</td><td>' + money(row.addedDeadCap) + '</td><td><b class="' + (row.netRoomChange >= 0 ? 'good' : 'bad') + '">' + money(row.netRoomChange) + '</b></td></tr>'; }).join('') + '</tbody></table></div>';
+      html += '<h3>Player-by-player cut prediction</h3><div class="tableWrap"><table><thead><tr><th>Player</th><th>Season</th><th>Contract salary avoided</th><th>Dead cap</th><th>Net room effect</th><th>Prediction</th></tr></thead><tbody>' + capData.cutOutcomes.map(function (outcome) { return outcome.seasons.map(function (row) { return '<tr><td><b>' + esc(outcome.player.name) + '</b><br><span class="small">' + outcome.player.years + ' years · ' + (ir(outcome.player) ? 'IR' : taxi(outcome.player) ? 'Taxi' : 'Active') + '</span></td><td>' + row.year + '</td><td>' + money(row.keptSalaryAvoided) + '</td><td>' + money(row.addedDeadCap) + '</td><td><b class="' + (row.netRoomChange >= 0 ? 'good' : 'bad') + '">' + money(row.netRoomChange) + '</b></td><td>' + esc(row.outcome) + '</td></tr>'; }).join(''); }).join('') + '</tbody></table></div><div class="notice">Projection applies the Pride 100% current-year cut charge, the 2–5 year next-season dead-cap percentages, annual 20% contract salary increases while the original deal would remain active, and the 5% annual league-cap increase. Dead cap from previously cut players remains included separately.</div>';
+    }
+    html += '</div>';
+    html += '<div class="card"><div class="sectionhead"><h2>Next-year full-team cap outlook</h2><span class="pill">PRIDE +5% CAP</span></div><div class="grid4"><div class="metric"><b>' + money(capData.nextCap) + '</b><span>Next-year salary cap</span></div><div class="metric"><b>' + money(capData.nextRosterSalary) + '</b><span>Returning-contract salary</span></div><div class="metric"><b>' + money(capData.nextDead) + '</b><span>Total next-year dead cap</span></div><div class="metric"><b>' + money(capData.nextRoom) + '</b><span>Projected next-year room</span></div></div></div>';
     html += '<div class="card"><h2>Fantrax recorded penalties</h2>' + penalties.map(function (row) { return '<div class="gate"><span><b>' + esc(row.name) + '</b><br><span class="small">' + esc(row.description) + '</span></span><b>' + money(row.amount) + '</b></div>'; }).join("") + (!penalties.length ? '<div class="muted">Fantrax returned no cap-hit penalties.</div>' : "") + '</div>';
     html += '<div class="card"><div class="sectionhead"><h2>Cut simulator</h2><div class="actions"><button class="primary" onclick="GMS.simulateCuts()">Simulate Cuts</button><button class="secondary" onclick="GMS.clearCuts()">Clear</button></div></div><div class="notice">Check one or more players, then press <b>Simulate Cuts</b>. Nothing is sent to Fantrax.</div>' + players.slice().sort(function (a, b) { return b.salary - a.salary; }).map(function (p) { var d = deadSchedule(p.salary, p.years); return '<label class="gate"><span><input type="checkbox" ' + (selected[p.id] ? "checked" : "") + ' onchange="GMS.toggleCut(\'' + esc(p.id) + '\')"> <b>' + esc(p.name) + '</b><br><span class="small">' + money(p.salary) + ' · ' + p.years + ' years · current dead ' + money(d.now) + ' · next dead ' + money(d.next) + '</span></span></label>'; }).join("") + '</div>';
     return html;
