@@ -219,7 +219,7 @@ async function leagueSnapshot(ws) {
   const playerMap = mergePlayerData(playerIds, allPool);
   const freeAgents = mergeStatGroups(availablePool);
   const teams = buildTeams(rosters, playerMap, picks);
-  const engine = new GMSAnalysisEngine(rulesFromLeagueInfo(leagueInfo));
+  const engine = new GMSAnalysisEngine(prideFinancialRules());
   const rankings = engine.analyzeLeague(teams).sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
   const myTeam = teams.find((team) => String(team.id) === String(ws.team_id)) || teams.find((team) => team.name === ws.team_name) || null;
   const recommendations = myTeam ? engine.recommendFreeAgents(myTeam, freeAgents, 15) : [];
@@ -399,9 +399,8 @@ function buildTeams(rosters, playerMap, picksPayload) {
   });
 }
 
-function rulesFromLeagueInfo(info) {
-  const cap = num(info?.salaryCap ?? info?.cap ?? info?.leagueSalaryCap);
-  return cap != null ? { cap } : {};
+function prideFinancialRules() {
+  return { now: new Date() };
 }
 
 async function tradeAnalysis(request, env, auth) {
@@ -423,7 +422,7 @@ async function tradeAnalysis(request, env, auth) {
   const afterA = { ...teamA, players: [...teamA.players.filter((p) => !giveA.has(String(p.id))), ...playersB] };
   const afterB = { ...teamB, players: [...teamB.players.filter((p) => !giveB.has(String(p.id))), ...playersA] };
   const afterTeams = beforeTeams.map((team) => team.id === teamA.id ? afterA : team.id === teamB.id ? afterB : team);
-  const engine = new GMSAnalysisEngine(rulesFromLeagueInfo(snapshot.leagueInfo));
+  const engine = new GMSAnalysisEngine(prideFinancialRules());
   const before = engine.analyzeLeague(beforeTeams);
   const after = engine.analyzeLeague(afterTeams);
   const beforeA = before.find((r) => r.teamId === teamA.id); const beforeB = before.find((r) => r.teamId === teamB.id);
@@ -433,7 +432,7 @@ async function tradeAnalysis(request, env, auth) {
     teamA: { id: teamA.id, name: teamA.name, sends: playersA, receives: playersB, before: beforeA, after: afterAReport, delta: deltaA },
     teamB: { id: teamB.id, name: teamB.name, sends: playersB, receives: playersA, before: beforeB, after: afterBReport, delta: deltaB },
     verdict: tradeVerdict(deltaA, deltaB),
-    note: "Scores use only available Fantrax inputs. Missing projections or salary fields are not treated as zero."
+    note: "Scores use only available Fantrax inputs. The Pride cap is anchored at $1,403.90 for 2026, rises 5% each March 1, and active contracts rise 20% each league year. IR salary is excluded; cut-player dead cap remains charged. Missing projections, contracts, salary, or penalties are not treated as zero."
   });
 }
 
