@@ -6,7 +6,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.8.2";
+  var VERSION = "1.9.0";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -86,7 +86,7 @@
   var state = {
     account: null, access: null, ownerAccounts: [], workspaces: [], activeWorkspace: null, authMode: "login", authUsername: "", authEmail: "", authLegacy: false, authError: "", onboarding: null,
     teams: {}, players: {}, standings: [], picks: [], matchups: {}, leagueInfo: {}, teamData: {}, freeAgentData: {}, news: [], newsLoading: false, newsError: null, newsAsOf: null, games: [], gamesAsOf: null, gamesError: null, gamesLoading: false, gameSeasonType: 2,
-    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, selectedWaiverId: "", waiverAnalysisId: "", waiverAnalysisLoading: false, waiverContext: {}, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
+    asOf: null, loading: false, error: null, selectedTeam: MY_TEAM, warTeam: MY_TEAM, selectedWaiverId: "", waiverAnalysisId: "", waiverAnalysisLoading: false, waiverContext: {}, cutIds: [], simulatedCutIds: [], lineupDraft: null, selectedLineupIndex: null,
     chat: safeJson(localStorage.getItem("gms_chat"), []), warChat: safeJson(localStorage.getItem("gms_war_chat"), []), tradeTeamA: MY_TEAM, tradeTeamB: "", tradeA: [], tradeB: [],
     lineupSettingsDraft: null, lineupSettingsError: ""
   };
@@ -102,7 +102,7 @@
     BYLAWS.starters = sanitizeLineupRules(workspace.settings && workspace.settings.lineup) || savedLineupRules() || copyLineupRules(PRIDE_STARTERS);
     state.chat = safeJson(localStorage.getItem(scopedKey("gms_chat")), []);
     state.warChat = safeJson(localStorage.getItem(scopedKey("gms_war_chat")), []);
-    state.selectedTeam = MY_TEAM; state.tradeTeamA = MY_TEAM; state.tradeTeamB = "";
+    state.selectedTeam = MY_TEAM; state.warTeam = MY_TEAM; state.tradeTeamA = MY_TEAM; state.tradeTeamB = "";
     loadConversation("full"); loadConversation("war-room");
   }
 
@@ -118,7 +118,7 @@
   function mean(values) { var good = values.filter(function (v) { return Number.isFinite(v); }); return good.length ? good.reduce(function (a, b) { return a + b; }, 0) / good.length : null; }
   function percentile(value, values) { var good = values.filter(function (v) { return Number.isFinite(v); }).sort(function (a, b) { return a - b; }); if (!good.length || !Number.isFinite(value)) return null; return 100 * good.filter(function (v) { return v <= value; }).length / good.length; }
   function grade(score) { if (!Number.isFinite(score)) return "N/A"; return score >= 93 ? "A" : score >= 88 ? "A-" : score >= 83 ? "B+" : score >= 78 ? "B" : score >= 73 ? "B-" : score >= 68 ? "C+" : score >= 63 ? "C" : score >= 58 ? "C-" : score >= 50 ? "D" : "F"; }
-  function primaryPos(value) { var p = String(value || "").toUpperCase(); if (/D\/?ST|DEFENSE/.test(p)) return "DST"; if (/^K$|KICKER/.test(p)) return "K"; if (p.indexOf("QB") >= 0) return "QB"; if (p.indexOf("RB") >= 0) return "RB"; if (p.indexOf("WR") >= 0) return "WR"; if (p.indexOf("TE") >= 0) return "TE"; if (/DL|DE|DT|EDGE/.test(p)) return "DL"; if (p.indexOf("LB") >= 0) return "LB"; if (/DB|CB|\bS\b/.test(p)) return "DB"; return p.split(",")[0] || "?"; }
+  function primaryPos(value) { var p = String(value || "").toUpperCase().trim(); if (/D\/?ST|TEAM DEF|DEFENSE/.test(p)) return "DST"; if (/^K$|KICKER/.test(p)) return "K"; if (p.indexOf("QB") >= 0) return "QB"; if (p.indexOf("RB") >= 0) return "RB"; if (p.indexOf("WR") >= 0) return "WR"; if (p.indexOf("TE") >= 0) return "TE"; if (/DL|DE|DT|NT|EDGE/.test(p)) return "DL"; if (/LB|ILB|OLB/.test(p)) return "LB"; if (/DB|CB|SAFETY|\bS\b|\bFS\b|\bSS\b/.test(p)) return "DB"; return p.split(",")[0] || "?"; }
   function playerPositions(p) {
     var values = [p && p.pos].concat(String(p && p.eligible || "").split(/[,/|;]+/));
     return values.map(primaryPos).filter(function (pos, index, all) { return pos && pos !== "?" && all.indexOf(pos) === index; });
@@ -299,7 +299,7 @@
     var used = {}, lineup = [];
     BYLAWS.starters.forEach(function (spec) {
       for (var n = 0; n < spec.count; n++) {
-        var pick = pool.filter(function (p) { return !used[p.id] && spec.accept.indexOf(p.pos) >= 0; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); })[0];
+        var pick = pool.filter(function (p) { return !used[p.id] && eligibleForSlot(p, spec); }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); })[0];
         if (pick) { used[pick.id] = true; lineup.push({ slot: spec.slot, player: pick }); }
         else lineup.push({ slot: spec.slot, player: null });
       }
@@ -539,20 +539,41 @@
     };
   }
 
-  function opponentName() {
+  function opponentName(teamName) {
+    teamName = teamName || MY_TEAM;
     var games = state.matchups.matchups || [];
     for (var i = 0; i < games.length; i++) {
-      if (games[i].home && games[i].home.teamName === MY_TEAM) return games[i].away.teamName;
-      if (games[i].away && games[i].away.teamName === MY_TEAM) return games[i].home.teamName;
+      if (games[i].home && games[i].home.teamName === teamName) return games[i].away.teamName;
+      if (games[i].away && games[i].away.teamName === teamName) return games[i].home.teamName;
     }
     return "Opponent not loaded";
   }
 
+  function leagueRatingProfile() {
+    var rules = scoringRules(), labels = rules.map(function (rule) { return rule.label.toLowerCase(); });
+    var idp = BYLAWS.starters.some(function (slot) { return slot.accept.some(function (pos) { return ["DL", "LB", "DB"].indexOf(pos) >= 0; }); });
+    var superflex = BYLAWS.starters.some(function (slot) { return slot.accept.indexOf("QB") >= 0 && slot.accept.length > 1; });
+    var tePremium = rules.some(function (rule) { return /reception/.test(rule.label.toLowerCase()) && /tight|te\b/.test(rule.label.toLowerCase()); });
+    var sackPremium = rules.filter(function (rule) { return /sack/.test(rule.label.toLowerCase()); }).some(function (rule) { return rule.points >= 4; });
+    return { idp: idp, superflex: superflex, tePremium: tePremium, sackPremium: sackPremium, rules: rules.length, source: (state.activeWorkspace && state.activeWorkspace.leagueName || BYLAWS.name) + " Fantrax settings", labels: labels };
+  }
+
   function teamPicks(teamName) {
     var team = teamByName(teamName); if (!team) return [];
-    return state.picks.filter(function (pick) { return pick.currentOwnerTeamId === team.id; }).map(function (pick) {
-      var original = state.teams[pick.originalOwnerTeamId];
-      return { year: pick.year, round: pick.round, original: original && original.name || "Original team unavailable" };
+    var teamId = String(team.id == null ? "" : team.id).trim();
+    return state.picks.filter(function (pick) {
+      return String(pick && pick.currentOwnerTeamId == null ? "" : pick.currentOwnerTeamId).trim() === teamId;
+    }).map(function (pick) {
+      var originalOwnerId = String(pick.originalOwnerTeamId == null ? "" : pick.originalOwnerTeamId).trim();
+      var currentOwnerId = String(pick.currentOwnerTeamId == null ? "" : pick.currentOwnerTeamId).trim();
+      var original = state.teams[originalOwnerId];
+      return {
+        id: [pick.year, pick.round, originalOwnerId, currentOwnerId].join("-"),
+        year: Number(pick.year), round: Number(pick.round),
+        original: original && original.name || "Original team unavailable"
+      };
+    }).sort(function (a, b) {
+      return a.year - b.year || a.round - b.round || a.original.localeCompare(b.original);
     });
   }
 
@@ -630,7 +651,8 @@
     return good.length % 2 ? good[middle] : (good[middle - 1] + good[middle]) / 2;
   }
 
-  function waiverMarket(p) {
+  function waiverMarket(p, teamName) {
+    teamName = teamName || MY_TEAM;
     var score = expectedScore(p);
     if (score == null) return { valueCeiling: null, threats: [], marketBid: 0, facts: ["No Fantrax expectation was returned for a salary-value comparison"] };
     var comparables = allRosteredPlayers().filter(function (x) {
@@ -638,7 +660,7 @@
     }).sort(function (a, b) { return Math.abs(expectedScore(a) - score) - Math.abs(expectedScore(b) - score); }).slice(0, 5);
     var valueCeiling = median(comparables.map(function (x) { return x.salary; }));
     var rooms = allTeamNames().map(function (name) { return Math.max(0, capProjection(name, []).currentRoom); });
-    var threats = allTeamNames().filter(function (name) { return name !== MY_TEAM; }).map(function (name) {
+    var threats = allTeamNames().filter(function (name) { return name !== teamName; }).map(function (name) {
       var roster = teamPlayers(name), same = roster.filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
       var weakest = same[0] || null, need = (teamNeeds(name)[p.pos] || 0) > 0;
       var upgrade = weakest ? score - expectedScore(weakest) : score;
@@ -655,8 +677,9 @@
     return { valueCeiling: valueCeiling, threats: threats, marketBid: threats.length ? threats[0].estimatedBid : 0, facts: facts };
   }
 
-  function waiverReason(p) {
-    var needs = teamNeeds(MY_TEAM), need = needs[p.pos] || 0, score = expectedScore(p), mine = teamPlayers(MY_TEAM).filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
+  function waiverReason(p, teamName) {
+    teamName = teamName || MY_TEAM;
+    var needs = teamNeeds(teamName), need = needs[p.pos] || 0, score = expectedScore(p), mine = teamPlayers(teamName).filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
     var replace = mine[0]; var pieces = [];
     if (need) pieces.push("fills a " + p.pos + " depth/lineup need"); else pieces.push("adds competition at " + p.pos);
     if (replace && score != null) pieces.push((score - expectedScore(replace) >= 0 ? "projects " + (score - expectedScore(replace)).toFixed(1) + " above " : "does not out-project ") + replace.name);
@@ -666,24 +689,25 @@
     return pieces.join("; ") + ".";
   }
 
-  function waiverAdvice(p) {
+  function waiverAdvice(p, teamName) {
+    teamName = teamName || MY_TEAM;
     var score = expectedScore(p);
-    var mine = teamPlayers(MY_TEAM).filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
+    var mine = teamPlayers(teamName).filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
     var replacement = mine[0] || null;
-    var need = (teamNeeds(MY_TEAM)[p.pos] || 0) > 0;
+    var need = (teamNeeds(teamName)[p.pos] || 0) > 0;
     var verdict = unavailable(p) ? "PASS" : (need || (replacement && score != null && score > expectedScore(replacement)) ? "PICK UP" : "MONITOR");
-    var reason = waiverReason(p);
+    var reason = waiverReason(p, teamName);
     if (verdict === "PASS") reason = "Do not bid while Fantrax marks this player unavailable. " + reason;
     else if (verdict === "MONITOR") reason = "Not a current projected upgrade or identified depth need. " + reason;
     else reason = "Recommended pickup. " + reason;
 
-    if (score == null) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: "Fantrax expectation unavailable", market: waiverMarket(p) };
-    var market = waiverMarket(p);
+    if (score == null) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: "Fantrax expectation unavailable", market: waiverMarket(p, teamName) };
+    var market = waiverMarket(p, teamName);
     if (market.valueCeiling == null) return { verdict: verdict, reason: reason, maxBid: null, bidBasis: market.facts.join(" · "), market: market };
-    var room = capProjection(MY_TEAM, []).currentRoom;
+    var room = capProjection(teamName, []).currentRoom;
     var competitiveBid = market.threats.length ? market.marketBid + 0.1 : market.valueCeiling * 0.25;
     var maxBid = verdict === "PASS" ? 0 : Math.max(0, Math.min(room, market.valueCeiling, competitiveBid));
-    var basis = market.facts.join(" · ") + " · Recommended ceiling respects Capitol Carnage room (" + money(room) + ") and never exceeds player value";
+    var basis = market.facts.join(" · ") + " · Recommended ceiling respects " + teamName + " room (" + money(room) + ") and never exceeds player value";
     return { verdict: verdict, reason: reason, maxBid: maxBid, bidBasis: basis, market: market };
   }
 
@@ -716,11 +740,12 @@
     ];
   }
 
-  function hiddenGems() {
+  function hiddenGems(teamName) {
+    teamName = teamName || MY_TEAM;
     var pool = freeAgents().filter(function (p) {
       return !unavailable(p) && expectedScore(p) != null && (num(p.rosteredPct) != null || num(p.rosterTrend) != null);
     });
-    var needs = teamNeeds(MY_TEAM);
+    var needs = teamNeeds(teamName);
     var byPosition = {};
     pool.forEach(function (p) { (byPosition[p.pos] || (byPosition[p.pos] = [])).push(p); });
     var candidates = pool.map(function (p) {
@@ -737,16 +762,16 @@
       var projectionRank = percentile(expectedScore(p), same.map(expectedScore));
       var qualifies = evidenceScore != null && projectionRank != null && projectionRank >= 60;
       var fitBonus = needs[p.pos] ? 5 : 0;
-      var advice = waiverAdvice(p);
+      var advice = waiverAdvice(p, teamName);
       var facts = [];
       facts.push(pts(expectedScore(p)) + " expected points, " + Math.round(projectionRank) + "th percentile among available " + p.pos + "s");
       if (production(p) != null) facts.push(pts(production(p)) + " prior FP/G");
       if (num(p.rosteredPct) != null) facts.push(num(p.rosteredPct).toFixed(0) + "% rostered");
       if (num(p.rosterTrend) != null) facts.push((num(p.rosterTrend) > 0 ? "+" : "") + num(p.rosterTrend).toFixed(0) + "% Fantrax trend");
       if (num(p.age) != null) facts.push("age " + num(p.age));
-      if (needs[p.pos]) facts.push("fills a Capitol Carnage " + p.pos + " need");
+      if (needs[p.pos]) facts.push("fills a " + teamName + " " + p.pos + " need");
       else {
-        var mine = teamPlayers(MY_TEAM).filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
+        var mine = teamPlayers(teamName).filter(function (x) { return x.pos === p.pos && expectedScore(x) != null; }).sort(function (a, b) { return expectedScore(a) - expectedScore(b); });
         if (mine[0]) facts.push((expectedScore(p) >= expectedScore(mine[0]) ? "projects above " : "adds competition behind ") + mine[0].name);
       }
       return { player: p, score: evidenceScore == null ? null : evidenceScore + fitBonus, evidenceScore: evidenceScore, projectionRank: projectionRank, qualifies: qualifies, facts: facts, advice: advice };
@@ -754,21 +779,25 @@
     return candidates.sort(function (a, b) { return b.score - a.score || expectedScore(b.player) - expectedScore(a.player); }).slice(0, 10);
   }
 
-  function keyNews() {
-    var myTeams = {}; teamPlayers(MY_TEAM).forEach(function (p) { if (p.nfl) myTeams[p.nfl] = true; });
+  function keyNews(teamName) {
+    teamName = teamName || MY_TEAM;
+    var myTeams = {}; teamPlayers(teamName).forEach(function (p) { if (p.nfl) myTeams[p.nfl] = true; });
     var relevant = state.news.filter(function (article) { return (article.teams || []).some(function (team) { return myTeams[team]; }); });
     return (relevant.length ? relevant : state.news).slice(0, 5);
   }
 
   function viewWar() {
-    var grades = leagueGrades(), mine = grades[MY_TEAM] || {}, opp = opponentName(), myOpt = optimize(MY_TEAM), oppOpt = optimize(opp);
-    var gems = hiddenGems();
+    var names = allTeamNames(), teamName = names.indexOf(state.warTeam) >= 0 ? state.warTeam : MY_TEAM, profile = leagueRatingProfile();
+    state.warTeam = teamName;
+    var grades = leagueGrades(), mine = grades[teamName] || {}, opp = opponentName(teamName), myOpt = optimize(teamName), oppOpt = optimize(opp);
+    var gems = hiddenGems(teamName), needs = teamNeeds(teamName), picks = teamPicks(teamName), cap = capProjection(teamName, []);
     var threats = teamPlayers(opp).filter(function (p) { return expectedScore(p) != null; }).sort(function (a, b) { return expectedScore(b) - expectedScore(a); }).slice(0, 5);
-    var html = '<div class="card"><div class="sectionhead"><h2>What should I do today?</h2><span class="pill">FANTRAX LIVE</span></div><div class="notice"><b>Full-roster rule:</b> the roster grade covers every player. Only the current-week Game Day edge below compares best legal starters. Every reason is tied to current Fantrax evidence; unavailable data is never replaced or invented.</div><div class="actions"><button class="primary" onclick="GMS.sync()">Refresh analysis</button><button class="secondary" onclick="GMS.news()">Refresh news</button></div></div>';
+    var html = '<div class="card"><div class="sectionhead"><div><h2>' + esc(teamName) + ' War Room</h2><span class="small muted">Every recommendation below is recalculated for this team</span></div><span class="pill">' + esc(profile.source) + '</span></div><div class="field"><label>Analyze team</label><select onchange="GMS.selectWarTeam(this.value)">' + names.map(function (name) { return '<option value="' + esc(name) + '"' + (name === teamName ? ' selected' : '') + '>' + esc(name) + '</option>'; }).join('') + '</select></div><div class="notice"><b>League-specific rating:</b> live Fantrax projections already reflect this league’s scoring. The optimizer uses this league’s saved lineup (' + BYLAWS.starters.reduce(function (sum, slot) { return sum + slot.count; }, 0) + ' starters), ' + (profile.idp ? 'including IDP' : 'offense only') + (profile.superflex ? ', Superflex' : '') + (profile.tePremium ? ', TE premium' : '') + (profile.sackPremium ? ', sack premium' : '') + '. No generic roster template is substituted.</div><div class="actions"><button class="primary" onclick="GMS.sync()">Refresh analysis</button><button class="secondary" onclick="GMS.news()">Refresh news</button></div></div>';
     html += '<div class="grid4"><div class="metric"><b>' + esc(mine.grade || "N/A") + '</b><span>Live roster grade</span></div><div class="metric"><b>' + pts(myOpt.total) + '</b><span>Expected lineup</span></div><div class="metric"><b>' + pts(oppOpt.total) + '</b><span>' + esc(opp) + '</span></div><div class="metric"><b class="' + (myOpt.total >= oppOpt.total ? "good" : "bad") + '">' + (myOpt.total >= oppOpt.total ? "+" : "") + pts(myOpt.total - oppOpt.total) + '</b><span>Current-week edge</span></div></div>';
-    html += warRoomLineupControls();
+    html += '<div class="card"><div class="sectionhead"><h2>Team-specific priorities</h2><span class="pill">' + esc(teamName) + '</span></div><div class="gate"><span>Detected lineup/depth needs</span><b>' + esc(Object.keys(needs).map(function (pos) { return pos + ' ×' + needs[pos]; }).join(', ') || 'No open need detected') + '</b></div><div class="gate"><span>Current cap room</span><b>' + money(cap.currentRoom) + '</b></div><div class="gate"><span>Draft capital held</span><b>' + picks.length + ' picks</b></div><p class="muted">Targets, bids, opponent threats, and chat context use this selected team’s roster and assets.</p></div>';
+    if (teamName === MY_TEAM) html += warRoomLineupControls();
     html += warRoomChat();
-    html += '<div class="card hidden-gems"><div class="sectionhead"><div><h2>Top 10 Free-Agent Targets</h2><span class="small muted">Live Fantrax value targets for Capitol Carnage</span></div><span class="pill">BUY WATCHLIST</span></div><div class="notice">Every player available in PRIDE can qualify, regardless of ownership in other Fantrax leagues. Targets must rank at or above the 60th projection percentile at their position. Ranking uses Fantrax expectation 40%, prior production 20%, roster rate 15%, trend 15%, and age 10%, reweighted when fields are missing, with roster need as a tiebreaker. Blind bids account for every rival team’s remaining cap room, position need, and projected upgrade.</div>';
+    html += '<div class="card hidden-gems"><div class="sectionhead"><div><h2>Top 10 Free-Agent Targets</h2><span class="small muted">Live Fantrax value targets for ' + esc(teamName) + '</span></div><span class="pill">TEAM-SPECIFIC</span></div><div class="notice">Targets use this league’s Fantrax-scored expectations and are reranked for ' + esc(teamName) + ' by its exact needs, weakest same-position player, cap room, and rival bidding pressure.</div>';
     if (!gems.length) html += '<div class="muted">No free agent currently clears the live hidden-gem evidence rules.</div>';
     gems.forEach(function (gem, index) { var p = gem.player, bid = gem.advice.maxBid == null ? "unavailable" : money(gem.advice.maxBid); html += '<div class="gem-card"><div class="gem-rank">' + (index + 1) + '</div><div class="gem-body"><div class="sectionhead"><div><h3>' + esc(p.name) + ' <span class="teamBadge">' + esc(p.pos) + '</span></h3><span class="small">' + esc(p.nfl || "NFL team unavailable") + (p.injury ? ' · ' + esc(p.injury) : '') + '</span></div><div class="gem-bid"><b>' + bid + '</b><span>Max blind bid</span></div></div><p><b>Why buy:</b> ' + esc(gem.facts.join("; ")) + '.</p><p class="muted">Evidence score ' + gem.evidenceScore.toFixed(1) + ' · ' + esc(gem.advice.bidBasis) + '</p></div></div>'; });
     html += '</div><div class="card"><h2>Opponent threats</h2>' + threats.map(function (p) { return '<div class="gate"><span><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + " · " + (p.injury || "No Fantrax injury flag")) + '</span></span><b>' + pts(expectedScore(p)) + '</b></div>'; }).join("") + '</div>';
@@ -779,8 +808,8 @@
   }
 
   function viewStartSit() {
-    var players = teamPlayers(MY_TEAM), opt = optimize(MY_TEAM), starterIds = {};
-    opt.lineup.forEach(function (row) { if (row.player) starterIds[row.player.id] = true; });
+    var players = teamPlayers(MY_TEAM), opt = optimize(MY_TEAM), starterIds = {}, starterSlotsById = {};
+    opt.lineup.forEach(function (row) { if (row.player) { starterIds[row.player.id] = true; starterSlotsById[row.player.id] = row.slot; } });
     var ordered = players.slice().sort(function (a, b) {
       var aStart = starterIds[a.id] ? 1 : 0, bStart = starterIds[b.id] ? 1 : 0;
       return bStart - aStart || (projection(b) == null ? -1 : projection(b)) - (projection(a) == null ? -1 : projection(a));
@@ -789,12 +818,12 @@
     html += '<div class="grid4"><div class="metric"><b>' + opt.lineup.filter(function (row) { return row.player; }).length + '</b><span>Projected starters</span></div><div class="metric"><b>' + pts(opt.total) + '</b><span>Starter projection</span></div><div class="metric"><b>' + ordered.filter(function (p) { return !starterIds[p.id] && !unavailable(p); }).length + '</b><span>Playable bench</span></div><div class="metric"><b>' + ordered.filter(unavailable).length + '</b><span>Unavailable</span></div></div>';
     html += '<div class="card"><div class="tableWrap"><table class="startsit-table"><thead><tr><th>Call</th><th>Player</th><th>Role</th><th>Opp</th><th>Week</th><th>Boom</th><th>Bust</th><th>Ratio</th><th>Why</th></tr></thead><tbody>';
     ordered.forEach(function (p) {
-      var risk = weeklyRisk(p), role = starterIds[p.id] ? "PROJECTED STARTER" : (taxi(p) ? "TAXI" : unavailable(p) ? "UNAVAILABLE" : "BENCH");
+      var risk = weeklyRisk(p), role = starterIds[p.id] ? "PROJECTED " + starterSlotsById[p.id] + " STARTER" : (taxi(p) ? "TAXI" : unavailable(p) ? "UNAVAILABLE" : "BENCH");
       if (!risk) {
         html += '<tr><td><span class="bhs hold">UNAVAILABLE</span></td><td><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos) + '</span></td><td>' + role + '</td><td>' + esc(p.opponent || "—") + '</td><td>—</td><td colspan="3">unavailable</td><td>Fantrax weekly projection unavailable; no ratio calculated.</td></tr>';
         return;
       }
-      var call = starterIds[p.id] && risk.verdict === "FLEX CALL" ? "START" : risk.verdict;
+      var call = starterIds[p.id] ? "START" : (unavailable(p) ? "SIT" : risk.verdict === "START" ? "FLEX CALL" : risk.verdict);
       html += '<tr><td><span class="start-call ' + call.toLowerCase().replace(/\s/g, "-") + '">' + esc(call) + '</span></td><td><b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos + (p.nfl ? " · " + p.nfl : "")) + '</span></td><td>' + role + '</td><td>' + esc(p.opponent || "—") + '</td><td>' + pts(projection(p)) + '</td><td><b class="good">' + risk.boom.toFixed(0) + '</b></td><td><b class="bad">' + risk.bust.toFixed(0) + '</b></td><td><b>' + (risk.ratio == null ? "unavailable" : risk.ratio.toFixed(2) + "×") + '</b></td><td>' + esc(risk.facts.join(" · ")) + '</td></tr>';
     });
     return html + '</tbody></table></div><p class="muted">The optimizer selects the highest live expected legal lineup and excludes OUT/IR players. Opponent is displayed from Fantrax but is not scored as favorable or unfavorable unless a live matchup-strength field is available.</p></div>';
@@ -906,7 +935,7 @@
     var team = teamByName(teamName), picks = teamPicks(teamName);
     return state["trade" + side].map(function (key) {
       if (key.indexOf("P:") === 0) { var player = teamPlayers(teamName).filter(function (p) { return p.id === key.slice(2); })[0]; return player && { type: "player", player: player, name: player.name }; }
-      var bits = key.split(":"); var pick = picks[Number(bits[3])]; return pick && { type: "pick", year: Number(bits[1]), round: Number(bits[2]), name: bits[1] + " Round " + bits[2] + " (orig. " + pick.original + ")" };
+      var pickId = key.slice(2); var pick = picks.filter(function (item) { return item.id === pickId; })[0]; return pick && { type: "pick", year: pick.year, round: pick.round, name: pick.year + " Round " + pick.round + " (orig. " + pick.original + ")" };
     }).filter(Boolean);
   }
 
@@ -915,7 +944,7 @@
     function side(team, code) {
       var html = '<div class="card"><div class="field"><label>' + (code === "A" ? "Team A" : "Team B") + '</label><select onchange="GMS.tradeTeam(\'' + code + '\',this.value)">' + names.map(function (name) { return '<option' + (name === team ? " selected" : "") + '>' + esc(name) + '</option>'; }).join("") + '</select></div><h3>Players</h3>';
       teamPlayers(team).sort(function (a, b) { return (expectedScore(b) || -1) - (expectedScore(a) || -1); }).forEach(function (p) { var key = "P:" + p.id, checked = state["trade" + code].indexOf(key) >= 0; html += '<label class="gate"><span><input type="checkbox" ' + (checked ? "checked" : "") + ' onchange="GMS.tradeAsset(\'' + code + '\',\'' + key + '\')"> <b>' + esc(p.name) + '</b><br><span class="small">' + esc(p.pos) + ' · ' + money(p.salary) + ' · wk ' + pts(projection(p)) + ' · season ' + pts(seasonProjection(p)) + '</span></span></label>'; });
-      html += '<h3>Picks</h3>'; teamPicks(team).forEach(function (p, index) { var key = "D:" + p.year + ":" + p.round + ":" + index, checked = state["trade" + code].indexOf(key) >= 0; html += '<label class="gate"><span><input type="checkbox" ' + (checked ? "checked" : "") + ' onchange="GMS.tradeAsset(\'' + code + '\',\'' + key + '\')"> <b>' + p.year + ' Round ' + p.round + '</b><br><span class="small">Originally ' + esc(p.original) + '</span></span></label>'; });
+      html += '<h3>Picks</h3>'; teamPicks(team).forEach(function (p) { var key = "D:" + p.id, checked = state["trade" + code].indexOf(key) >= 0; html += '<label class="gate"><span><input type="checkbox" ' + (checked ? "checked" : "") + ' onchange="GMS.tradeAsset(\'' + code + '\',\'' + key + '\')"> <b>' + p.year + ' Round ' + p.round + '</b><br><span class="small">Originally ' + esc(p.original) + '</span></span></label>'; });
       return html + '</div>';
     }
     return '<div class="card"><div class="sectionhead"><h2>Trade Lab</h2><span class="pill">FULL EXPLANATION</span></div><div class="notice">Evaluation shows asset value, weekly/season scoring change, salary, age, injury, roster need, and draft capital for both sides.</div></div><div class="grid2">' + side(state.tradeTeamA, "A") + side(state.tradeTeamB, "B") + '</div><div class="card"><button class="primary" onclick="GMS.evalTrade()">Evaluate trade</button><div id="tradeResult" style="margin-top:12px"></div></div>';
@@ -1024,6 +1053,7 @@
   }
 
   function accountCard() { return '<div class="card"><div class="sectionhead"><div><h2>Your account</h2><span class="small muted">' + esc(state.account && state.account.username) + ' · ' + esc(state.account && state.account.email) + '</span></div><button class="secondary" onclick="GMS.logout()">Sign out</button></div><div class="field"><label>Active league</label><select onchange="GMS.switchLeague(this.value)">' + state.workspaces.map(function (league) { return '<option value="' + esc(league.id) + '"' + (state.activeWorkspace && league.id === state.activeWorkspace.id ? ' selected' : '') + '>' + esc(league.leagueName + ' — ' + league.teamName) + '</option>'; }).join('') + '</select></div><div class="actions"><button class="primary" onclick="GMS.addLeague()">Add another league</button></div><p class="muted">Each league, team selection, lineup configuration, and chat history is private to this account. GMS Locker reads Fantrax only.</p></div>'; }
+  function viewLeagues() { return '<div class="card"><div class="sectionhead"><h2>Your Leagues</h2><button class="primary" onclick="GMS.addLeague()">Add New League</button></div><div class="notice">Ratings, lineup rules, teams, chats, and recommendations stay scoped to the selected league.</div>' + state.workspaces.map(function (league) { var active = state.activeWorkspace && league.id === state.activeWorkspace.id; return '<button class="personality-card ' + (active ? 'selected' : '') + '" onclick="GMS.switchLeague(\'' + esc(league.id) + '\')"><b>' + esc(league.leagueName) + '</b><span>' + esc(league.teamName) + (active ? ' · Active' : ' · Open league') + '</span></button>'; }).join('') + '</div>'; }
   function ownerPanel() { if (!state.access || !state.access.isOwner) return ''; var labels = { payment_required:'Require payment', checkout:'Show payment buttons', onboarding:'League onboarding', league_data:'League data', ai_analysis:'AI analysis', waivers:'Waiver tools', news:'News', current_games:'Current games' }; var html = '<div class="card"><div class="sectionhead"><h2>Owner Site Controls</h2><span class="pill">OWNER ONLY</span></div><div class="notice">Only gmslocker@gmail.com can change these server-enforced controls or grant access.</div>'; Object.keys(labels).forEach(function (key) { html += '<div class="gate"><span>' + labels[key] + '</span><button class="' + (state.access.settings[key] === false ? 'secondary' : 'primary') + '" onclick="GMS.toggleControl(\'' + key + '\',' + (state.access.settings[key] === false) + ')">' + (state.access.settings[key] === false ? 'OFF — Turn on' : 'ON — Turn off') + '</button></div>'; }); html += '<div class="field"><label>Customer email</label><input id="ownerEmail" type="email" placeholder="customer@example.com"></div><div class="actions"><button class="primary" onclick="GMS.entitle(\'grant\')">Grant 12 months</button><button class="secondary" onclick="GMS.entitle(\'credit\')">Issue credit</button><button class="secondary" onclick="GMS.entitle(\'bypass\')">Permanent bypass</button><button class="secondary" onclick="GMS.entitle(\'revoke\')">Revoke</button></div></div>'; return html; }
   function viewSettings() { var coach = COACHES[COACH] || COACHES.process, html = accountCard() + ownerPanel() + '<div class="card"><div class="sectionhead"><h2>App Personality</h2><span class="pill">CURRENT: ' + esc(coach.name) + '</span></div><div class="notice"><b>This is where the app’s personality lives.</b> It changes the tone and decision lens in War Room and GM Chat, while live Fantrax facts always remain the same.</div><div class="grid2">'; Object.keys(COACHES).forEach(function (key) { var c = COACHES[key]; html += '<button class="personality-card ' + (key === COACH ? "selected" : "") + '" onclick="GMS.setCoach(\'' + key + '\')"><b>' + esc(c.name) + '</b><span>' + esc(c.lens) + '</span></button>'; }); return html + '</div></div>' + lineupSettingsEditor() + '<div class="card"><h2>Data integrity</h2><div class="gate"><span>Projection source</span><b>Fantrax</b></div><div class="gate"><span>Performance source</span><b>Fantrax prior season</b></div><div class="gate"><span>Dead-cap source</span><b>Fantrax penalty table</b></div><div class="gate"><span>Last refresh</span><b>' + esc(state.asOf ? new Date(state.asOf).toLocaleString() : "Not synced") + '</b></div><div class="gate"><span>Version</span><b>' + VERSION + '</b></div><div class="actions"><button class="primary" onclick="GMS.sync()">Force live refresh</button></div></div>'; }
   function viewContact() { return '<div class="card"><h2>Contact</h2><div class="contact-emails"><a class="email-card" href="mailto:gmslocker@gmail.com"><b>GMS Locker</b><span>gmslocker@gmail.com</span></a><a class="email-card" href="mailto:pinvaultcollectibles@gmail.com"><b>Pin Vault Collectibles</b><span>pinvaultcollectibles@gmail.com</span></a></div></div>'; }
@@ -1040,7 +1070,7 @@
     if (!state.activeWorkspace) { root.innerHTML = onboardingScreen(); return; }
     var view = localStorage.getItem("gms_view") || "war";
     if (view === "analysts") { view = "rankings"; localStorage.setItem("gms_view", view); }
-    var views = { war: viewWar, team: viewTeam, startsit: viewStartSit, games: viewGames, teams: viewTeams, cap: viewCap, bhs: viewBhs, waivers: viewWaivers, trade: viewTrade, rankings: viewRankings, picks: viewPicks, news: viewNews, chat: viewChat, contact: viewContact, settings: viewSettings };
+    var views = { war: viewWar, leagues: viewLeagues, team: viewTeam, startsit: viewStartSit, games: viewGames, teams: viewTeams, cap: viewCap, bhs: viewBhs, waivers: viewWaivers, trade: viewTrade, rankings: viewRankings, picks: viewPicks, news: viewNews, chat: viewChat, contact: viewContact, settings: viewSettings };
     document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); });
     var asof = document.getElementById("asof"); if (asof) asof.innerHTML = state.loading ? "<b>Refreshing Fantrax…</b>" : state.asOf ? "Updated <b>" + esc(new Date(state.asOf).toLocaleTimeString()) + "</b>" : "Not synced";
     if (state.loading && !Object.keys(state.teams).length) { root.innerHTML = '<div class="loading">Loading live Fantrax projections, performance, rosters, and cap penalties…</div>'; return; }
@@ -1056,9 +1086,10 @@
   function compactPlayer(p) { return { id: p.id, name: p.name, position: p.pos, nfl: p.nfl, salary: p.salary, years: p.years, status: p.status, rosterSlot: p.rosterSlot, age: p.age, weeklyProjection: projection(p), seasonProjection: seasonProjection(p), priorPerformancePpg: production(p), opponent: p.opponent, injury: p.injury, evaluation: p.team === "Free Agent" ? null : playerSignal(p).label }; }
 
   function fullLeagueChatPayload(message, history, mode) {
+    var focusTeam = mode === "war-room" && teamByName(state.warTeam) ? state.warTeam : MY_TEAM;
     var grades = leagueGrades();
     var rosters = allTeamNames().map(function (name) { var g = grades[name]; return { team: name, grade: g && g.grade, score: g && g.score, metrics: g && g.metrics, players: teamPlayers(name).map(compactPlayer), picks: teamPicks(name), deadCap: existingDead(name), optimizedLineup: optimize(name) }; });
-    return { workspaceId: state.activeWorkspace.id, mode: mode, message: message, history: history, personality: COACHES[COACH], evaluationPolicy: EVALUATION_POLICY, league: BYLAWS, leagueInfo: state.leagueInfo, team: { name: MY_TEAM, opponent: opponentName(), gameDayStarters: lineupPreview(), optimizedStarters: optimize(MY_TEAM), fullRosterGrade: grades[MY_TEAM], cap: capProjection(MY_TEAM, []) }, leagueRosters: rosters, freeAgents: freeAgents().map(compactPlayer), draftPicks: state.picks, standings: state.standings, matchups: state.matchups, deadCap: existingDead(MY_TEAM), preferences: localStorage.getItem(scopedKey("gms_preferences")) || "" };
+    return { workspaceId: state.activeWorkspace.id, mode: mode, message: message, history: history, personality: COACHES[COACH], evaluationPolicy: EVALUATION_POLICY, league: BYLAWS, leagueRatingProfile: leagueRatingProfile(), leagueInfo: state.leagueInfo, team: { name: focusTeam, opponent: opponentName(focusTeam), optimizedStarters: optimize(focusTeam), fullRosterGrade: grades[focusTeam], needs: teamNeeds(focusTeam), picks: teamPicks(focusTeam), cap: capProjection(focusTeam, []) }, leagueRosters: rosters, freeAgents: freeAgents().map(compactPlayer), draftPicks: state.picks, standings: state.standings, matchups: state.matchups, deadCap: existingDead(focusTeam), preferences: localStorage.getItem(scopedKey("gms_preferences")) || "" };
   }
 
   async function sendScopedChat(inputId, stateKey, storageKey, mode) {
@@ -1156,8 +1187,9 @@
         target += direction;
       }
     },
-    show: function (view) { localStorage.setItem("gms_view", view); if (view === "games" && !state.gamesLoading && !state.gamesAsOf) refreshGames(state.gameSeasonType, true); else render(); },
+    show: function (view) { if (view === "addleague") { GMS.addLeague(); return; } localStorage.setItem("gms_view", view); if (view === "games" && !state.gamesLoading && !state.gamesAsOf) refreshGames(state.gameSeasonType, true); else render(); },
     selectTeam: function (name) { state.selectedTeam = name; render(); },
+    selectWarTeam: function (name) { if (teamByName(name)) { state.warTeam = name; state.warChat = []; } render(); },
     toggleCut: function (id) { var i = state.cutIds.indexOf(id); if (i >= 0) state.cutIds.splice(i, 1); else state.cutIds.push(id); render(); },
     simulateCuts: function () { state.simulatedCutIds = state.cutIds.slice(); render(); },
     clearCuts: function () { state.cutIds = []; state.simulatedCutIds = []; render(); },
