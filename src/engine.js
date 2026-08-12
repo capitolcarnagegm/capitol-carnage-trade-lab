@@ -109,54 +109,68 @@ export class GMSAnalysisEngine {
       return result;
     });
   }
-  recommendFreeAgents(team,freeAgents,limit=10){
-    const players=team.players||[];
-    const base=this.optimalLineup(players);
-    const teamReport=this.teamPillars(team);
-    const window=teamReport.pillars.competitiveWindow.mode;
-    const salary=this._completeSum(players,p=>this._capSalary(p));
-    const dead=this._n(team.deadCap);
-    const capRoom=salary==null||dead==null?null:this.cap-salary-dead;
-    const posCounts={};players.filter(p=>!this._ir(p)&&!this._taxi(p)).forEach(p=>{const pos=this._pos(p);posCounts[pos]=(posCounts[pos]||0)+1;});
-    const positionStrength={};["QB","RB","WR","TE","DL","LB","DB"].forEach(pos=>{const vals=players.filter(p=>this._pos(p)===pos&&!this._unavailable(p)).map(p=>this._score(p)).filter(v=>v!=null).sort((a,b)=>b-a);positionStrength[pos]=vals.length?vals.slice(0,Math.min(vals.length,3)).reduce((a,b)=>a+b,0)/Math.min(vals.length,3):null;});
-    const knownStrengths=Object.values(positionStrength).filter(v=>v!=null).sort((a,b)=>a-b);
-    const weakThreshold=knownStrengths.length?knownStrengths[Math.floor((knownStrengths.length-1)*0.35)]:null;
-    return(freeAgents||[]).map(fa=>{
-      const ev=this._score(fa);if(ev==null||this._unavailable(fa))return null;
-      const pos=this._pos(fa),age=this._n(fa.age),faSalary=this._n(fa.salary),contract=this._n(fa.contract);
-      const next=this.optimalLineup([...players,fa]);
-      const gain=base.total!=null&&next.total!=null?Math.max(0,next.total-base.total):null;
-      const same=players.filter(p=>this._pos(p)===pos&&this._score(p)!=null).sort((a,b)=>this._score(a)-this._score(b));
-      const weak=same[0],vs=weak&&ev!=null?ev-this._score(weak):null;
-      const positionNeed=positionStrength[pos]==null?null:(weakThreshold!=null&&positionStrength[pos]<=weakThreshold);
-      const qbLegal=pos!=="QB"||(posCounts.QB||0)<4;
-      if(!qbLegal)return null;
-      let nowScore=0,futureScore=0,fitScore=0,capScore=0,riskPenalty=0;
-      const reasons=[],details=[];
-      details.push(`Scoring input: ${this._scoreSource(fa)} at ${ev.toFixed(1)} FP/G equivalent.`);
-      if(gain!=null&&gain>0){nowScore+=Math.min(35,15+gain*4);reasons.push(`improves the legal lineup by ${gain.toFixed(1)} FP/G`);details.push(`${fa.name} raises the best legal lineup from ${base.total.toFixed(1)} to ${next.total.toFixed(1)} FP/G.`);}else if(gain===0){nowScore+=4;details.push(`${fa.name} does not immediately enter the best legal lineup, so his case depends on depth, future value and roster construction rather than headline projection.`);}else details.push(`Immediate lineup gain is unavailable because comparable roster scoring data is incomplete.`);
-      if(vs!=null&&vs>0){fitScore+=Math.min(18,6+vs*2);reasons.push(`upgrades ${pos} depth over ${weak.name}`);details.push(`He is ${vs.toFixed(1)} FP/G above the weakest scored ${pos} currently on the roster.`);}else if(!weak){fitScore+=5;details.push(`There is no comparable scored ${pos}; GMS treats that as an information gap, not an automatic positional weakness.`);}
-      if(positionNeed===true){fitScore+=15;reasons.push(`${pos} is one of this roster's weaker known position groups`);details.push(`${pos} falls in the lower tier of this team's known position-group strength, so the roster-fit bonus is larger.`);}else if(positionNeed===false){details.push(`${pos} is not one of the roster's weakest known position groups, so GMS does not over-reward the player merely for scoring well.`);}
-      if(age!=null){
-        const prime={QB:28,RB:24,WR:25,TE:26,DL:26,LB:25,DB:25}[pos]??25;
-        const distance=Math.abs(age-prime);
-        const youthValue=Math.max(0,18-distance*3);
-        if(window==="rebuilding"){futureScore+=age<=26?Math.min(24,youthValue+8):Math.max(0,youthValue-6);if(age<=26)reasons.push(`age ${age} fits a rebuilding window`);}
-        else if(window==="contending"){futureScore+=age<=29?Math.min(14,youthValue):Math.max(0,8-distance);}
-        else futureScore+=Math.min(18,youthValue+2);
-        details.push(`Age ${age} is evaluated against a ${pos} age curve and this team's ${window} competitive window.`);
-        if(age<=23){futureScore+=5;details.push(`At age ${age}, he also has taxi-squad eligibility potential under the Pride age rule if other roster conditions are met.`);}
-      }else details.push(`Age is unavailable, so no future-value age bonus is awarded.`);
-      if(contract!=null){if(contract>=2){futureScore+=5;reasons.push(`${contract}-year contract information adds planning value`);details.push(`Known contract length is ${contract} year(s), which helps project future roster control.`);}else details.push(`Known contract length is ${contract} year; future control is limited.`);}else details.push(`Contract length is unavailable, so GMS does not assume long-term control.`);
-      if(capRoom!=null&&faSalary!=null){const post=capRoom-faSalary;if(post>=0){const efficiency=ev/Math.max(1,faSalary);capScore+=Math.min(16,5+efficiency*3);reasons.push(`produces ${ev.toFixed(1)} FP/G at a ${faSalary.toFixed(2)} salary`);details.push(`The salary is legal under the current ${this.cap.toFixed(2)} cap and would leave about ${post.toFixed(2)} of known room. Cap space is only a legality check; the positive grade comes from production per cap dollar.`);}else{riskPenalty+=25;details.push(`The listed salary would exceed known cap room by about $${Math.abs(post).toFixed(2)}, so GMS sharply lowers the recommendation despite the player's football value.`);}}
-      else if(capRoom!=null)details.push(`Team cap room is known, but player salary is unavailable; affordability is not assumed.`);else details.push(`Cap fit cannot be confirmed because roster salary/dead-cap data is incomplete.`);
-      if(fa.injury){riskPenalty+=8;details.push(`Availability risk: ${fa.injury}. The player is discounted rather than automatically removed unless the status makes him unavailable.`);}
-      const rosterSize=players.filter(p=>!this._ir(p)&&!this._taxi(p)).length;
-      if(rosterSize>=37){riskPenalty+=8;details.push(`The active roster is already at or above the 37-player bylaw maximum, so an addition would require a corresponding legal roster move.`);}else if(rosterSize<30){fitScore+=5;details.push(`The active roster is below the in-season 30-player minimum, so legal roster depth has extra value.`);}
-      const total=Math.max(0,Math.round((nowScore+futureScore+fitScore+capScore-riskPenalty)*10)/10);
-      const profile=window==="rebuilding"?"future-weighted":window==="contending"?"win-now with future protection":"balanced now-and-future";
-      if(!reasons.length&&total<12)return null;
-      return{action:"BUY",player:fa,lineupGain:gain,vsWeakest:vs,fit:total,teamEvidence:{team:team.name,window,position:pos,positionStrength:positionStrength[pos],capRoom,deadCap:dead,starterTotalBefore:base.total,starterTotalAfter:next.total,usableDepth:teamReport.pillars.usableDepth.count,playerAge:age,playerSalary:faSalary,contractYears:contract},fitBreakdown:{now:Math.round(nowScore*10)/10,future:Math.round(futureScore*10)/10,rosterFit:Math.round(fitScore*10)/10,capEfficiency:Math.round(capScore*10)/10,riskPenalty:Math.round(riskPenalty*10)/10},reasons,details,explanation:`${fa.name} is a ${profile} fit for ${team.name}, not simply a points-play. ${reasons.length?`Key reasons: ${reasons.join("; ")}. `:""}${details.join(" ")}`};
-    }).filter(Boolean).sort((a,b)=>b.fit-a.fit||(b.fitBreakdown.future-a.fitBreakdown.future)||(b.lineupGain||0)-(a.lineupGain||0)).slice(0,limit);
+  recommendFreeAgents(team,freeAgents,limit=10,context={}){
+    const players=team.players||[],leagueTeams=context.leagueTeams||[team],base=this.optimalLineup(players),teamReport=this.teamPillars(team);
+    const window=teamReport.pillars.competitiveWindow.mode,dead=this._n(team.deadCap),salary=this._completeSum(players,p=>this._capSalary(p)),capRoom=salary==null||dead==null?null:this.cap-salary-dead;
+    const nextYear=prideLeagueYear(this.now)+1,nextCap=prideCapForLeagueYear(nextYear);
+    const nextCommitted=this._completeSum(players,p=>{const amount=this._n(p.salary),years=this._n(p.contract??p.years);if(amount==null||years==null)return null;return years>=2?amount*(1+this.contractAnnualIncrease):0;});
+    const nextDead=this._n(team.nextYearDeadCap),nextRoom=nextCommitted==null||nextDead==null?null:nextCap-nextCommitted-nextDead;
+    const active=players.filter(p=>!this._ir(p)&&!this._taxi(p)),posCounts={};
+    active.forEach(p=>{const pos=this._pos(p);posCounts[pos]=(posCounts[pos]||0)+1;});
+    const startersByPos={};this.starters.forEach(slot=>slot.accept.forEach(pos=>{startersByPos[pos]=(startersByPos[pos]||0)+slot.count/slot.accept.length;}));
+    const aboveReplacement={};
+    const positionStrength={};
+    ["QB","RB","WR","TE","DL","LB","DB"].forEach(pos=>{
+      const vals=players.filter(p=>this._pos(p)===pos&&!this._unavailable(p)).map(p=>this._score(p)).filter(v=>v!=null).sort((a,b)=>b-a);
+      const replacementIndex=Math.max(0,Math.ceil(startersByPos[pos]||1));
+      const replacement=vals[replacementIndex]??vals[vals.length-1]??null;
+      aboveReplacement[pos]=replacement==null?null:vals.filter(v=>v>replacement).length;
+      positionStrength[pos]=vals.length?vals.slice(0,Math.min(vals.length,Math.max(1,replacementIndex))).reduce((a,b)=>a+b,0)/Math.min(vals.length,Math.max(1,replacementIndex)):null;
+    });
+    const leagueSalariesByPos={};
+    leagueTeams.flatMap(t=>t.players||[]).forEach(p=>{const pos=this._pos(p),amount=this._n(p.salary);if(amount!=null)(leagueSalariesByPos[pos]||(leagueSalariesByPos[pos]=[])).push(amount);});
+    const percentile=(values,p)=>{const sorted=[...(values||[])].sort((a,b)=>a-b);if(!sorted.length)return null;return sorted[Math.min(sorted.length-1,Math.max(0,Math.floor((sorted.length-1)*p)))];};
+    const teamNeed=(candidateTeam,pos)=>{
+      const report=this.teamPillars(candidateTeam),strength=report.pillars.positionalBalance.byPos?.[pos],count=(candidateTeam.players||[]).filter(p=>this._pos(p)===pos&&!this._unavailable(p)&&this._score(p)!=null).length,required=Math.ceil(startersByPos[pos]||1);
+      return{score:strength==null?null:(required-count)*20-strength,count,required};
+    };
+    const results=(freeAgents||[]).map(fa=>{
+      const projection=this._score(fa);if(projection==null||this._unavailable(fa))return null;
+      const pos=this._pos(fa),age=this._n(fa.age),listedSalary=this._n(fa.salary),contract=this._n(fa.contract),rosteredPct=this._n(fa.rosteredPct),trend=this._n(fa.rosterTrend);
+      if(pos==="QB"&&(posCounts.QB||0)>=4)return null;
+      const next=this.optimalLineup([...players,fa]),lineupGain=base.total!=null&&next.total!=null?Math.max(0,next.total-base.total):null;
+      const same=players.filter(p=>this._pos(p)===pos&&this._score(p)!=null&&!this._unavailable(p)).sort((a,b)=>this._score(b)-this._score(a));
+      const required=Math.ceil(startersByPos[pos]||1),worstStarter=same[Math.min(same.length-1,Math.max(0,required-1))]||null,topBench=same[required]||null;
+      const comparison=worstStarter||topBench,gap=comparison?projection-this._score(comparison):null,missingStarters=Math.max(0,required-same.length);
+      const ownNeed=teamNeed(team,pos),otherNeeds=leagueTeams.filter(t=>String(t.id)!==String(team.id)).map(t=>teamNeed(t,pos));
+      const strongerNeed=ownNeed.score==null?null:otherNeeds.filter(n=>n.score!=null&&n.score>=ownNeed.score).length;
+      const comparableCap=percentile(leagueSalariesByPos[pos],.75),roomCap=capRoom==null?null:Math.max(0,capRoom),futureCap=nextRoom==null?null:Math.max(0,nextRoom/(1+this.contractAnnualIncrease));
+      const bidCaps=[roomCap,comparableCap,futureCap].filter(v=>v!=null),maxBid=roomCap==null||comparableCap==null?null:Math.max(0,Math.floor(Math.min(...bidCaps)*100)/100);
+      const nextSalary=contract!=null&&contract>=2&&maxBid!=null?maxBid*(1+this.contractAnnualIncrease):null;
+      const postCurrent=maxBid==null||capRoom==null?null:capRoom-maxBid,postNext=nextSalary==null||nextRoom==null?null:nextRoom-nextSalary;
+      let score=0;
+      if(missingStarters>0)score+=24+Math.min(10,missingStarters*4);
+      else if(aboveReplacement[pos]!=null&&aboveReplacement[pos]<=required+1)score+=14;
+      if(lineupGain!=null)score+=Math.min(28,lineupGain*4);
+      if(gap!=null&&gap>0)score+=Math.min(18,gap*2);
+      if(window==="rebuilding"&&age!=null)score+=age<=25?18:age<=27?8:-8;
+      else if(window==="contending"&&projection!=null)score+=Math.min(14,projection/2)+(age!=null&&age>31?-4:0);
+      else if(age!=null)score+=age<=27?10:4;
+      if(contract!=null)score+=contract>=2?7:2;
+      if(maxBid!=null&&maxBid>0)score+=8;else if(roomCap===0)score-=35;
+      if(trend!=null)score+=Math.max(-4,Math.min(8,trend*2));
+      if(fa.injury)score-=10;
+      if(strongerNeed!=null)score-=Math.min(8,strongerNeed);
+      const verdict=score>=52&&((lineupGain!=null&&lineupGain>0)||(missingStarters>0))&&maxBid!==0?"PICK UP":score>=28?"MONITOR":"PASS";
+      const teamName=team.name||"This team",reasons=[];
+      reasons.push(missingStarters>0?`${teamName} is ${missingStarters.toFixed(1)} legal ${pos} starter slot(s) short; ${same.length} scored ${pos} players currently cover ${required} estimated league-specific slots.`:`${teamName} has ${aboveReplacement[pos]??"unavailable"} ${pos} players projected above its current replacement point for ${required} estimated league-specific slots.`);
+      reasons.push(gap==null?`${teamName}'s exact ${pos} projection gap is unavailable because the comparable starter/bench score is missing.`:`${fa.name} projects ${gap>=0?"+":""}${gap.toFixed(1)} FP/G against ${comparison?.name||"the current comparison"} (${this._score(comparison).toFixed(1)} FP/G) in Fantrax's Pride scoring.`);
+      reasons.push(maxBid==null?`${teamName}'s maximum blind bid is unavailable because ${capRoom==null?"current cap room":"same-position salary comparables"} is unavailable.`:`${teamName} can bid at most $${maxBid.toFixed(2)} under known current room and the ${pos} comparable-salary ceiling; that would leave $${postCurrent.toFixed(2)} current room.`);
+      reasons.push(age==null?`${fa.name}'s age/window alignment for ${teamName}'s ${window} plan is unavailable.`:`${fa.name} is age ${age} for ${teamName}'s ${window} window; ${contract==null?"contract length is unavailable":`the known contract is ${contract} year(s)`}.`);
+      const market=`Rostered percentage: ${rosteredPct==null?"unavailable":rosteredPct.toFixed(1)+"%"}; roster trend: ${trend==null?"unavailable":(trend>=0?"+":"")+trend.toFixed(1)+" points"}; other teams with similar or stronger measured ${pos} need: ${strongerNeed==null?"unavailable":strongerNeed}.`;
+      const future=nextSalary==null?`Next-year salary impact is unavailable because ${nextRoom==null?"future dead money or committed salary":"contract length"} is unavailable.`:`At the maximum bid, the 20% raise makes next-year salary $${nextSalary.toFixed(2)} and leaves $${postNext.toFixed(2)} based on known commitments and dead money.`;
+      return{action:verdict,verdict,player:fa,fit:Math.round(score*10)/10,maxBlindBid:maxBid,lineupGain,upgradeGap:gap,missingStarters,aboveReplacement:aboveReplacement[pos],teamEvidence:{team:teamName,position:pos,window,currentCapRoom:capRoom,currentDeadCap:dead,nextYear,nextYearCap:nextCap,nextYearCommitted:nextCommitted,nextYearDeadCap:nextDead,nextYearRoom:nextRoom,nextYearSalary:nextSalary,postCurrentRoom:postCurrent,postNextYearRoom:postNext,comparableSalaryCeiling:comparableCap,rosteredPct,rosterTrend,strongerNeedTeams:strongerNeed,leagueScoring:`Live Fantrax Pride FP/G with ${this.starters.some(s=>s.slot==="SFX")?"Superflex":""} and ${this.starters.some(s=>["DL","LB","DB","ID"].includes(s.slot))?"IDP":""} lineup rules`},reasons:reasons.slice(0,4),details:[market,future,`Injury status: ${fa.injury||fa.status||"no current Fantrax flag"}.`],explanation:reasons.join(" ")+" "+market+" "+future};
+    }).filter(Boolean).sort((a,b)=>{const order={"PICK UP":3,"MONITOR":2,"PASS":1};return order[b.verdict]-order[a.verdict]||b.fit-a.fit;});
+    return results.slice(0,limit);
   }
 }
