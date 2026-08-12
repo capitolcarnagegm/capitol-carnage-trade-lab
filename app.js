@@ -1,4 +1,4 @@
-/** GMS Locker 1.11.2 — responsive startup and non-blocking refresh. */
+/** GMS Locker 1.11.3 — recoverable navigation rendering. */
 (function () {
   "use strict";
 
@@ -26,7 +26,7 @@
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.11.2";
+  var VERSION = "1.11.3";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -1358,7 +1358,20 @@
         target += direction;
       }
     },
-    show: function (view) { if (view === "addleague") { GMS.addLeague(); return; } state.currentView = view; localStorage.setItem("gms_view", view); document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); }); var root = document.getElementById("main"); if (root) { root.setAttribute("aria-busy", "true"); root.innerHTML = '<div class="loading compact-loading">Opening page…</div>'; } setTimeout(function () { if (view !== state.currentView) return; if (view === "games" && !state.gamesLoading && !state.gamesAsOf) refreshGames(state.gameSeasonType, true); else if (view === "news" && !state.newsLoading && !state.newsAsOf) refreshNews(true); else render(); if (root) root.removeAttribute("aria-busy"); }, 0); },
+    show: function (view) {
+      if (view === "addleague") { GMS.addLeague(); return; }
+      state.currentView = view;
+      localStorage.setItem("gms_view", view);
+      document.querySelectorAll(".nav button").forEach(function (button) { button.classList.toggle("active", button.getAttribute("data-view") === view); });
+      var root = document.getElementById("main");
+      try {
+        render();
+      } catch (error) {
+        if (root) root.innerHTML = '<div class="error-banner"><b>Page could not open.</b> ' + esc(error && error.message || error || "Unknown screen error") + '</div><div class="actions"><button class="primary" onclick="GMS.show(\'leagues\')">Return to Leagues</button><button class="secondary" onclick="GMS.sync()">Refresh league data</button></div>';
+      }
+      if (view === "games" && !state.gamesLoading && !state.gamesAsOf) refreshGames(state.gameSeasonType, true);
+      else if (view === "news" && !state.newsLoading && !state.newsAsOf) refreshNews(true);
+    },
     waiverPage: function (page) { state.waiverPage = Math.max(1, Number(page) || 1); render(); window.scrollTo({ top: document.getElementById("nav").offsetTop, behavior: "smooth" }); },
     selectTeam: function (name) { state.selectedTeam = name; render(); },
     selectWarTeam: function (teamId) { var team = state.teams[String(teamId || "")]; if (team) { state.warTeamId = team.id; state.warTeam = team.name; state.warChat = []; } render(); },
