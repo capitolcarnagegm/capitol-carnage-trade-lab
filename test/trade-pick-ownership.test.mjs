@@ -19,5 +19,5 @@ test('Trade Lab uses a stable pick identity instead of its array position', asyn
   assert.match(app, /var key = "D:" \+ p\.id/);
   assert.match(app, /item\.id === pickId/);
   assert.doesNotMatch(app, /var pick = picks\[Number\(bits\[3\]\)\]/);
-  assert.match(index, /app\.js\?v=1\.9\.0/);
+  assert.match(index, /app\.js\?v=1\.10\.2/);
 });

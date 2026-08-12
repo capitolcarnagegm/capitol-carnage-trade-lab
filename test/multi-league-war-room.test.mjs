@@ -15,7 +15,7 @@ assert.match(app, /teamNeeds\(teamName\)/);
 assert.match(app, /teamPicks\(teamName\)/);
 assert.match(app, /capProjection\(teamName, \[\]\)/);
 assert.match(app, /No generic roster template is substituted/);
-assert.match(app, /var VERSION = "1\.9\.0"/);
-assert.match(html, /app\.js\?v=1\.9\.0/);
+assert.match(app, /var VERSION = "1\.10\.2"/);
+assert.match(html, /app\.js\?v=1\.10\.2/);
 
 console.log("multi-league War Room checks passed");

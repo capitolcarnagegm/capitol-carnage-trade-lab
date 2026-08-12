@@ -16,8 +16,8 @@ assert.match(app, /DL\|DE\|DT\|NT\|EDGE/);
 assert.match(app, /DB\|CB\|SAFETY/);
 assert.match(app, /starterIds\[p\.id\] \? "START"/);
 assert.match(app, /"PROJECTED " \+ starterSlotsById\[p\.id\] \+ " STARTER"/);
-assert.match(app, /var VERSION = "1\.9\.0"/);
-assert.match(html, /app\.js\?v=1\.9\.0/);
+assert.match(app, /var VERSION = "1\.10\.2"/);
+assert.match(html, /app\.js\?v=1\.10\.2/);
 
 const positionSource = app.slice(app.indexOf("function primaryPos"), app.indexOf("function unavailable"));
 const positions = new Function(positionSource + "; return { primaryPos, playerPositions, eligibleForSlot };")();

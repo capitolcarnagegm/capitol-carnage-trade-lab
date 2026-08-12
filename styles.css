@@ -292,13 +292,18 @@ label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px
 .waiver-analyzer-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; margin-top: 14px; }
 .waiver-analyzer-controls .field { margin: 0; }
 .waiver-analyzer-controls button { min-height: 39px; }
+.waiver-selected { background: rgba(212,175,55,0.09); }
+.waiver-comparison { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-top: 14px; }
+.waiver-comparison h4 { color: var(--gold2); margin: 14px 0 8px; }
+.waiver-comparison p { line-height: 1.5; }
+.waiver-summary-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 12px 0; }
 .waiver-analysis { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
 .waiver-question { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 13px 14px; margin-top: 10px; }
 .waiver-question h3 { color: var(--gold2); font-size: 14px; margin: 0 0 6px; }
 .waiver-question p { font-size: 13px; line-height: 1.5; margin: 0 0 8px; }
 .waiver-question ul { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 0; padding-left: 18px; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
-@media (max-width: 620px) { .waiver-analyzer-controls { grid-template-columns: 1fr; } .waiver-analyzer-controls button { width: 100%; } }
+@media (max-width: 620px) { .waiver-analyzer-controls, .waiver-summary-grid { grid-template-columns: 1fr; } .waiver-analyzer-controls button { width: 100%; } }
 .tableWrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
