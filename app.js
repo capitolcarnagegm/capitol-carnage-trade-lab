@@ -1,12 +1,32 @@
-/** GMS Locker 1.11.0 — responsive navigation and on-demand league analysis. */
+/** GMS Locker 1.11.1 — resilient browser startup and navigation. */
 (function () {
   "use strict";
+
+  function safeBrowserStorage(name) {
+    var memory = {};
+    try {
+      var storage = window[name];
+      var probe = "__gms_storage_test__";
+      storage.setItem(probe, "1");
+      storage.removeItem(probe);
+      return storage;
+    } catch (_) {
+      return {
+        getItem: function (key) { return Object.prototype.hasOwnProperty.call(memory, key) ? memory[key] : null; },
+        setItem: function (key, value) { memory[key] = String(value); },
+        removeItem: function (key) { delete memory[key]; }
+      };
+    }
+  }
+
+  var localStorage = safeBrowserStorage("localStorage");
+  var sessionStorage = safeBrowserStorage("sessionStorage");
 
   var LEAGUE_ID = "astbqxhwmk4b6bg9";
   var MY_TEAM = "Capitol Carnage";
   var MY_TEAM_ID = "nsf1b7esmk4b6bgd";
   var CAP_NOW = 1403.9;
-  var VERSION = "1.11.0";
+  var VERSION = "1.11.1";
   var PAYPAL_MVP_BUTTON_ID = "A4FLSNMZHHLM8";
 
   function mvpCheckout(location) {
@@ -26,7 +46,7 @@
   }
   if (window.addEventListener) window.addEventListener('load', renderPayPalButtons);
   var API_BASE = "https://api.gmslocker.com";
-  var SESSION_STORE = typeof sessionStorage !== "undefined" ? sessionStorage : { getItem: function () { return ""; }, setItem: function () {}, removeItem: function () {} };
+  var SESSION_STORE = sessionStorage;
   var AUTH_TOKEN = SESSION_STORE.getItem("gms_session") || "";
   var COACH = localStorage.getItem("gms_coach") || "process";
 
@@ -1376,8 +1396,15 @@
     switchLeague: function (id) { var league = state.workspaces.filter(function (item) { return item.id === id; })[0]; if (!league) return; applyWorkspace(league); state.teams = {}; state.asOf = null; state.lineupDraft = null; render(); syncFantrax(); }
   };
 
-  document.addEventListener("DOMContentLoaded", function () {
+  function boot() {
     document.querySelectorAll(".nav button").forEach(function (button) { button.addEventListener("click", function () { window.GMS.show(button.getAttribute("data-view")); }); });
-    render(); loadAccount();
-  });
+    try { render(); loadAccount(); }
+    catch (error) {
+      var root = document.getElementById("main");
+      if (root) root.innerHTML = '<div class="error-banner"><b>GMS Locker could not start.</b> Reload the page. If this continues, send support this message: ' + esc(error.message || error) + '</div>';
+    }
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
+  else boot();
 })();
