@@ -22,6 +22,15 @@ never submits trades, cuts, or lineups back to Fantrax.
 - Every recommendation cites that team's real Fantrax numbers — no generic "WR1" placeholders.
 - Teams are graded on six pillars: legal starters, usable depth, cap health, competitive window,
   positional balance, and draft capital.
+- Free-agent verdicts are driven primarily by that specific team's real need (missing legal
+  starters, thin above-replacement depth) — a strong player is not an automatic PICK UP for a
+  team that doesn't need that position, and a team with zero cap room cannot get a PICK UP
+  regardless of talent. See `GMSAnalysisEngine.recommendFreeAgents` in `src/engine.js`.
+- Boom/bust volatility comes from a real per-week scoring log pulled from Fantrax (`fetchWeeklyLog`
+  in `src/worker.js`). It is validated (`GMSAnalysisEngine.weeklyLogLooksReal`) before use — if
+  Fantrax doesn't return genuinely varying week-to-week data, volatility is reported as
+  unavailable rather than fabricated. This roughly doubles sync latency (17 extra parallel
+  Fantrax requests); revisit `maxWeeks` in `fetchWeeklyLog` if that becomes a problem.
 
 ## Deploy
 
