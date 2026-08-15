@@ -8,8 +8,12 @@ never submits trades, cuts, or lineups back to Fantrax.
 
 - **Frontend** — `index.html` (root) + `public/` (`app.js`, `styles.css`, `pride-calendar-2026.js`).
   Static, no build step. Deployed as a Cloudflare Worker Static Assets site (`wrangler-site.toml`,
-  Worker name `gmslocker-site`) that claims `gmslocker.com` and `www.gmslocker.com` as custom
-  domains. Deploys via `.github/workflows/deploy-site.yml` on pushes touching frontend files.
+  Worker name `gmslocker-site`) via `.github/workflows/deploy-site.yml` on pushes touching
+  frontend files. The deploying API token does not have Workers Routes permission for the zone,
+  so `gmslocker.com` must be attached to this Worker once, manually, in the Cloudflare dashboard
+  (Workers & Pages → gmslocker-site → Settings → Domains & Routes → Add Custom Domain) — content
+  deploys after that point automatically. Until that's done, the deployed content is only visible
+  at the Worker's `*.workers.dev` URL, which each deploy prints in its logs.
   The repo also has a leftover `CNAME` file from an earlier assumption that GitHub Pages served
   this domain — that was never confirmed to actually be live. Treat the Worker deploy above as
   the current source of truth for what serves `gmslocker.com`.
