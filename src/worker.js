@@ -29,6 +29,7 @@ export default {
       if (url.pathname === "/trade-suggestion") return tradeSuggestion(request, env, auth);
       if (url.pathname === "/current-games") return currentGames(url);
       if (url.pathname === "/news") return news();
+      if (url.pathname === "/chat") return chatRoute(request, env, auth);
       return json({ error: "Not found" }, 404);
     } catch (error) {
       console.error("GMS Locker request error", error);
@@ -473,6 +474,70 @@ function tradeVerdict(a, b) {
   if (b > 2 && a < -2) return "Favors Team B";
   if (Math.abs(a) <= 2 && Math.abs(b) <= 2) return "Roughly even";
   return "Mixed impact";
+}
+
+const CHAT_SYSTEM_PROMPT = "You are the GMS Locker GM Chat advisor: a cutthroat, Belichick-style fantasy football GM, not a hype man. You are given a JSON block of this manager's live Fantrax league data (roster, salaries, contracts, projections, cap room, power rankings, free-agent recommendations). Use ONLY player names, numbers, and facts present in that JSON. Never invent a player, stat, salary, contract, injury, or projection. If something is not present in the JSON, say it is unavailable instead of guessing. Never suggest submitting a trade, cut, or lineup change directly on Fantrax on the user's behalf — Fantrax stays read-only and the manager executes every move themselves. Be direct, specific, and cite the real numbers you were given.";
+
+async function chatRoute(request, env, auth) {
+  if (request.method === "GET") return chatHistory(request, env, auth);
+  if (request.method !== "POST") return json({ error: "GET or POST only" }, 405);
+  if (!env.AI) return json({ error: "AI advisor is not configured for this environment" }, 503);
+  const body = await request.json().catch(() => ({}));
+  const message = String(body.message || "").trim().slice(0, 2000);
+  if (!message) return json({ error: "Message required" }, 400);
+  const ws = await ownedLeague(env, auth, body.workspaceId);
+  if (!ws) return json({ error: "Link a Fantrax league first" }, 404);
+  let snapshot;
+  try { snapshot = await leagueSnapshot(ws); }
+  catch (error) { return json({ error: "Fantrax sync failed", detail: String(error?.message || error) }, 502); }
+  const myTeam = snapshot.teams.find((team) => String(team.id) === String(ws.team_id)) || snapshot.teams.find((team) => team.name === ws.team_name) || null;
+  const history = await loadChatHistory(env, ws.id);
+  const messages = [
+    { role: "system", content: CHAT_SYSTEM_PROMPT },
+    { role: "system", content: "Live league context (JSON, the only source of truth for numbers):\n" + JSON.stringify(buildChatContext(snapshot, myTeam)) },
+    ...history,
+    { role: "user", content: message }
+  ];
+  let reply;
+  try {
+    const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", { messages, max_tokens: 700 });
+    reply = String(result?.response || "").trim() || "No response generated.";
+  } catch (error) { return json({ error: "AI advisor failed", detail: String(error?.message || error) }, 502); }
+  await saveChatTurn(env, ws.id, "user", message);
+  await saveChatTurn(env, ws.id, "assistant", reply);
+  return json({ reply, syncedAt: snapshot.syncedAt });
+}
+
+async function chatHistory(request, env, auth) {
+  const url = new URL(request.url);
+  const ws = await ownedLeague(env, auth, url.searchParams.get("workspaceId"));
+  if (!ws) return json({ error: "Link a Fantrax league first" }, 404);
+  return json({ messages: await loadChatHistory(env, ws.id) });
+}
+
+async function loadChatHistory(env, workspaceId) {
+  const result = await env.DB.prepare("SELECT role, content FROM chat_messages WHERE user_league_id=? ORDER BY created_at DESC LIMIT 12").bind(workspaceId).all();
+  return (result.results || []).reverse().map((row) => ({ role: row.role, content: row.content }));
+}
+
+async function saveChatTurn(env, workspaceId, role, content) {
+  await env.DB.prepare("INSERT INTO chat_messages (id,user_league_id,role,content) VALUES (?,?,?,?)").bind(crypto.randomUUID(), workspaceId, role, content).run();
+}
+
+function buildChatContext(snapshot, myTeam) {
+  return {
+    leagueName: snapshot.workspace?.leagueName,
+    myTeam: myTeam ? {
+      name: myTeam.name,
+      deadCap: myTeam.deadCap,
+      players: (myTeam.players || []).map((p) => ({ name: p.name, position: p.position, nflTeam: p.nflTeam, salary: p.salary, contractYears: p.contract, age: p.age, projection: p.weeklyProjection ?? p.seasonProjection ?? p.performancePpg ?? null, injury: p.injury, status: p.status, rosterSlot: p.rosterSlot }))
+    } : null,
+    myAnalysis: snapshot.myAnalysis ? { grade: snapshot.myAnalysis.grade, score: snapshot.myAnalysis.score, verdict: snapshot.myAnalysis.verdict, summary: snapshot.myAnalysis.summary, capRoom: snapshot.myAnalysis.pillars?.capHealth?.room, deadCap: snapshot.myAnalysis.pillars?.capHealth?.deadCap } : null,
+    myLineup: snapshot.myAnalysis?.lineupReport ? { total: snapshot.myAnalysis.lineupReport.total, openSlots: snapshot.myAnalysis.lineupReport.open, bench: snapshot.myAnalysis.lineupReport.bench.slice(0, 6).map((row) => ({ name: row.player?.name, score: row.score, reason: row.reason })) } : null,
+    leagueRankings: (snapshot.rankings || []).slice(0, 14).map((r) => ({ team: r.teamName, grade: r.grade, score: r.score, verdict: r.verdict })),
+    topFreeAgentRecommendations: (snapshot.recommendations || []).slice(0, 8).map((r) => ({ player: r.player?.name, position: r.player?.position, verdict: r.verdict, fit: r.fit, maxBlindBid: r.maxBlindBid, lineupGain: r.lineupGain })),
+    warnings: snapshot.warnings
+  };
 }
 
 async function currentGames(url) {

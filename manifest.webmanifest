@@ -1,12 +1,12 @@
 {
-  "name": "GM's Locker",
-  "short_name": "GM's Locker",
-  "description": "Fantasy front-office intelligence with MFL sync, integrity reconciliation, roster and league analysis, Edge Finder, blind bids, transaction imports, trade intelligence, and live pick forecasts.",
+  "name": "GMS Locker",
+  "short_name": "GMS Locker",
+  "description": "AI-powered fantasy GM command center built on live, read-only Fantrax league data: rosters, cap, waivers, trades, rankings, and game day.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#050505",
-  "theme_color": "#050505",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
   "icons": [
     {
       "src": "icon-192.png",

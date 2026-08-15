@@ -1,7 +1,0 @@
-GM'S LOCKER v3.2
-- Free Agency auto-pool = all active MFL players minus every owned Pride LG player.
-- Blind Bid recommendation on every FA row.
-- Model uses projection, role, sentiment, breakout, role security, scarcity and age.
-- Manual player entry if missing.
-- Screenshot import remains correction layer.
-Upload/overwrite root files, then let GitHub Pages deploy.

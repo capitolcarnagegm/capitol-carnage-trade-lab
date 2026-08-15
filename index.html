@@ -5,28 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b0f14" />
   <title>GMS Locker</title>
-  <meta name="description" content="Fantasy football GM workspace powered by live Fantrax league data." />
+  <meta name="description" content="AI-powered fantasy GM command center built on live, read-only Fantrax league data." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="stylesheet" href="public/styles.css" />
 </head>
 <body>
   <header>
-    <div><strong>GMS Locker</strong><small>GM Sports Assistant</small></div>
+    <div class="brand"><strong>GMS Locker</strong><small>GM Sports Assistant</small></div>
     <span id="asof">Not synced</span>
-    <button id="syncBtn" type="button">Refresh League</button>
+    <button id="syncBtn" class="primary" type="button">Refresh League</button>
   </header>
   <nav id="nav">
-    <button data-view="now" type="button">What’s Happening Now</button>
-    <button data-view="buzz" type="button">Buzz</button>
-    <button data-view="leagues" type="button">Leagues</button>
+    <button data-view="now" type="button">Now</button>
     <button data-view="team" type="button">My Team</button>
+    <button data-view="lineup" type="button">Lineup</button>
     <button data-view="trade" type="button">Trade</button>
     <button data-view="waivers" type="button">Waivers</button>
+    <button data-view="chat" type="button">GM Chat</button>
     <button data-view="games" type="button">Game Day</button>
     <button data-view="rankings" type="button">Rankings</button>
+    <button data-view="buzz" type="button">Buzz</button>
+    <button data-view="leagues" type="button">Leagues</button>
     <button data-view="settings" type="button">Settings</button>
   </nav>
   <main id="main"><div class="card"><p class="muted">Loading GMS Locker…</p></div></main>
-  <script src="public/ranking-v2.js?v=2.0.0"></script>
-  <script type="module" src="public/app.js?v=1.11.9"></script>
+  <footer class="site-footer">
+    <span>GMS Locker · Fantrax stays read-only, always</span>
+    <a href="sponsor.html">Sponsor GMS Locker</a>
+  </footer>
+  <script type="module" src="public/app.js?v=2.0.0"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js").catch(() => {}));
+    }
+  </script>
 </body>
 </html>
