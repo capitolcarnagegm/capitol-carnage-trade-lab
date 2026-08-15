@@ -215,13 +215,11 @@ export class GMSAnalysisEngine {
     active.forEach(p=>{const pos=this._pos(p);posCounts[pos]=(posCounts[pos]||0)+1;});
     const startersByPos={};this.starters.forEach(slot=>slot.accept.forEach(pos=>{startersByPos[pos]=(startersByPos[pos]||0)+slot.count/slot.accept.length;}));
     const aboveReplacement={};
-    const positionStrength={};
     ["QB","RB","WR","TE","DL","LB","DB"].forEach(pos=>{
       const vals=players.filter(p=>this._pos(p)===pos&&!this._unavailable(p)).map(p=>this._score(p)).filter(v=>v!=null).sort((a,b)=>b-a);
       const replacementIndex=Math.max(0,Math.ceil(startersByPos[pos]||1));
       const replacement=vals[replacementIndex]??vals[vals.length-1]??null;
       aboveReplacement[pos]=replacement==null?null:vals.filter(v=>v>replacement).length;
-      positionStrength[pos]=vals.length?vals.slice(0,Math.min(vals.length,Math.max(1,replacementIndex))).reduce((a,b)=>a+b,0)/Math.min(vals.length,Math.max(1,replacementIndex)):null;
     });
     const leagueSalariesByPos={};
     leagueTeams.flatMap(t=>t.players||[]).forEach(p=>{const pos=this._pos(p),amount=this._n(p.salary);if(amount!=null)(leagueSalariesByPos[pos]||(leagueSalariesByPos[pos]=[])).push(amount);});
@@ -232,7 +230,7 @@ export class GMSAnalysisEngine {
     };
     const results=(freeAgents||[]).map(fa=>{
       const projection=this._score(fa);if(projection==null||this._unavailable(fa))return null;
-      const pos=this._pos(fa),age=this._n(fa.age),listedSalary=this._n(fa.salary),contract=this._n(fa.contract),rosteredPct=this._n(fa.rosteredPct),trend=this._n(fa.rosterTrend);
+      const pos=this._pos(fa),age=this._n(fa.age),contract=this._n(fa.contract),rosteredPct=this._n(fa.rosteredPct),trend=this._n(fa.rosterTrend);
       if(pos==="QB"&&(posCounts.QB||0)>=4)return null;
       const next=this.optimalLineup([...players,fa]),lineupGain=base.total!=null&&next.total!=null?Math.max(0,next.total-base.total):null;
       const same=players.filter(p=>this._pos(p)===pos&&this._score(p)!=null&&!this._unavailable(p)).sort((a,b)=>this._score(b)-this._score(a));

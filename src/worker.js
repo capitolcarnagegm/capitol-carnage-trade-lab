@@ -28,7 +28,6 @@ export default {
       if (url.pathname === "/trade-analysis") return tradeAnalysis(request, env, auth);
       if (url.pathname === "/trade-suggestion") return tradeSuggestion(request, env, auth);
       if (url.pathname === "/current-games") return currentGames(url);
-      if (url.pathname === "/news") return news();
       if (url.pathname === "/chat") return chatRoute(request, env, auth);
       return json({ error: "Not found" }, 404);
     } catch (error) {
@@ -580,13 +579,6 @@ async function currentGames(url) {
     }
   }
   return json({ schedule: [], games: [], error: "No NFL schedule found" }, 502);
-}
-
-async function news() {
-  const response = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=20", { headers: requestHeaders() });
-  if (!response.ok) return json({ articles: [] });
-  const data = await response.json();
-  return json({ articles: (data.articles || []).map((article) => ({ headline: article.headline || null, description: article.description || null, link: article.links?.web?.href || null, published: article.published || null })), syncedAt: new Date().toISOString() });
 }
 
 function num(value) {

@@ -64,7 +64,7 @@ nav button:hover{color:var(--text);background:var(--card);border-color:var(--bor
 nav button.active{color:var(--accent-ink);background:linear-gradient(180deg,var(--accent-strong),var(--accent));border-color:var(--accent);font-weight:700;box-shadow:0 4px 14px rgba(212,175,55,.25)}
 nav button.active svg{opacity:1}
 
-header button,.primary,.secondary,.card button{
+header button,.primary,.card button{
   background:var(--card);color:var(--text);border:1px solid var(--border);
   border-radius:var(--radius-sm);padding:10px 16px;cursor:pointer;font:inherit;font-size:13.5px;
   transition:border-color .15s ease,transform .1s ease,background .15s ease,color .15s ease,box-shadow .2s ease;
