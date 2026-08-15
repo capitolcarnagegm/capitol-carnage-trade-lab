@@ -59,6 +59,42 @@ export class GMSAnalysisEngine {
   }
   optimalLineup(players){ const pool=players.filter(p=>!this._unavailable(p)&&this._score(p)!=null),used=new Set(),lineup=[],slots=[];this.starters.forEach((s,i)=>{for(let n=0;n<s.count;n++)slots.push({slot:s.slot,accept:s.accept,order:i*100+n});});slots.sort((a,b)=>a.accept.length-b.accept.length||a.order-b.order).forEach(s=>{const pick=pool.filter(p=>!used.has(p.id)&&s.accept.includes(this._pos(p))).sort((a,b)=>this._score(b)-this._score(a))[0];if(pick)used.add(pick.id);lineup.push({slot:s.slot,player:pick||null});});return{lineup,total:this._safeSum(lineup.filter(r=>r.player),r=>this._score(r.player)),filled:lineup.filter(r=>r.player).length,open:lineup.filter(r=>!r.player).length}; }
   usableDepth(players,ids){ return players.filter(p=>!ids.has(p.id)&&!this._taxi(p)&&!this._unavailable(p)&&this._score(p)!=null); }
+  lineupReport(team,precomputedOpt){
+    const players=team.players||[],opt=precomputedOpt||this.optimalLineup(players);
+    const startingIds=new Set(opt.lineup.filter(r=>r.player).map(r=>r.player.id));
+    const starters=opt.lineup.map(r=>{
+      if(!r.player)return{slot:r.slot,player:null,score:null,reason:"No eligible, scored, available player currently fills this slot. This is reported as an open slot, not a weakness."};
+      const score=this._score(r.player);
+      return{slot:r.slot,player:r.player,score,reason:`Best-scoring eligible player for ${r.slot}; projects ${score.toFixed(1)} FP/G from ${this._scoreSource(r.player)}.`};
+    });
+    const bench=players.filter(p=>!startingIds.has(p.id)).map(p=>{
+      const unavailable=this._unavailable(p),score=this._score(p),pos=this._pos(p);
+      let reason;
+      if(unavailable){
+        reason=`Marked ${p.status||p.injury||"unavailable"} on the live Fantrax roster; excluded from the legal lineup.`;
+      } else if(score==null){
+        reason=`No weekly projection, season projection, or historical PPG is available from Fantrax; cannot be scored for a starting slot.`;
+      } else {
+        const eligibleSlotNames=this.starters.filter(s=>s.accept.includes(pos)).map(s=>s.slot);
+        let weakest=null;
+        opt.lineup.forEach(r=>{
+          if(!r.player)return;
+          const slotDef=this.starters.find(s=>s.slot===r.slot);
+          if(slotDef&&slotDef.accept.includes(pos)){
+            const rs=this._score(r.player);
+            if(rs!=null&&(weakest==null||rs<weakest.score))weakest={player:r.player,slot:r.slot,score:rs};
+          }
+        });
+        reason=weakest
+          ?`Every eligible slot (${eligibleSlotNames.join("/")||"none"}) is currently filled by a higher-scoring player; the closest is ${weakest.player.name} at ${weakest.slot} (${weakest.score.toFixed(1)} FP/G) vs. ${score.toFixed(1)} FP/G here.`
+          :eligibleSlotNames.length
+            ?`Eligible for ${eligibleSlotNames.join("/")} and projects ${score.toFixed(1)} FP/G, but no eligible slot in the current lineup could be compared against.`
+            :`No roster slot in this league's lineup rules accepts position ${pos}.`;
+      }
+      return{player:p,score,reason};
+    }).sort((a,b)=>(b.score??-Infinity)-(a.score??-Infinity));
+    return{teamId:team.id,teamName:team.name,total:opt.total,filled:opt.filled,open:opt.open,starters,bench};
+  }
   teamPillars(team){
     const players=team.players||[],opt=this.optimalLineup(players),ids=new Set(opt.lineup.filter(r=>r.player).map(r=>r.player.id)),depth=this.usableDepth(players,ids),starters=opt.lineup.filter(r=>r.player).map(r=>r.player);
     const salary=this._completeSum(players,p=>this._capSalary(p)),dead=this._n(team.deadCap),used=salary==null&&dead==null?null:(salary==null||dead==null?null:salary+dead),room=used==null?null:this.cap-used,financialProjection=this.financialProjection(team,5),ages=starters.map(p=>this._n(p.age)).filter(a=>a!=null),age=ages.length?ages.reduce((a,b)=>a+b,0)/ages.length:null,picks=team.picks||[],draft=picks.reduce((s,p)=>s+(Number(p.round)===1?3:Number(p.round)===2?2:1),0);
@@ -72,7 +108,7 @@ export class GMSAnalysisEngine {
       competitiveWindow:{starterAge:age,mode,reason:age==null?"Competitive window is uncertain because starter ages are incomplete.":`Starter age averages ${age.toFixed(1)}. Draft-capital score is ${draft}. Combined with known lineup strength, the roster currently profiles as ${mode}.`},
       positionalBalance:{value:balance,byPos,reason:balance==null?"Positional balance needs at least three position groups with reliable scoring data.":`Balance compares known scoring strength across QB, RB, WR, TE, DL, LB and DB groups. Lower spread between position groups produces a higher score.`},
       draftCapital:{value:draft,picks:picks.length,reason:picks.length?`${picks.length} known future pick(s) contribute a weighted draft-capital score of ${draft}; first-round picks carry the most weight, then seconds, then later rounds.`:"No future draft picks were returned in the synced data. This is reported as no known picks, not proof the team owns none."}
-    },lineup:opt,depth};
+    },lineup:opt,lineupReport:this.lineupReport(team,opt),depth};
   }
   _std(a){const m=a.reduce((x,y)=>x+y,0)/a.length;return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/a.length);}
   _windowMode(age,draft,strength){if(age==null)return"unknown";if(age<=26&&draft>=4)return"rebuilding";if(age>=29&&strength!=null)return"contending";return"balanced";}

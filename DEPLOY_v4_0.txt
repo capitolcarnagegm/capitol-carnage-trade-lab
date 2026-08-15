@@ -1,4 +1,0 @@
-GM'S LOCKER v4.0
-Transaction screenshot import:
-Choose -> Process -> Review -> Apply.
-AI extracts teams and assets, then moves ownership only after approval.
