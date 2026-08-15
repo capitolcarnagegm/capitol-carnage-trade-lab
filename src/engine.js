@@ -59,6 +59,38 @@ export class GMSAnalysisEngine {
   }
   optimalLineup(players){ const pool=players.filter(p=>!this._unavailable(p)&&this._score(p)!=null),used=new Set(),lineup=[],slots=[];this.starters.forEach((s,i)=>{for(let n=0;n<s.count;n++)slots.push({slot:s.slot,accept:s.accept,order:i*100+n});});slots.sort((a,b)=>a.accept.length-b.accept.length||a.order-b.order).forEach(s=>{const pick=pool.filter(p=>!used.has(p.id)&&s.accept.includes(this._pos(p))).sort((a,b)=>this._score(b)-this._score(a))[0];if(pick)used.add(pick.id);lineup.push({slot:s.slot,player:pick||null});});return{lineup,total:this._safeSum(lineup.filter(r=>r.player),r=>this._score(r.player)),filled:lineup.filter(r=>r.player).length,open:lineup.filter(r=>!r.player).length}; }
   usableDepth(players,ids){ return players.filter(p=>!ids.has(p.id)&&!this._taxi(p)&&!this._unavailable(p)&&this._score(p)!=null); }
+  static weeklyLogLooksReal(weeklyLog){
+    if(!Array.isArray(weeklyLog)||weeklyLog.length<3)return false;
+    const sampleIds=Object.keys(weeklyLog[0]?.players||{}).slice(0,40);
+    if(!sampleIds.length)return false;
+    let varying=0;
+    sampleIds.forEach(id=>{
+      const values=weeklyLog.map(w=>w.players?.[id]?.fpts).filter(v=>v!=null&&Number.isFinite(v));
+      if(values.length>=3&&new Set(values.map(v=>v.toFixed(1))).size>1)varying+=1;
+    });
+    return varying>=Math.max(3,Math.floor(sampleIds.length*0.25));
+  }
+  static computeVolatilityMap(weeklyLog){
+    const byPlayer={};
+    (weeklyLog||[]).forEach(week=>{
+      Object.values(week.players||{}).forEach(p=>{
+        const v=Number(p.fpts);
+        if(!Number.isFinite(v))return;
+        (byPlayer[p.id]||(byPlayer[p.id]=[])).push(v);
+      });
+    });
+    const volatility={};
+    Object.entries(byPlayer).forEach(([id,values])=>{
+      if(values.length<3)return;
+      const mean=values.reduce((a,b)=>a+b,0)/values.length;
+      if(mean<=0)return;
+      const variance=values.reduce((s,v)=>s+(v-mean)**2,0)/values.length;
+      const stdev=Math.sqrt(variance);
+      const cv=stdev/mean;
+      volatility[id]={weeksObserved:values.length,meanFpts:Math.round(mean*10)/10,stdevFpts:Math.round(stdev*10)/10,coefficientOfVariation:Math.round(cv*100)/100,label:cv>=0.55?"boom/bust":cv>=0.32?"streaky":"consistent"};
+    });
+    return volatility;
+  }
   lineupReport(team,precomputedOpt){
     const players=team.players||[],opt=precomputedOpt||this.optimalLineup(players);
     const startingIds=new Set(opt.lineup.filter(r=>r.player).map(r=>r.player.id));
@@ -212,28 +244,43 @@ export class GMSAnalysisEngine {
       const bidCaps=[roomCap,comparableCap,futureCap].filter(v=>v!=null),maxBid=roomCap==null||comparableCap==null?null:Math.max(0,Math.floor(Math.min(...bidCaps)*100)/100);
       const nextSalary=contract!=null&&contract>=2&&maxBid!=null?maxBid*(1+this.contractAnnualIncrease):null;
       const postCurrent=maxBid==null||capRoom==null?null:capRoom-maxBid,postNext=nextSalary==null||nextRoom==null?null:nextRoom-nextSalary;
-      let score=0;
-      if(missingStarters>0)score+=24+Math.min(10,missingStarters*4);
-      else if(aboveReplacement[pos]!=null&&aboveReplacement[pos]<=required+1)score+=14;
-      if(lineupGain!=null)score+=Math.min(28,lineupGain*4);
-      if(gap!=null&&gap>0)score+=Math.min(18,gap*2);
-      if(window==="rebuilding"&&age!=null)score+=age<=25?18:age<=27?8:-8;
-      else if(window==="contending"&&projection!=null)score+=Math.min(14,projection/2)+(age!=null&&age>31?-4:0);
-      else if(age!=null)score+=age<=27?10:4;
-      if(contract!=null)score+=contract>=2?7:2;
-      if(maxBid!=null&&maxBid>0)score+=8;else if(roomCap===0)score-=35;
-      if(trend!=null)score+=Math.max(-4,Math.min(8,trend*2));
-      if(fa.injury)score-=10;
-      if(strongerNeed!=null)score-=Math.min(8,strongerNeed);
-      const verdict=score>=52&&((lineupGain!=null&&lineupGain>0)||(missingStarters>0))&&maxBid!==0?"PICK UP":score>=28?"MONITOR":"PASS";
+      // Need is the dominant, explicit driver: what THIS team's roster actually lacks at this position right now.
+      let needScore=0;
+      if(missingStarters>0)needScore=72+Math.min(20,missingStarters*10);
+      else if(aboveReplacement[pos]!=null&&aboveReplacement[pos]<=required)needScore=55;
+      else if(aboveReplacement[pos]!=null&&aboveReplacement[pos]<=required+1)needScore=34;
+      else needScore=Math.max(0,18-(aboveReplacement[pos]??0)*2);
+      // Upgrade: how much better this player is than what the team can currently field.
+      let upgradeScore=0;
+      if(lineupGain!=null)upgradeScore+=Math.min(26,lineupGain*4.5);
+      if(gap!=null&&gap>0)upgradeScore+=Math.min(14,gap*1.6);
+      // Fit: window, contract control, market trend, injury risk, and real scoring volatility.
+      const volatility=fa.volatility||null;
+      let fitScore=0;
+      if(window==="rebuilding"&&age!=null)fitScore+=age<=25?16:age<=27?6:-8;
+      else if(window==="contending"&&projection!=null)fitScore+=Math.min(12,projection/2.2)+(age!=null&&age>31?-4:0);
+      else if(age!=null)fitScore+=age<=27?9:3;
+      if(contract!=null)fitScore+=contract>=2?6:1;
+      if(trend!=null)fitScore+=Math.max(-4,Math.min(6,trend*1.8));
+      if(fa.injury)fitScore-=10;
+      if(strongerNeed!=null)fitScore-=Math.min(8,strongerNeed);
+      if(volatility){
+        if(window==="contending")fitScore+=volatility.label==="consistent"?5:volatility.label==="boom/bust"?-6:0;
+        else if(window==="rebuilding")fitScore+=volatility.label==="boom/bust"?5:0;
+      }
+      let score=needScore*0.55+upgradeScore+fitScore;
+      if(maxBid!=null&&maxBid>0)score+=6;
+      else if(roomCap===0)score=Math.min(score,24);
+      const verdict=score>=58&&needScore>=34&&maxBid!==0?"PICK UP":score>=32?"MONITOR":"PASS";
       const teamName=team.name||"This team",reasons=[];
       reasons.push(missingStarters>0?`${teamName} is ${missingStarters.toFixed(1)} legal ${pos} starter slot(s) short; ${same.length} scored ${pos} players currently cover ${required} estimated league-specific slots.`:`${teamName} has ${aboveReplacement[pos]??"unavailable"} ${pos} players projected above its current replacement point for ${required} estimated league-specific slots.`);
       reasons.push(gap==null?`${teamName}'s exact ${pos} projection gap is unavailable because the comparable starter/bench score is missing.`:`${fa.name} projects ${gap>=0?"+":""}${gap.toFixed(1)} FP/G against ${comparison?.name||"the current comparison"} (${this._score(comparison).toFixed(1)} FP/G) in Fantrax's Pride scoring.`);
       reasons.push(maxBid==null?`${teamName}'s maximum blind bid is unavailable because ${capRoom==null?"current cap room":"same-position salary comparables"} is unavailable.`:`${teamName} can bid at most $${maxBid.toFixed(2)} under known current room and the ${pos} comparable-salary ceiling; that would leave $${postCurrent.toFixed(2)} current room.`);
       reasons.push(age==null?`${fa.name}'s age/window alignment for ${teamName}'s ${window} plan is unavailable.`:`${fa.name} is age ${age} for ${teamName}'s ${window} window; ${contract==null?"contract length is unavailable":`the known contract is ${contract} year(s)`}.`);
+      reasons.push(volatility?`Scoring consistency: ${volatility.label} across ${volatility.weeksObserved} tracked weeks last season (avg ${volatility.meanFpts} FP/G, week-to-week spread ±${volatility.stdevFpts}).`:`Week-to-week scoring consistency is unavailable — Fantrax did not return a usable weekly log for this player.`);
       const market=`Rostered percentage: ${rosteredPct==null?"unavailable":rosteredPct.toFixed(1)+"%"}; roster trend: ${trend==null?"unavailable":(trend>=0?"+":"")+trend.toFixed(1)+" points"}; other teams with similar or stronger measured ${pos} need: ${strongerNeed==null?"unavailable":strongerNeed}.`;
       const future=nextSalary==null?`Next-year salary impact is unavailable because contract length or a defensible bid is unavailable.`:postNext==null?`At the maximum bid, the 20% raise makes next-year salary `+"$"+nextSalary.toFixed(2)+`; projected next-year room is unavailable because future dead money or committed salary is unavailable.`:`At the maximum bid, the 20% raise makes next-year salary `+"$"+nextSalary.toFixed(2)+` and leaves `+"$"+postNext.toFixed(2)+` based on known commitments and dead money.`;
-      return{action:verdict,verdict,player:fa,fit:Math.round(score*10)/10,maxBlindBid:maxBid,lineupGain,upgradeGap:gap,missingStarters,aboveReplacement:aboveReplacement[pos],teamEvidence:{team:teamName,position:pos,window,currentCapRoom:capRoom,currentDeadCap:dead,nextYear,nextYearCap:nextCap,nextYearCommitted:nextCommitted,nextYearDeadCap:nextDead,nextYearRoom:nextRoom,nextYearSalary:nextSalary,postCurrentRoom:postCurrent,postNextYearRoom:postNext,comparableSalaryCeiling:comparableCap,rosteredPct,rosterTrend:trend,strongerNeedTeams:strongerNeed,leagueScoring:`Live Fantrax Pride FP/G with ${this.starters.some(s=>s.slot==="SFX")?"Superflex":""} and ${this.starters.some(s=>["DL","LB","DB","ID"].includes(s.slot))?"IDP":""} lineup rules`},reasons:reasons.slice(0,4),details:[market,future,`Injury status: ${fa.injury||fa.status||"no current Fantrax flag"}.`],explanation:reasons.join(" ")+" "+market+" "+future};
+      return{action:verdict,verdict,player:fa,fit:Math.round(score*10)/10,needScore:Math.round(needScore*10)/10,upgradeScore:Math.round(upgradeScore*10)/10,fitScore:Math.round(fitScore*10)/10,maxBlindBid:maxBid,lineupGain,upgradeGap:gap,missingStarters,aboveReplacement:aboveReplacement[pos],volatility,teamEvidence:{team:teamName,position:pos,window,currentCapRoom:capRoom,currentDeadCap:dead,nextYear,nextYearCap:nextCap,nextYearCommitted:nextCommitted,nextYearDeadCap:nextDead,nextYearRoom:nextRoom,nextYearSalary:nextSalary,postCurrentRoom:postCurrent,postNextYearRoom:postNext,comparableSalaryCeiling:comparableCap,rosteredPct,rosterTrend:trend,strongerNeedTeams:strongerNeed,leagueScoring:`Live Fantrax Pride FP/G with ${this.starters.some(s=>s.slot==="SFX")?"Superflex":""} and ${this.starters.some(s=>["DL","LB","DB","ID"].includes(s.slot))?"IDP":""} lineup rules`},reasons:reasons.slice(0,5),details:[market,future,`Injury status: ${fa.injury||fa.status||"no current Fantrax flag"}.`],explanation:reasons.join(" ")+" "+market+" "+future};
     }).filter(Boolean).sort((a,b)=>{const order={"PICK UP":3,"MONITOR":2,"PASS":1};return order[b.verdict]-order[a.verdict]||b.fit-a.fit;});
     return results.slice(0,limit);
   }

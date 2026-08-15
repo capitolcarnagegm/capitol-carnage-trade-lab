@@ -213,13 +213,18 @@ async function leagueSnapshot(ws) {
     fantrax("getPlayerIds", leagueId).catch((e) => { warnings.push("Player IDs: " + e.message); return null; })
   ]);
 
-  const [allPool, availablePool] = await Promise.all([
+  const [allPool, availablePool, weeklyLog] = await Promise.all([
     fetchStatPool(leagueId, null, 8).catch((e) => { warnings.push("Player stats: " + e.message); return emptyPool(); }),
-    fetchStatPool(leagueId, "AVAILABLE", 8).catch((e) => { warnings.push("Free agents: " + e.message); return emptyPool(); })
+    fetchStatPool(leagueId, "AVAILABLE", 8).catch((e) => { warnings.push("Free agents: " + e.message); return emptyPool(); }),
+    fetchWeeklyLog(leagueId).catch((e) => { warnings.push("Weekly scoring log: " + e.message); return []; })
   ]);
+  const volatility = GMSAnalysisEngine.weeklyLogLooksReal(weeklyLog) ? GMSAnalysisEngine.computeVolatilityMap(weeklyLog) : {};
+  if (weeklyLog.length && !Object.keys(volatility).length) warnings.push("Weekly scoring log: Fantrax did not return distinct per-week data for this league; boom/bust volatility is unavailable this sync.");
 
   const playerMap = mergePlayerData(playerIds, allPool);
   const freeAgents = mergeStatGroups(availablePool);
+  Object.values(playerMap).forEach((p) => { p.volatility = volatility[p.id] || null; });
+  freeAgents.forEach((p) => { p.volatility = volatility[p.id] || null; });
   const teams = buildTeams(rosters, playerMap, picks);
   const engine = new GMSAnalysisEngine(prideFinancialRules());
   const rankings = engine.analyzeLeague(teams).sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
@@ -284,6 +289,24 @@ async function fetchStatPool(leagueId, statusOrTeamFilter, maxPages = 8) {
     if (!added) break;
   }
   return aggregate;
+}
+
+async function fetchWeeklyLog(leagueId, maxWeeks = 17) {
+  const weeks = Array.from({ length: maxWeeks }, (_, i) => i + 1);
+  const attempts = await Promise.all(weeks.map(async (week) => {
+    try {
+      const response = await fetch(FANTRAX_PA + "?leagueId=" + encodeURIComponent(leagueId), {
+        method: "POST",
+        headers: requestHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ msgs: [{ method: "getPlayerStats", data: { leagueId, pageNumber: 1, maxResultsPerPage: 750, view: "STATS", seasonOrProjection: LAST_SEASON, period: String(week), sortType: "SCORE", sortDirection: -1 } }] })
+      });
+      if (!response.ok) return null;
+      const batch = await response.json();
+      const parsed = parseStats(batch.responses?.[0]);
+      return Object.keys(parsed.players).length ? { week, players: parsed.players } : null;
+    } catch (_) { return null; }
+  }));
+  return attempts.filter(Boolean);
 }
 
 function statsMessage(leagueId, seasonOrProjection, pageNumber, statusOrTeamFilter) {
@@ -530,12 +553,12 @@ function buildChatContext(snapshot, myTeam) {
     myTeam: myTeam ? {
       name: myTeam.name,
       deadCap: myTeam.deadCap,
-      players: (myTeam.players || []).map((p) => ({ name: p.name, position: p.position, nflTeam: p.nflTeam, salary: p.salary, contractYears: p.contract, age: p.age, projection: p.weeklyProjection ?? p.seasonProjection ?? p.performancePpg ?? null, injury: p.injury, status: p.status, rosterSlot: p.rosterSlot }))
+      players: (myTeam.players || []).map((p) => ({ name: p.name, position: p.position, nflTeam: p.nflTeam, salary: p.salary, contractYears: p.contract, age: p.age, projection: p.weeklyProjection ?? p.seasonProjection ?? p.performancePpg ?? null, volatility: p.volatility, injury: p.injury, status: p.status, rosterSlot: p.rosterSlot }))
     } : null,
     myAnalysis: snapshot.myAnalysis ? { grade: snapshot.myAnalysis.grade, score: snapshot.myAnalysis.score, verdict: snapshot.myAnalysis.verdict, summary: snapshot.myAnalysis.summary, capRoom: snapshot.myAnalysis.pillars?.capHealth?.room, deadCap: snapshot.myAnalysis.pillars?.capHealth?.deadCap } : null,
     myLineup: snapshot.myAnalysis?.lineupReport ? { total: snapshot.myAnalysis.lineupReport.total, openSlots: snapshot.myAnalysis.lineupReport.open, bench: snapshot.myAnalysis.lineupReport.bench.slice(0, 6).map((row) => ({ name: row.player?.name, score: row.score, reason: row.reason })) } : null,
     leagueRankings: (snapshot.rankings || []).slice(0, 14).map((r) => ({ team: r.teamName, grade: r.grade, score: r.score, verdict: r.verdict })),
-    topFreeAgentRecommendations: (snapshot.recommendations || []).slice(0, 8).map((r) => ({ player: r.player?.name, position: r.player?.position, verdict: r.verdict, fit: r.fit, maxBlindBid: r.maxBlindBid, lineupGain: r.lineupGain })),
+    topFreeAgentRecommendations: (snapshot.recommendations || []).slice(0, 8).map((r) => ({ player: r.player?.name, position: r.player?.position, verdict: r.verdict, needScore: r.needScore, fit: r.fit, volatility: r.volatility, maxBlindBid: r.maxBlindBid, lineupGain: r.lineupGain })),
     warnings: snapshot.warnings
   };
 }
