@@ -7,10 +7,16 @@ never submits trades, cuts, or lineups back to Fantrax.
 ## Architecture
 
 - **Frontend** — `index.html` (root) + `public/` (`app.js`, `styles.css`, `pride-calendar-2026.js`).
-  Static, no build step. Served from the repo root (GitHub Pages, `CNAME` → `gmslocker.com`).
+  Static, no build step. Deployed as a Cloudflare Worker Static Assets site (`wrangler-site.toml`,
+  Worker name `gmslocker-site`) that claims `gmslocker.com` and `www.gmslocker.com` as custom
+  domains. Deploys via `.github/workflows/deploy-site.yml` on pushes touching frontend files.
+  The repo also has a leftover `CNAME` file from an earlier assumption that GitHub Pages served
+  this domain — that was never confirmed to actually be live. Treat the Worker deploy above as
+  the current source of truth for what serves `gmslocker.com`.
 - **API** — `src/worker.js` (routes + auth) and `src/engine.js` (pure six-pillar analysis
   engine). Deployed as a Cloudflare Worker to `api.gmslocker.com`, backed by a D1 database.
   Entry point is `src/worker-live-news.js`, which wraps `worker.js` with the `/news` route.
+  Deploys via `.github/workflows/deploy-cloudflare-worker.yml`.
 - **Schema** — `src/schema.sql` is the single source of truth for the D1 schema. There is no
   separate migrations pipeline; `npm run db:init` (and CI) applies this file directly.
 
