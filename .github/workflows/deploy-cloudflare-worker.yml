@@ -41,12 +41,16 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Verify production API
+      - name: Verify production API and depth charts
         run: |
           for i in 1 2 3 4 5 6; do
-            if curl --fail --silent --show-error https://api.gmslocker.com/health; then
+            health=$(curl --fail --silent --show-error https://api.gmslocker.com/health || true)
+            depth=$(curl --fail --silent --show-error 'https://api.gmslocker.com/depth-charts?teams=IND' || true)
+            if echo "$health" | grep -q 'gmslocker-api' && echo "$depth" | grep -q 'ESPN NFL depth chart'; then
+              echo "API and live depth-chart endpoint are deployed."
               exit 0
             fi
             sleep 10
           done
+          echo "Production API did not expose the live depth-chart endpoint."
           exit 1
