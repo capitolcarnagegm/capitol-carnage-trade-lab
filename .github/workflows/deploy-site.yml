@@ -52,9 +52,12 @@ jobs:
           fi
           echo "Checking $url"
           for i in 1 2 3 4 5 6; do
-            if curl --fail --silent --show-error "$url" | grep -q "Fantrax stays read-only, always"; then
+            html=$(curl --fail --silent --show-error "$url" || true)
+            if echo "$html" | grep -q "Franchise Intelligence System" && echo "$html" | grep -q "depth-chart.js"; then
+              echo "Premium site and live depth UI are deployed."
               exit 0
             fi
             sleep 10
           done
+          echo "Deployment did not expose the current premium depth-chart build."
           exit 1
