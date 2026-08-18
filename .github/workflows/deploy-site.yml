@@ -27,14 +27,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
       - name: Install dependencies
         run: npm install
+
       - name: Verify premium build before deploy
         run: |
+          grep -q "Franchise OS" index.html
           grep -q "Depth Charts" index.html
           test -f depth-chart.html
           grep -q "ALL 32 NFL TEAMS" depth-chart.html
@@ -44,18 +48,59 @@ jobs:
           grep -q "FRANCHISE OS" franchise-os.html
           test -f public/franchise-os.js
           test -f public/franchise-os.css
-      - name: Deploy static site
+
+      - name: Repair root DNS before Worker custom-domain deploy
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          zone_json=$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/zones?name=gmslocker.com")
+          zone_id=$(echo "$zone_json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);if(!j.success||!j.result?.[0]?.id)process.exit(2);console.log(j.result[0].id)})')
+          records_json=$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records?name=gmslocker.com&per_page=100")
+          echo "$records_json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);for(const r of (j.result||[])){if(["A","AAAA","CNAME"].includes(r.type))console.log(r.id+" "+r.type+" "+r.content)}})' > /tmp/root-records.txt
+          while read -r id type content; do
+            [ -z "${id:-}" ] && continue
+            echo "Deleting stale root $type record: $content"
+            curl --fail --silent --show-error -X DELETE \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records/$id" >/dev/null
+          done < /tmp/root-records.txt
+
+      - name: Deploy static site and custom domain
         run: npx wrangler deploy --config wrangler-site.toml | tee /tmp/deploy-output.txt
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify workers.dev build
+        run: |
+          url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' /tmp/deploy-output.txt | head -1)
+          if [ -n "$url" ]; then
+            for i in 1 2 3 4 5 6; do
+              home=$(curl --fail --silent --show-error "$url" || true)
+              if echo "$home" | grep -q "Franchise OS" && echo "$home" | grep -q "Depth Charts"; then
+                echo "Worker build is current."
+                break
+              fi
+              sleep 5
+            done
+          fi
+
       - name: Verify production domain
         run: |
-          for i in 1 2 3 4 5 6 7 8; do
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
             home=$(curl --fail --silent --show-error https://gmslocker.com/ || true)
             depth=$(curl --fail --silent --show-error https://gmslocker.com/depth-chart.html || true)
             os=$(curl --fail --silent --show-error https://gmslocker.com/franchise-os.html || true)
-            if echo "$home" | grep -q "Depth Charts" && echo "$depth" | grep -q "ALL 32 NFL TEAMS" && echo "$os" | grep -q "FRANCHISE OS"; then
+            if echo "$home" | grep -q "Franchise OS" && echo "$home" | grep -q "Depth Charts" && echo "$depth" | grep -q "ALL 32 NFL TEAMS" && echo "$os" | grep -q "FRANCHISE OS"; then
               echo "Production is serving GMS Locker premium build."
               exit 0
             fi
