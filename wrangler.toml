@@ -1,5 +1,5 @@
 name = "gmslocker-api"
-main = "src/worker-public.js"
+main = "src/worker-full-noauth.js"
 compatibility_date = "2024-11-01"
 workers_dev = true
 
