@@ -1,6 +1,7 @@
 import baseWorker from "./worker.js";
 
 const ESPN_NEWS = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100";
+const ESPN_DEPTH = team => `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${encodeURIComponent(team)}/depthchart`;
 
 function cors() {
   return {
@@ -26,14 +27,7 @@ function clean(value) {
 function categoryNames(article) {
   const names = [];
   for (const category of article?.categories || []) {
-    const candidates = [
-      category?.athlete?.displayName,
-      category?.athlete?.fullName,
-      category?.team?.displayName,
-      category?.team?.shortDisplayName,
-      category?.name,
-      category?.description
-    ];
+    const candidates = [category?.athlete?.displayName,category?.athlete?.fullName,category?.team?.displayName,category?.team?.shortDisplayName,category?.name,category?.description];
     for (const value of candidates) {
       const label = clean(value);
       if (label && !names.some((item) => item.toLowerCase() === label.toLowerCase())) names.push(label);
@@ -97,30 +91,19 @@ function gradeFor(score) {
 function enhanceRecommendations(payload) {
   const teamId = payload?.workspace?.teamId;
   const teamName = payload?.workspace?.teamName;
-  const team = (payload?.teams || []).find((item) => String(item.id) === String(teamId)) ||
-    (payload?.teams || []).find((item) => item.name === teamName);
+  const team = (payload?.teams || []).find((item) => String(item.id) === String(teamId)) || (payload?.teams || []).find((item) => item.name === teamName);
   if (!team) return payload;
-
   const activeRoster = (team.players || []).filter((player) => !unavailable(player) && !taxi(player));
   const capRoom = number(payload?.myAnalysis?.pillars?.capHealth?.room);
-
   const enhanced = (payload.recommendations || []).map((rec) => {
-    const fa = rec.player || {};
-    const faScore = scoreOf(fa);
-    const bucket = positionBucket(fa);
-    const samePool = activeRoster
-      .filter((player) => sameDecisionPool(bucket, player) && scoreOf(player) != null)
-      .sort((a, b) => scoreOf(a) - scoreOf(b));
-    const replace = samePool[0] || null;
-    const replaceScore = replace ? scoreOf(replace) : null;
+    const fa = rec.player || {}, faScore = scoreOf(fa), bucket = positionBucket(fa);
+    const samePool = activeRoster.filter((player) => sameDecisionPool(bucket, player) && scoreOf(player) != null).sort((a, b) => scoreOf(a) - scoreOf(b));
+    const replace = samePool[0] || null, replaceScore = replace ? scoreOf(replace) : null;
     const directGain = faScore != null && replaceScore != null ? faScore - replaceScore : null;
-    const salary = number(fa.salary);
-    const affordable = capRoom == null || salary == null ? null : salary <= capRoom;
+    const salary = number(fa.salary), affordable = capRoom == null || salary == null ? null : salary <= capRoom;
     const hasRealUpgrade = directGain == null ? Boolean(rec.lineupGain && rec.lineupGain > 0) : directGain >= 0.5;
-    const starterGain = number(rec.lineupGain) || 0;
-    const young = number(fa.age) == null ? null : number(fa.age) <= 27;
+    const starterGain = number(rec.lineupGain) || 0, young = number(fa.age) == null ? null : number(fa.age) <= 27;
     const efficient = salary == null || faScore == null ? null : faScore / Math.max(1, salary) >= 0.18;
-
     let decisionScore = 70;
     if (hasRealUpgrade) decisionScore += 10;
     if (directGain != null) decisionScore += Math.max(-12, Math.min(12, directGain * 2.5));
@@ -130,114 +113,84 @@ function enhanceRecommendations(payload) {
     if (affordable === false) decisionScore -= 25;
     if (fa.injury || unavailable(fa)) decisionScore -= 10;
     if (!replace && activeRoster.length) decisionScore -= 2;
-
-    const grade = gradeFor(decisionScore);
-    const passesThreshold = ["A", "A-", "B+"].includes(grade);
+    const grade = gradeFor(decisionScore), passesThreshold = ["A", "A-", "B+"].includes(grade);
     const verdict = passesThreshold && affordable !== false && hasRealUpgrade ? "PICK UP" : decisionScore >= 76 ? "MONITOR" : "PASS";
-
-    const exactMove = replace
-      ? `Roster move: ${verdict === "PICK UP" ? "ADD" : "compare"} ${fa.name} (${faScore == null ? "score unavailable" : faScore.toFixed(1) + " FP/G"}) against ${replace.name} (${replaceScore == null ? "score unavailable" : replaceScore.toFixed(1) + " FP/G"}) — ${directGain == null ? "direct gain unavailable" : (directGain >= 0 ? "+" : "") + directGain.toFixed(1) + " FP/G"}.`
-      : `Roster move: ${fa.name} has no scored active ${bucket} counterpart to replace; treat this as depth/optionality, not an automatic add.`;
-    const specificity = (bucket === "CB" || bucket === "S")
-      ? `Eligibility check: ${fa.name} is evaluated as ${bucket}, so ${bucket === "CB" ? "safeties are not used as the cut comparison" : "cornerbacks are not used as the cut comparison"}.`
-      : `Eligibility check: recommendation is evaluated against active ${bucket} players on ${team.name}, not a generic league need.`;
+    const exactMove = replace ? `Roster move: ${verdict === "PICK UP" ? "ADD" : "compare"} ${fa.name} (${faScore == null ? "score unavailable" : faScore.toFixed(1) + " FP/G"}) against ${replace.name} (${replaceScore == null ? "score unavailable" : replaceScore.toFixed(1) + " FP/G"}) — ${directGain == null ? "direct gain unavailable" : (directGain >= 0 ? "+" : "") + directGain.toFixed(1) + " FP/G"}.` : `Roster move: ${fa.name} has no scored active ${bucket} counterpart to replace; treat this as depth/optionality, not an automatic add.`;
+    const specificity = (bucket === "CB" || bucket === "S") ? `Eligibility check: ${fa.name} is evaluated as ${bucket}, so ${bucket === "CB" ? "safeties are not used as the cut comparison" : "cornerbacks are not used as the cut comparison"}.` : `Eligibility check: recommendation is evaluated against active ${bucket} players on ${team.name}, not a generic league need.`;
     const threshold = `4-question value test: roster upgrade ${hasRealUpgrade ? "PASS" : "FAIL"}; affordable ${affordable === false ? "FAIL" : affordable === true ? "PASS" : "UNCONFIRMED"}; starter impact ${starterGain > 0 ? "PASS" : "DEPTH ONLY"}; B+ threshold ${passesThreshold ? "PASS" : "FAIL"}.`;
-    const capLine = capRoom == null
-      ? "Current cap room is unavailable, so the page will not pretend a bid is affordable."
-      : `Current live cap room is $${capRoom.toFixed(2)}; any bid still must obey the league's actual waiver/bid rules.`;
+    const capLine = capRoom == null ? "Current cap room is unavailable, so the page will not pretend a bid is affordable." : `Current live cap room is $${capRoom.toFixed(2)}; any bid still must obey the league's actual waiver/bid rules.`;
+    return {...rec,verdict,action:verdict,fit:Math.round(decisionScore * 10) / 10,rosterGrade:grade,replacementCandidate:replace?{id:replace.id,name:replace.name,position:replace.position,score:replaceScore,salary:number(replace.salary),rosterSlot:replace.rosterSlot||null}:null,directRosterGain:directGain,fourQuestionTest:{rosterUpgrade:hasRealUpgrade,affordable,starterImpact:starterGain>0,bPlusOrBetter:passesThreshold},reasons:[exactMove,specificity,threshold,capLine,...(rec.reasons||[])].slice(0,5),details:[`Team-specific grade: ${grade} (${decisionScore.toFixed(1)}/100).`,replace?`First cut/replace comparison: ${replace.name}. This is a comparison target, not an automatic cut.`:`No same-eligibility active replacement candidate was found.`,...(rec.details||[])]};
+  }).sort((a,b)=>{const rank={"PICK UP":3,"MONITOR":2,"PASS":1};return(rank[b.verdict]||0)-(rank[a.verdict]||0)||(b.fit||0)-(a.fit||0);});
+  return {...payload,recommendations:enhanced};
+}
 
-    return {
-      ...rec,
-      verdict,
-      action: verdict,
-      fit: Math.round(decisionScore * 10) / 10,
-      rosterGrade: grade,
-      replacementCandidate: replace ? {
-        id: replace.id,
-        name: replace.name,
-        position: replace.position,
-        score: replaceScore,
-        salary: number(replace.salary),
-        rosterSlot: replace.rosterSlot || null
-      } : null,
-      directRosterGain: directGain,
-      fourQuestionTest: {
-        rosterUpgrade: hasRealUpgrade,
-        affordable,
-        starterImpact: starterGain > 0,
-        bPlusOrBetter: passesThreshold
-      },
-      reasons: [exactMove, specificity, threshold, capLine, ...(rec.reasons || [])].slice(0, 5),
-      details: [
-        `Team-specific grade: ${grade} (${decisionScore.toFixed(1)}/100).`,
-        replace ? `First cut/replace comparison: ${replace.name}. This is a comparison target, not an automatic cut.` : `No same-eligibility active replacement candidate was found.`,
-        ...(rec.details || [])
-      ]
-    };
-  }).sort((a, b) => {
-    const verdictRank = { "PICK UP": 3, "MONITOR": 2, "PASS": 1 };
-    return (verdictRank[b.verdict] || 0) - (verdictRank[a.verdict] || 0) || (b.fit || 0) - (a.fit || 0);
-  });
-
-  return { ...payload, recommendations: enhanced };
+function normalizeTeam(value){return clean(value).toUpperCase().replace(/[^A-Z]/g,"").slice(0,4);}
+function normalizedName(value){return clean(value).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");}
+function slotCode(value){
+  const raw=clean(value).toUpperCase().replace(/[^A-Z0-9]/g,"");
+  const aliases={LEFTWIDERECEIVER:"LWR",RIGHTWIDERECEIVER:"RWR",SLOTRECEIVER:"SWR",SLOTWIDERECEIVER:"SWR",LEFTCORNERBACK:"LCB",RIGHTCORNERBACK:"RCB",NICKELCORNERBACK:"NCB",NICKELBACK:"NCB",FREE SAFETY:"FS",STRONGSAFETY:"SS",MIDDLELINEBACKER:"MIKE",WEAKSIDELINEBACKER:"WILL",STRONGSIDELINEBACKER:"SAM",LEFTDEFENSIVEEND:"LDE",RIGHTDEFENSIVEEND:"RDE",NOSETACKLE:"NT"};
+  if(aliases[raw])return aliases[raw];
+  const specific=raw.match(/^(LWR|RWR|SWR|XWR|ZWR|LCB|RCB|NCB|SCB|FS|SS|MIKE|WILL|SAM|LOLB|ROLB|LDE|RDE|NT|DT|RB|QB|TE|FB|WR|CB|LB|DE)$/);
+  return specific?specific[1]:raw.slice(0,8);
+}
+function athleteName(row){return clean(row?.athlete?.displayName||row?.athlete?.fullName||row?.displayName||row?.fullName||row?.name||row?.player?.displayName||row?.player?.name);}
+function collectDepth(node,context,out,seen){
+  if(!node)return;
+  if(Array.isArray(node)){node.forEach((item,index)=>collectDepth(item,{...context,index},out,seen));return;}
+  if(typeof node!=="object")return;
+  const positionLabel=node?.position?.abbreviation||node?.position?.name||node?.position?.displayName||node?.slot?.abbreviation||node?.slot?.name||node?.slot||node?.position||context.slot||context.key||"";
+  const athletes=Array.isArray(node.athletes)?node.athletes:Array.isArray(node.players)?node.players:null;
+  if(athletes){
+    const base=slotCode(positionLabel);
+    athletes.forEach((row,index)=>{
+      const name=athleteName(row);if(!name)return;
+      const explicit=slotCode(row?.position?.abbreviation||row?.position?.name||row?.slot||"");
+      const slot=(explicit||base||"DEPTH")+String(number(row?.rank??row?.depth??row?.order)??(index+1));
+      const key=normalizedName(name)+"|"+slot;
+      if(seen.has(key))return;seen.add(key);
+      out.push({name,slot,baseSlot:explicit||base||null,depth:number(row?.rank??row?.depth??row?.order)??(index+1),providerPosition:clean(positionLabel)||null,providerGeneric:/^(WR|CB|LB|DB|DL|DE|DT)$/.test(explicit||base||""),status:clean(row?.status?.name||row?.status||"")||null});
+    });
+  }
+  Object.entries(node).forEach(([key,value])=>{if(key==="athletes"||key==="players")return;collectDepth(value,{...context,key,slot:context.slot||key},out,seen);});
+}
+function parseDepth(payload,team){
+  const rows=[],seen=new Set();collectDepth(payload,{team},rows,seen);
+  return rows.filter(row=>row.name&&row.slot).map(row=>({...row,team}));
+}
+async function depthCharts(url){
+  const teams=[...new Set(String(url.searchParams.get("teams")||"").split(",").map(normalizeTeam).filter(Boolean))].slice(0,20);
+  if(!teams.length)return json({teams:{},players:[],source:"ESPN NFL depth chart",syncedAt:new Date().toISOString(),warning:"No NFL teams requested"});
+  const results=await Promise.all(teams.map(async team=>{
+    try{
+      const response=await fetch(ESPN_DEPTH(team),{headers:{Accept:"application/json","User-Agent":"GMSLocker/2.4"},cf:{cacheTtl:120,cacheEverything:true}});
+      if(!response.ok)return{team,rows:[],error:`ESPN ${response.status}`};
+      return{team,rows:parseDepth(await response.json(),team),error:null};
+    }catch(error){return{team,rows:[],error:String(error?.message||error)};}
+  }));
+  const byTeam={},players=[],errors=[];
+  results.forEach(result=>{byTeam[result.team]=result.rows;players.push(...result.rows);if(result.error)errors.push(`${result.team}: ${result.error}`);});
+  return json({teams:byTeam,players,source:"ESPN NFL depth chart",syncedAt:new Date().toISOString(),errors,method:"Provider-specific slot labels are preserved when available. GMS Locker never invents left/right/slot alignment when the provider only supplies a generic position."});
 }
 
 async function enhancedNews() {
   try {
-    const response = await fetch(ESPN_NEWS, {
-      headers: { Accept: "application/json", "User-Agent": "GMSLocker/2.3" },
-      cf: { cacheTtl: 60, cacheEverything: true }
-    });
-    if (!response.ok) return json({ articles: [], error: "ESPN HTTP " + response.status, syncedAt: new Date().toISOString() });
-
-    const data = await response.json();
-    const seen = new Set();
-    const articles = [];
-
-    for (const article of data.articles || []) {
-      const headline = clean(article?.headline);
-      if (!headline) continue;
-      const link = article?.links?.web?.href || null;
-      const key = (link || headline).toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const entities = categoryNames(article);
-      const baseDescription = clean(article?.description);
-      const entitySuffix = entities.length ? " Related: " + entities.join(", ") + "." : "";
-
-      articles.push({
-        headline,
-        description: (baseDescription + entitySuffix).trim() || null,
-        link,
-        published: article?.published || article?.lastModified || null,
-        entities
-      });
-    }
-
-    return json({
-      articles,
-      source: "ESPN NFL",
-      syncedAt: new Date().toISOString(),
-      count: articles.length
-    });
-  } catch (error) {
-    return json({ articles: [], error: String(error?.message || error), syncedAt: new Date().toISOString() });
-  }
+    const response = await fetch(ESPN_NEWS,{headers:{Accept:"application/json","User-Agent":"GMSLocker/2.4"},cf:{cacheTtl:60,cacheEverything:true}});
+    if (!response.ok) return json({articles:[],error:"ESPN HTTP "+response.status,syncedAt:new Date().toISOString()});
+    const data=await response.json(),seen=new Set(),articles=[];
+    for(const article of data.articles||[]){const headline=clean(article?.headline);if(!headline)continue;const link=article?.links?.web?.href||null,key=(link||headline).toLowerCase();if(seen.has(key))continue;seen.add(key);const entities=categoryNames(article),baseDescription=clean(article?.description),entitySuffix=entities.length?" Related: "+entities.join(", ")+".":"";articles.push({headline,description:(baseDescription+entitySuffix).trim()||null,link,published:article?.published||article?.lastModified||null,entities});}
+    return json({articles,source:"ESPN NFL",syncedAt:new Date().toISOString(),count:articles.length});
+  } catch (error) { return json({articles:[],error:String(error?.message||error),syncedAt:new Date().toISOString()}); }
 }
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/news") return enhancedNews();
+    if (request.method === "GET" && url.pathname === "/depth-charts") return depthCharts(url);
     const response = await baseWorker.fetch(request, env, ctx);
     if (request.method === "GET" && url.pathname === "/league-data" && response.ok) {
-      try {
-        const payload = await response.clone().json();
-        return json(enhanceRecommendations(payload), response.status);
-      } catch (_) {
-        return response;
-      }
+      try { const payload=await response.clone().json();return json(enhanceRecommendations(payload),response.status); }
+      catch (_) { return response; }
     }
     return response;
   }

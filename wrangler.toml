@@ -1,5 +1,5 @@
 name = "gmslocker-api"
-main = "src/worker-live-news.js"
+main = "src/worker-live-depth.js"
 compatibility_date = "2024-11-01"
 workers_dev = true
 
