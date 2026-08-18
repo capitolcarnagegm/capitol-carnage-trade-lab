@@ -27,45 +27,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
       - name: Install dependencies
         run: npm install
-
-      - name: Verify depth chart build before deploy
+      - name: Verify premium build before deploy
         run: |
           grep -q "Depth Charts" index.html
           test -f depth-chart.html
           grep -q "ALL 32 NFL TEAMS" depth-chart.html
           test -f public/depth-page.js
           test -f public/depth-chart.css
-
+          test -f franchise-os.html
+          grep -q "FRANCHISE OS" franchise-os.html
+          test -f public/franchise-os.js
+          test -f public/franchise-os.css
       - name: Deploy static site
         run: npx wrangler deploy --config wrangler-site.toml | tee /tmp/deploy-output.txt
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Verify workers.dev deployment
+      - name: Verify production domain
         run: |
-          url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' /tmp/deploy-output.txt | head -1)
-          if [ -z "$url" ]; then
-            echo "Could not find a workers.dev URL in deploy output; skipping content check."
-            exit 0
-          fi
-          echo "Checking $url"
-          for i in 1 2 3 4 5 6; do
-            home=$(curl --fail --silent --show-error "$url" || true)
-            depth=$(curl --fail --silent --show-error "${url%/}/depth-chart.html" || true)
-            if echo "$home" | grep -q "Depth Charts" && echo "$depth" | grep -q "ALL 32 NFL TEAMS"; then
-              echo "Static site is serving the all-NFL depth chart tab."
+          for i in 1 2 3 4 5 6 7 8; do
+            home=$(curl --fail --silent --show-error https://gmslocker.com/ || true)
+            depth=$(curl --fail --silent --show-error https://gmslocker.com/depth-chart.html || true)
+            os=$(curl --fail --silent --show-error https://gmslocker.com/franchise-os.html || true)
+            if echo "$home" | grep -q "Depth Charts" && echo "$depth" | grep -q "ALL 32 NFL TEAMS" && echo "$os" | grep -q "FRANCHISE OS"; then
+              echo "Production is serving GMS Locker premium build."
               exit 0
             fi
             sleep 10
           done
-          echo "Deployment did not expose the current all-NFL depth-chart build."
+          echo "Production did not expose the premium build."
           exit 1
