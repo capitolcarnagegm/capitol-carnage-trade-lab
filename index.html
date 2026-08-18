@@ -3,40 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0a0d12" />
-  <title>GMS Locker</title>
-  <meta name="description" content="AI-powered fantasy GM command center built on live, read-only Fantrax league data." />
+  <meta name="theme-color" content="#07090d" />
+  <title>GMS Locker · Fantasy Football War Room</title>
+  <meta name="description" content="A live fantasy football GM war room: Fantrax roster intelligence, cap-aware recommendations, trade stress tests, lineup logic, league buzz, and an AI advisor grounded in your actual league." />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon-192.png" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="public/styles.css?v=3.0.0" />
+  <link rel="stylesheet" href="public/styles.css?v=4.0.0" />
+  <link rel="stylesheet" href="public/premium.css?v=4.0.0" />
 </head>
 <body>
   <div class="topline"></div>
   <header>
-    <div class="brand"><span class="mark" aria-hidden="true"></span><span class="brandtext"><strong>GMS Locker</strong><small>GM Sports Assistant</small></span></div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span class="brandtext"><strong>GMS Locker</strong><small>Franchise Intelligence System</small></span></div>
     <span id="asof">Not synced</span>
     <button id="syncBtn" class="primary" type="button">Refresh League</button>
   </header>
   <nav id="nav">
-    <button data-view="now" type="button"><svg viewBox="0 0 24 24"><polyline points="2,13 8,13 10,7 14,19 16,13 22,13"/></svg><span>Now</span></button>
+    <button data-view="now" type="button"><svg viewBox="0 0 24 24"><polyline points="2,13 8,13 10,7 14,19 16,13 22,13"/></svg><span>War Room</span></button>
     <button data-view="team" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg><span>My Team</span></button>
     <button data-view="lineup" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="3.2"/><rect x="3" y="10.4" width="18" height="3.2"/><rect x="3" y="15.8" width="12" height="3.2"/></svg><span>Lineup</span></button>
-    <button data-view="trade" type="button"><svg viewBox="0 0 24 24"><polyline points="4,8 20,8"/><polyline points="16,4 20,8 16,12"/><polyline points="20,16 4,16"/><polyline points="8,12 4,16 8,20"/></svg><span>Trade</span></button>
-    <button data-view="waivers" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="17"/><line x1="7" y1="12" x2="17" y2="12"/></svg><span>Waivers</span></button>
+    <button data-view="trade" type="button"><svg viewBox="0 0 24 24"><polyline points="4,8 20,8"/><polyline points="16,4 20,8 16,12"/><polyline points="20,16 4,16"/><polyline points="8,12 4,16 8,20"/></svg><span>Trade Lab</span></button>
+    <button data-view="waivers" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7" x2="12" y2="17"/><line x1="7" y1="12" x2="17" y2="12"/></svg><span>Waiver Edge</span></button>
     <button data-view="chat" type="button"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>GM Chat</span></button>
     <button data-view="games" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="1.5"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="7.5" y1="3" x2="7.5" y2="6.5"/><line x1="16.5" y1="3" x2="16.5" y2="6.5"/></svg><span>Game Day</span></button>
     <button data-view="rankings" type="button"><svg viewBox="0 0 24 24"><rect x="3.5" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="16.5" y="3" width="4" height="17"/></svg><span>Rankings</span></button>
-    <button data-view="buzz" type="button"><svg viewBox="0 0 24 24"><polyline points="13,2 4,14 11,14 9,22 20,9 13,9"/></svg><span>Buzz</span></button>
+    <button data-view="buzz" type="button"><svg viewBox="0 0 24 24"><polyline points="13,2 4,14 11,14 9,22 20,9 13,9"/></svg><span>Intel</span></button>
     <button data-view="leagues" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg><span>Leagues</span></button>
     <button data-view="settings" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><line x1="12" y1="2.5" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="21.5" y2="12"/><line x1="5.3" y1="5.3" x2="7.8" y2="7.8"/><line x1="16.2" y1="16.2" x2="18.7" y2="18.7"/><line x1="18.7" y1="5.3" x2="16.2" y2="7.8"/><line x1="7.8" y1="16.2" x2="5.3" y2="18.7"/></svg><span>Settings</span></button>
   </nav>
   <main id="main"><div class="card"><p class="muted">Loading GMS Locker…</p></div></main>
   <footer class="site-footer">
-    <span>GMS Locker · Fantrax stays read-only, always</span>
+    <span>GMS Locker · Live league intelligence · Fantrax remains read-only</span>
+    <span>⌘K / Ctrl+K · Command Center</span>
     <a href="sponsor.html">Sponsor GMS Locker</a>
   </footer>
-  <script type="module" src="public/app.js?v=3.0.0"></script>
+  <script type="module" src="public/app.js?v=4.0.0"></script>
+  <script src="public/premium.js?v=4.0.0" defer></script>
   <script src="public/league-export.js?v=1.0.0"></script>
   <script>
     if ("serviceWorker" in navigator) {
