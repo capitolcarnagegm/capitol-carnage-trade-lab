@@ -13,9 +13,13 @@ const state = {
   news: []
 };
 
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
-  "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;"
-}[c]));
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (ch) => ({
+  "&": "&",
+  "<": "<",
+  ">": ">",
+  '"': """,
+  "'": "&#39;"
+}[ch]));
 
 const money = (n) => {
   if (n == null || n === "") return "—";
@@ -23,6 +27,13 @@ const money = (n) => {
   if (!Number.isFinite(v)) return "—";
   return "$" + (Math.round(v * 100) / 100).toLocaleString();
 };
+
+function proj(n) {
+  if (n == null || n === "") return null;
+  const v = Number(n);
+  if (!Number.isFinite(v)) return null;
+  return (Math.round(v * 10) / 10).toLocaleString();
+}
 
 async function get(path) {
   const r = await fetch(API + path, { cache: "no-store", headers: { Accept: "application/json" } });
@@ -51,6 +62,10 @@ function slotLabel(slot) {
 
 function playerCard(p) {
   const slot = slotLabel(p.rosterSlot);
+  const weekly = proj(p.weeklyProjection);
+  const season = proj(p.seasonProjection);
+  const ppg = proj(p.ppg);
+  const projLine = weekly != null ? `W ${weekly}` : (season != null ? `S ${season}` : (ppg != null ? `${ppg} ppg` : null));
   return `
     <div class="player-row">
       <div class="player-main">
@@ -59,11 +74,12 @@ function playerCard(p) {
           <span class="pos">${esc(p.position || "—")}</span>
           ${p.nflTeam ? `<span class="team">${esc(p.nflTeam)}</span>` : ""}
           <span class="slot">${esc(slot)}</span>
+          ${p.opponent ? `<span class="team">${esc(p.opponent)}</span>` : ""}
         </div>
       </div>
       <div class="player-side">
-        <div class="salary">${money(p.salary)}</div>
-        <div class="contract muted">${p.contract != null ? esc(String(p.contract)) + " yr" : "—"}</div>
+        <div class="salary">${projLine != null ? projLine : "—"}</div>
+        <div class="contract muted">${money(p.salary)}${p.contract != null ? " · " + esc(String(p.contract)) + " yr" : ""}</div>
       </div>
     </div>`;
 }
@@ -97,11 +113,12 @@ function viewPlaceholder(title, msg) {
 function viewNow() {
   const t = myTeam();
   const count = t?.players?.length || 0;
+  const projected = (t?.players || []).filter((p) => p.seasonProjection != null || p.weeklyProjection != null).length;
   return `
     <div class="card">
       <div class="sectionhead"><h2>${esc(t?.name || "Team")}</h2><span class="pill">LIVE</span></div>
-      <p>${count} live Fantrax roster entries.</p>
-      <p class="muted">Public read-only Pride sync. Cap and scoring analysis expand when projection inputs are present.</p>
+      <p>${count} live Fantrax roster entries · ${projected} with projections.</p>
+      <p class="muted">Full Pride league import with Fantrax season + weekly projections. Tap Refresh League anytime.</p>
       ${teamPicker()}
     </div>`;
 }
@@ -187,13 +204,13 @@ function render() {
       const order = ["QB","RB","WR","TE","RWT","LB","DL","DB","DE","DT","S","CB","K","FLEX"];
       const keys = [...order.filter(k => byPos[k]), ...Object.keys(byPos).filter(k => !order.includes(k))];
       return `<div class="card"><div class="sectionhead"><h2>Lineup · ${esc(t.name)}</h2><span class="pill">${active.length} ACTIVE</span></div>
-        <p class="muted">Live Fantrax active roster. Full optimizer + projections attach when scoring inputs are available.</p>
+        <p class="muted">Live Fantrax active roster with projections.</p>
         ${keys.map(pos => `<div class="roster-group"><h3>${esc(pos)}</h3>${byPos[pos].map(playerCard).join("")}</div>`).join("") || `<p class="muted">No ACTIVE players found.</p>`}
       </div>`;
     },
-    trade: () => viewPlaceholder("Trade Lab", "Trade analyzer returns with the full analysis worker. Rosters are live for evaluation now."),
-    waivers: () => viewPlaceholder("Waiver Edge", "Team-specific FA recommendations need the analysis engine + free-agent pool enrichment."),
-    rankings: () => viewPlaceholder("Rankings", "Six-pillar power rankings attach after scoring inputs are available on this public build.")
+    trade: () => viewPlaceholder("Trade Lab", "Trade analyzer returns with the full analysis worker. Rosters + projections are live for evaluation now."),
+    waivers: () => viewPlaceholder("Waiver Edge", "Team-specific FA recommendations need free-agent pool enrichment next."),
+    rankings: () => viewPlaceholder("Rankings", "Six-pillar rankings can use these projections next.")
   };
   body += (views[state.view] || viewNow)();
   if (main) main.innerHTML = body;
