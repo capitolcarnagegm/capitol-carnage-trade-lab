@@ -4,11 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "index.html"
+      - "*.html"
       - "public/**"
       - "manifest.webmanifest"
       - "service-worker.js"
-      - "sponsor.html"
       - "sponsor-page.css"
       - "*.jpeg"
       - "*.svg"
@@ -37,6 +36,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Verify depth chart build before deploy
+        run: |
+          grep -q "Depth Charts" index.html
+          test -f depth-chart.html
+          grep -q "ALL 32 NFL TEAMS" depth-chart.html
+          test -f public/depth-page.js
+          test -f public/depth-chart.css
+
       - name: Deploy static site
         run: npx wrangler deploy --config wrangler-site.toml | tee /tmp/deploy-output.txt
         env:
@@ -52,12 +59,13 @@ jobs:
           fi
           echo "Checking $url"
           for i in 1 2 3 4 5 6; do
-            html=$(curl --fail --silent --show-error "$url" || true)
-            if echo "$html" | grep -q "Franchise Intelligence System" && echo "$html" | grep -q "depth-chart.js"; then
-              echo "Premium site and live depth UI are deployed."
+            home=$(curl --fail --silent --show-error "$url" || true)
+            depth=$(curl --fail --silent --show-error "${url%/}/depth-chart.html" || true)
+            if echo "$home" | grep -q "Depth Charts" && echo "$depth" | grep -q "ALL 32 NFL TEAMS"; then
+              echo "Static site is serving the all-NFL depth chart tab."
               exit 0
             fi
             sleep 10
           done
-          echo "Deployment did not expose the current premium depth-chart build."
+          echo "Deployment did not expose the current all-NFL depth-chart build."
           exit 1
