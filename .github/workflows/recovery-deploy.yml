@@ -15,32 +15,30 @@ jobs:
     steps:
       - name: Checkout recovery branch
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
       - name: Install dependencies
         run: npm install
-
-      - name: Verify no-login production build
+      - name: Verify full no-login production build
         run: |
-          test -f public/app-public.js
-          grep -q "astbqxhwmk4b6bg9" public/app-public.js
-          grep -q "app-public.js" index.html
-          ! grep -q "public/app.js" index.html
+          test -f public/app.js
+          test -f public/no-auth-compat.js
+          grep -q "astbqxhwmk4b6bg9" public/no-auth-compat.js
+          grep -q "no-auth-compat.js" index.html
+          grep -q "public/app.js" index.html
+          grep -q "GM Chat" index.html
           grep -q "Depth Charts" index.html
+          grep -q ">Owner<" index.html
           test -f depth-chart.html
           test -f public/depth-page.js
           grep -q 'main = "src/worker-public.js"' wrangler.toml
-
       - name: Deploy API worker
         run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
       - name: Verify API before site deploy
         run: |
           for i in 1 2 3 4 5 6 7 8; do
@@ -55,23 +53,21 @@ jobs:
           done
           echo "API verification failed"
           exit 1
-
-      - name: Deploy no-login site
+      - name: Deploy full no-login site
         run: npx wrangler deploy --config wrangler-site.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Verify production homepage and feeds
+      - name: Verify production full UI and feeds
         run: |
           for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
-            home=$(curl --silent --show-error -H 'Cache-Control: no-cache' "https://gmslocker.com/?recovery=$(date +%s)" || true)
+            home=$(curl --silent --show-error -H 'Cache-Control: no-cache' "https://gmslocker.com/?full=$(date +%s)" || true)
             pride=$(curl --silent --show-error https://api.gmslocker.com/public/pride-league || true)
-            if echo "$home" | grep -q 'app-public.js' && ! echo "$home" | grep -q 'public/app.js' && ! echo "$home" | grep -qi 'Sign in' && echo "$pride" | grep -q 'astbqxhwmk4b6bg9'; then
-              echo "Production recovery passed: no-login app + Pride data live."
+            if echo "$home" | grep -q 'no-auth-compat.js' && echo "$home" | grep -q 'public/app.js' && echo "$home" | grep -q 'GM Chat' && echo "$home" | grep -q '>Owner<' && echo "$pride" | grep -q 'astbqxhwmk4b6bg9'; then
+              echo "Production passed: full GMS Locker UI + no-login Pride data live."
               exit 0
             fi
             sleep 10
           done
-          echo "Production recovery verification failed"
+          echo "Production full-UI verification failed"
           exit 1
