@@ -14,7 +14,7 @@ const state = {
 };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
-  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;"
 }[c]));
 
 const money = (n) => {
@@ -85,136 +85,115 @@ function groupPlayers(players) {
 function teamPicker() {
   const mine = myTeam();
   const opts = teamList().map((t) =>
-    `<option value="${esc(t.id)}" ${String(t.id) === String(mine?.id) ? "selected" : ""}>${esc(t.name)} (${t.players?.length || 0})</option>`
+    `<option value="${esc(t.id)}" ${String(t.id) === String(mine?.id) ? "selected" : ""}>${esc(t.name)}</option>`
   ).join("");
-  return `<div class="field team-picker"><label>Team</label><select id="teamSelect">${opts}</select></div>`;
+  return `<select id="teamSelect">${opts}</select>`;
+}
+
+function viewPlaceholder(title, msg) {
+  return `<div class="card"><h2>${esc(title)}</h2><p class="muted">${esc(msg)}</p></div>`;
 }
 
 function viewNow() {
-  const mine = myTeam();
-  const groups = groupPlayers(mine?.players || []);
-  const active = (mine?.players || []).filter((p) => /ACTIVE/i.test(p.rosterSlot || "")).length;
-  const capUsed = (mine?.players || []).reduce((s, p) => s + (Number(p.salary) || 0), 0);
+  const t = myTeam();
+  const count = t?.players?.length || 0;
   return `
-    <div class="card war-hero">
-      <div class="sectionhead">
-        <div>
-          <div class="kicker">WAR ROOM</div>
-          <h2>${esc(mine?.name || "Pride Dynasty")}</h2>
-          <p class="muted">Live Fantrax · read-only · no login</p>
-        </div>
-        <span class="pill">${state.asOf ? "LIVE" : "CONNECTING"}</span>
-      </div>
-      <div class="grid3">
-        <div class="metric"><span>Roster</span><b>${mine?.players?.length || 0}</b><small>${active} active</small></div>
-        <div class="metric"><span>Salary on roster</span><b>${money(capUsed)}</b><small>live contracts</small></div>
-        <div class="metric"><span>League teams</span><b>${teamList().length}</b><small>${esc(state.league?.leagueName || "Pride")}</small></div>
-      </div>
-      ${teamPicker()}
-    </div>
     <div class="card">
-      <div class="sectionhead"><h3>Roster board</h3><span class="muted">${mine?.players?.length || 0} players</span></div>
-      ${groups.map((g) => `
-        <div class="roster-group">
-          <div class="group-head">${esc(g.label)} · ${g.players.length}</div>
-          ${g.players.map(playerCard).join("")}
-        </div>`).join("") || '<p class="muted">No roster rows yet. Hit Refresh League.</p>'}
+      <div class="sectionhead"><h2>${esc(t?.name || "Team")}</h2><span class="pill">LIVE</span></div>
+      <p>${count} live Fantrax roster entries.</p>
+      <p class="muted">Public read-only Pride sync. Cap and scoring analysis expand when projection inputs are present.</p>
+      ${teamPicker()}
     </div>`;
 }
 
 function viewTeam() {
-  const mine = myTeam();
-  const groups = groupPlayers(mine?.players || []);
+  const t = myTeam();
+  if (!t) return viewPlaceholder("My Team", "No team selected.");
+  const groups = groupPlayers(t.players);
   return `
     <div class="card">
-      <div class="sectionhead"><div><h2>${esc(mine?.name || "My Team")}</h2><p class="muted">Full Pride roster</p></div></div>
+      <div class="sectionhead"><h2>${esc(t.name)}</h2><span class="pill">${(t.players || []).length} players</span></div>
       ${teamPicker()}
       ${groups.map((g) => `
         <div class="roster-group">
-          <div class="group-head">${esc(g.label)}</div>
+          <h3>${esc(g.label)} · ${g.players.length}</h3>
           ${g.players.map(playerCard).join("")}
-        </div>`).join("") || '<p class="muted">No players.</p>'}
-    </div>`;
-}
-
-function viewLeagues() {
-  return `
-    <div class="card">
-      <h2>Pride Dynasty</h2>
-      <p class="muted">League ${esc(LEAGUE_ID)} · ${teamList().length} teams</p>
-      ${teamList().map((t) => {
-        const cap = (t.players || []).reduce((s, p) => s + (Number(p.salary) || 0), 0);
-        return `<div class="gate team-row" data-team="${esc(t.id)}">
-          <span><b>${esc(t.name)}</b><br><span class="muted">${t.players?.length || 0} players</span></span>
-          <span class="muted">${money(cap)}</span>
-        </div>`;
-      }).join("")}
+        </div>`).join("")}
     </div>`;
 }
 
 function viewGames() {
   const games = state.schedule || [];
   if (!games.length) return `<div class="card"><h2>Game Day</h2><p class="muted">No schedule loaded yet.</p></div>`;
-  return `
-    <div class="card">
-      <div class="sectionhead"><h2>Game Day</h2><span class="pill">NFL</span></div>
-      ${games.slice(0, 24).map((g) => `
-        <div class="gate">
-          <span>
-            <b>${esc(g.away?.abbreviation || g.away?.name || "TBD")} @ ${esc(g.home?.abbreviation || g.home?.name || "TBD")}</b>
-            <br><span class="muted">${esc(g.status || "Scheduled")}${g.date ? " · " + new Date(g.date).toLocaleString() : ""}</span>
-          </span>
-          <span class="muted">${g.away?.score != null || g.home?.score != null ? `${esc(g.away?.score ?? "—")}–${esc(g.home?.score ?? "—")}` : "—"}</span>
-        </div>`).join("")}
-    </div>`;
+  return `<div class="card"><div class="sectionhead"><h2>Game Day</h2><span class="pill">${games.length} games</span></div>
+    ${games.slice(0, 24).map((g) => `
+      <div class="player-row">
+        <div class="player-main">
+          <div class="player-name">${esc(g.away?.abbreviation || g.away?.name || "?")} @ ${esc(g.home?.abbreviation || g.home?.name || "?")}</div>
+          <div class="player-meta"><span class="slot">${esc(g.status || "")}</span><span class="team">${esc(g.venue || "")}</span></div>
+        </div>
+        <div class="player-side"><div class="salary">${esc(g.away?.score ?? "-")} – ${esc(g.home?.score ?? "-")}</div></div>
+      </div>`).join("")}
+  </div>`;
 }
 
-function viewIntel() {
-  const articles = state.news || [];
-  return `
-    <div class="card">
-      <div class="sectionhead"><h2>Intel</h2><span class="pill">NFL NEWS</span></div>
-      ${articles.length ? articles.slice(0, 20).map((a) => `
-        <div class="gate">
-          <span>
-            <b>${esc(a.headline || a.title || "Story")}</b>
-            <br><span class="muted">${esc(a.description || "").slice(0, 140)}</span>
-          </span>
-          ${a.link ? `<a class="pill" href="${esc(a.link)}" target="_blank" rel="noopener">Open</a>` : ""}
-        </div>`).join("") : '<p class="muted">News feed empty right now.</p>'}
-    </div>`;
+function viewBuzz() {
+  const arts = state.news || [];
+  if (!arts.length) return `<div class="card"><h2>Intel</h2><p class="muted">No news loaded.</p></div>`;
+  return `<div class="card"><div class="sectionhead"><h2>Intel</h2><span class="pill">${arts.length}</span></div>
+    ${arts.slice(0, 20).map((a) => `
+      <div class="player-row">
+        <div class="player-main">
+          <div class="player-name">${esc(a.headline || "")}</div>
+          <div class="player-meta"><span class="slot">${esc(a.published || "")}</span></div>
+        </div>
+      </div>`).join("")}
+  </div>`;
 }
 
-function viewPlaceholder(title, copy) {
-  return `<div class="card"><h2>${esc(title)}</h2><p class="muted">${esc(copy)}</p></div>`;
+function viewLeagues() {
+  const rows = teamList().map((t) => `
+    <div class="team-row" data-team="${esc(t.id)}">
+      <strong>${esc(t.name)}</strong>
+      <span class="muted">${(t.players || []).length} players · cap ${money(t.salaryCap)}</span>
+    </div>`).join("");
+  return `<div class="card"><h2>League</h2>${rows || "<p class=\"muted\">No teams</p>"}</div>`;
 }
 
 function render() {
   const main = document.getElementById("main");
   const asof = document.getElementById("asof");
-  if (asof) {
-    asof.textContent = state.loading
-      ? "Refreshing…"
-      : state.asOf
-        ? "Updated " + new Date(state.asOf).toLocaleTimeString()
-        : "Not synced";
-  }
+  if (asof) asof.textContent = state.asOf ? `Updated ${new Date(state.asOf).toLocaleTimeString()}` : (state.loading ? "Loading…" : "");
   document.querySelectorAll("#nav button[data-view]").forEach((b) => {
     b.classList.toggle("active", b.dataset.view === state.view);
   });
-
-  let body = state.error ? `<div class="error-banner"><b>Live data:</b> ${esc(state.error)}</div>` : "";
+  let body = "";
+  if (state.error) body += `<div class="error-banner">${esc(state.error)}</div>`;
   const views = {
     now: viewNow,
     team: viewTeam,
-    leagues: viewLeagues,
     games: viewGames,
-    buzz: viewIntel,
-    lineup: () => viewPlaceholder("Lineup", "Optimal lineup uses live projections once the full analysis pipeline is reattached. Roster data is live now."),
-    trade: () => viewPlaceholder("Trade Lab", "Trade stress tests return with the full analysis engine. Live rosters are already available in War Room / My Team."),
-    waivers: () => viewPlaceholder("Waiver Edge", "Free-agent recommendations attach after FA pool enrichment is restored."),
-    rankings: () => viewPlaceholder("Rankings", "Six-pillar power rankings attach after the analysis endpoint is public again."),
-    chat: () => viewPlaceholder("GM Chat", "Chat stays offline until the AI advisor path is re-enabled on the public build.")
+    buzz: viewBuzz,
+    leagues: viewLeagues,
+    lineup: () => {
+      const t = myTeam();
+      if (!t) return `<div class="card"><h2>Lineup</h2><p class="muted">No team selected.</p></div>`;
+      const active = (t.players || []).filter(p => String(p.rosterSlot || "").toUpperCase().includes("ACTIVE"));
+      const byPos = {};
+      for (const p of active) {
+        const pos = String(p.position || "FLEX").toUpperCase();
+        (byPos[pos] ||= []).push(p);
+      }
+      const order = ["QB","RB","WR","TE","RWT","LB","DL","DB","DE","DT","S","CB","K","FLEX"];
+      const keys = [...order.filter(k => byPos[k]), ...Object.keys(byPos).filter(k => !order.includes(k))];
+      return `<div class="card"><div class="sectionhead"><h2>Lineup · ${esc(t.name)}</h2><span class="pill">${active.length} ACTIVE</span></div>
+        <p class="muted">Live Fantrax active roster. Full optimizer + projections attach when scoring inputs are available.</p>
+        ${keys.map(pos => `<div class="roster-group"><h3>${esc(pos)}</h3>${byPos[pos].map(playerCard).join("")}</div>`).join("") || `<p class="muted">No ACTIVE players found.</p>`}
+      </div>`;
+    },
+    trade: () => viewPlaceholder("Trade Lab", "Trade analyzer returns with the full analysis worker. Rosters are live for evaluation now."),
+    waivers: () => viewPlaceholder("Waiver Edge", "Team-specific FA recommendations need the analysis engine + free-agent pool enrichment."),
+    rankings: () => viewPlaceholder("Rankings", "Six-pillar power rankings attach after scoring inputs are available on this public build.")
   };
   body += (views[state.view] || viewNow)();
   if (main) main.innerHTML = body;
