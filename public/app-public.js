@@ -1,5 +1,4 @@
 const API = "https://api.gmslocker.com";
-const LEAGUE_ID = "astbqxhwmk4b6bg9";
 
 const state = {
   league: null,
@@ -10,15 +9,16 @@ const state = {
   error: null,
   asOf: null,
   schedule: [],
-  news: []
+  news: [],
+  waivers: [],
+  recommendations: [],
+  bestMoves: [],
+  tradeResult: null,
+  tradeB: null
 };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (ch) => ({
-  "&": "&",
-  "<": "<",
-  ">": ">",
-  '"': """,
-  "'": "&#39;"
+  "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;"
 }[ch]));
 
 const money = (n) => {
@@ -43,14 +43,10 @@ async function get(path) {
 }
 
 function teamList() { return state.teams || []; }
-
 function myTeam() {
-  if (state.selectedTeamId) {
-    return teamList().find((t) => String(t.id) === String(state.selectedTeamId)) || null;
-  }
+  if (state.selectedTeamId) return teamList().find((t) => String(t.id) === String(state.selectedTeamId)) || null;
   return teamList().find((t) => /capitol carnage/i.test(t.name || "")) || teamList()[0] || null;
 }
-
 function slotLabel(slot) {
   const s = String(slot || "").toUpperCase();
   if (s.includes("ACTIVE")) return "Active";
@@ -59,31 +55,14 @@ function slotLabel(slot) {
   if (s.includes("MINOR") || s.includes("TAXI")) return "Taxi";
   return slot || "Roster";
 }
-
 function playerCard(p) {
   const slot = slotLabel(p.rosterSlot);
   const weekly = proj(p.weeklyProjection);
   const season = proj(p.seasonProjection);
   const ppg = proj(p.ppg);
   const projLine = weekly != null ? `W ${weekly}` : (season != null ? `S ${season}` : (ppg != null ? `${ppg} ppg` : null));
-  return `
-    <div class="player-row">
-      <div class="player-main">
-        <div class="player-name">${esc(p.name || "Unknown")}</div>
-        <div class="player-meta">
-          <span class="pos">${esc(p.position || "—")}</span>
-          ${p.nflTeam ? `<span class="team">${esc(p.nflTeam)}</span>` : ""}
-          <span class="slot">${esc(slot)}</span>
-          ${p.opponent ? `<span class="team">${esc(p.opponent)}</span>` : ""}
-        </div>
-      </div>
-      <div class="player-side">
-        <div class="salary">${projLine != null ? projLine : "—"}</div>
-        <div class="contract muted">${money(p.salary)}${p.contract != null ? " · " + esc(String(p.contract)) + " yr" : ""}</div>
-      </div>
-    </div>`;
+  return `<div class="player-row"><div class="player-main"><div class="player-name">${esc(p.name || "Unknown")}</div><div class="player-meta"><span class="pos">${esc(p.position || "—")}</span>${p.nflTeam ? `<span class="team">${esc(p.nflTeam)}</span>` : ""}<span class="slot">${esc(slot)}</span></div></div><div class="player-side"><div class="salary">${projLine != null ? projLine : "—"}</div><div class="contract muted">${money(p.salary)}${p.contract != null ? " · " + esc(String(p.contract)) + " yr" : ""}</div></div></div>`;
 }
-
 function groupPlayers(players) {
   const order = ["ACTIVE", "RESERVE", "INJURED", "MINORS", "OTHER"];
   const buckets = { ACTIVE: [], RESERVE: [], INJURED: [], MINORS: [], OTHER: [] };
@@ -97,93 +76,75 @@ function groupPlayers(players) {
   }
   return order.filter((k) => buckets[k].length).map((k) => ({ key: k, label: slotLabel(k), players: buckets[k] }));
 }
-
 function teamPicker() {
   const mine = myTeam();
-  const opts = teamList().map((t) =>
-    `<option value="${esc(t.id)}" ${String(t.id) === String(mine?.id) ? "selected" : ""}>${esc(t.name)}</option>`
-  ).join("");
+  const opts = teamList().map((t) => `<option value="${esc(t.id)}" ${String(t.id) === String(mine?.id) ? "selected" : ""}>${esc(t.name)}</option>`).join("");
   return `<select id="teamSelect">${opts}</select>`;
 }
-
 function viewPlaceholder(title, msg) {
   return `<div class="card"><h2>${esc(title)}</h2><p class="muted">${esc(msg)}</p></div>`;
 }
-
 function viewNow() {
   const t = myTeam();
   const count = t?.players?.length || 0;
   const projected = (t?.players || []).filter((p) => p.seasonProjection != null || p.weeklyProjection != null).length;
-  return `
-    <div class="card">
-      <div class="sectionhead"><h2>${esc(t?.name || "Team")}</h2><span class="pill">LIVE</span></div>
-      <p>${count} live Fantrax roster entries · ${projected} with projections.</p>
-      <p class="muted">Full Pride league import with Fantrax season + weekly projections. Tap Refresh League anytime.</p>
-      ${teamPicker()}
-    </div>`;
+  const moves = (state.bestMoves || []).slice(0, 3);
+  return `<div class="card"><div class="sectionhead"><h2>${esc(t?.name || "Team")}</h2><span class="pill">LIVE</span></div>
+    <p>${count} roster entries · ${projected} projected · ${ (state.recommendations || []).length } waiver targets</p>
+    <p class="muted">Refresh League imports full Pride data + projections + waiver targets.</p>
+    ${teamPicker()}
+    ${moves.length ? `<div class="roster-group"><h3>Top moves</h3>${moves.map(m => `<div class="player-row"><div class="player-main"><div class="player-name">${esc(m.rank)}. ${esc(m.action)}</div><div class="player-meta"><span class="slot">${esc(m.reason || "")}</span></div></div></div>`).join("")}</div>` : ""}
+  </div>`;
 }
-
 function viewTeam() {
   const t = myTeam();
   if (!t) return viewPlaceholder("My Team", "No team selected.");
   const groups = groupPlayers(t.players);
-  return `
-    <div class="card">
-      <div class="sectionhead"><h2>${esc(t.name)}</h2><span class="pill">${(t.players || []).length} players</span></div>
-      ${teamPicker()}
-      ${groups.map((g) => `
-        <div class="roster-group">
-          <h3>${esc(g.label)} · ${g.players.length}</h3>
-          ${g.players.map(playerCard).join("")}
-        </div>`).join("")}
-    </div>`;
+  return `<div class="card"><div class="sectionhead"><h2>${esc(t.name)}</h2><span class="pill">${(t.players || []).length} players</span></div>${teamPicker()}${groups.map((g) => `<div class="roster-group"><h3>${esc(g.label)} · ${g.players.length}</h3>${g.players.map(playerCard).join("")}</div>`).join("")}</div>`;
 }
-
 function viewGames() {
   const games = state.schedule || [];
   if (!games.length) return `<div class="card"><h2>Game Day</h2><p class="muted">No schedule loaded yet.</p></div>`;
-  return `<div class="card"><div class="sectionhead"><h2>Game Day</h2><span class="pill">${games.length} games</span></div>
-    ${games.slice(0, 24).map((g) => `
-      <div class="player-row">
-        <div class="player-main">
-          <div class="player-name">${esc(g.away?.abbreviation || g.away?.name || "?")} @ ${esc(g.home?.abbreviation || g.home?.name || "?")}</div>
-          <div class="player-meta"><span class="slot">${esc(g.status || "")}</span><span class="team">${esc(g.venue || "")}</span></div>
-        </div>
-        <div class="player-side"><div class="salary">${esc(g.away?.score ?? "-")} – ${esc(g.home?.score ?? "-")}</div></div>
-      </div>`).join("")}
-  </div>`;
+  return `<div class="card"><div class="sectionhead"><h2>Game Day</h2><span class="pill">${games.length} games</span></div>${games.slice(0, 24).map((g) => `<div class="player-row"><div class="player-main"><div class="player-name">${esc(g.away?.abbreviation || g.away?.name || "?")} @ ${esc(g.home?.abbreviation || g.home?.name || "?")}</div><div class="player-meta"><span class="slot">${esc(g.status || "")}</span></div></div><div class="player-side"><div class="salary">${esc(g.away?.score ?? "-")} – ${esc(g.home?.score ?? "-")}</div></div></div>`).join("")}</div>`;
 }
-
 function viewBuzz() {
   const arts = state.news || [];
   if (!arts.length) return `<div class="card"><h2>Intel</h2><p class="muted">No news loaded.</p></div>`;
-  return `<div class="card"><div class="sectionhead"><h2>Intel</h2><span class="pill">${arts.length}</span></div>
-    ${arts.slice(0, 20).map((a) => `
-      <div class="player-row">
-        <div class="player-main">
-          <div class="player-name">${esc(a.headline || "")}</div>
-          <div class="player-meta"><span class="slot">${esc(a.published || "")}</span></div>
-        </div>
-      </div>`).join("")}
-  </div>`;
+  return `<div class="card"><div class="sectionhead"><h2>Intel</h2><span class="pill">${arts.length}</span></div>${arts.slice(0, 20).map((a) => `<div class="player-row"><div class="player-main"><div class="player-name">${esc(a.headline || "")}</div></div></div>`).join("")}</div>`;
 }
-
 function viewLeagues() {
-  const rows = teamList().map((t) => `
-    <div class="team-row" data-team="${esc(t.id)}">
-      <strong>${esc(t.name)}</strong>
-      <span class="muted">${(t.players || []).length} players · cap ${money(t.salaryCap)}</span>
-    </div>`).join("");
+  const rows = teamList().map((t) => `<div class="team-row" data-team="${esc(t.id)}"><strong>${esc(t.name)}</strong><span class="muted">${(t.players || []).length} players · cap ${money(t.salaryCap)}</span></div>`).join("");
   return `<div class="card"><h2>League</h2>${rows || "<p class=\"muted\">No teams</p>"}</div>`;
 }
-
+function viewWaivers() {
+  const recs = state.recommendations || [];
+  if (!recs.length) return `<div class="card"><h2>Waiver Edge</h2><p class="muted">No waiver targets yet. Tap Refresh League.</p></div>`;
+  return `<div class="card"><div class="sectionhead"><h2>Waiver Edge</h2><span class="pill">${recs.length} targets</span></div>
+    <p class="muted">Ranked for Capitol Carnage using Fantrax projections vs your depth.</p>
+    ${recs.slice(0, 25).map((r, i) => `<div class="player-row"><div class="player-main"><div class="player-name">${i + 1}. ${esc(r.name)} <span class="pill">${esc(r.verdict || "")}</span></div><div class="player-meta"><span class="pos">${esc(r.position || "")}</span><span class="team">${esc(r.nflTeam || "")}</span><span class="slot">${esc(r.needPos || "")} depth ${esc(r.depthAtPos)}</span></div></div><div class="player-side"><div class="salary">+${esc(r.upgradeGain)}</div><div class="contract muted">S ${esc(r.seasonProjection ?? "—")}</div></div></div>`).join("")}
+  </div>`;
+}
+function viewTrade() {
+  const teams = teamList().filter((t) => !/capitol carnage/i.test(t.name || ""));
+  const opts = teams.map((t) => `<option value="${esc(t.id)}" ${String(t.id) === String(state.tradeB) ? "selected" : ""}>${esc(t.name)}</option>`).join("");
+  const res = state.tradeResult;
+  return `<div class="card"><div class="sectionhead"><h2>Trade Lab</h2><span class="pill">PROJECTION</span></div>
+    <p class="muted">Pick a partner. Uses live Fantrax season projections. With no players selected, shows each side's top assets.</p>
+    <div class="field"><label>Trade partner</label><select id="tradePartner">${opts}</select></div>
+    <div class="actions"><button class="primary" id="runTrade" type="button">Analyze vs partner</button></div>
+    ${res ? `<div class="notice" style="margin-top:14px"><b>${esc(res.verdict || "")}</b><p>${esc(res.summary || "")}</p><p class="muted">Net for you: ${esc(res.netGainForA)}</p>${res.suggestion ? `<p class="muted">Your top assets: ${(res.suggestion.topA || []).map((p) => p.name).join(", ")}</p><p class="muted">Their top assets: ${(res.suggestion.topB || []).map((p) => p.name).join(", ")}</p>` : ""}</div>` : ""}
+  </div>`;
+}
+function viewMoves() {
+  const moves = state.bestMoves || [];
+  if (!moves.length) return `<div class="card"><h2>Best Moves</h2><p class="muted">Refresh League to load top 10 moves.</p></div>`;
+  return `<div class="card"><div class="sectionhead"><h2>Top 10 Moves</h2><span class="pill">FOR YOUR TEAM</span></div>${moves.map((m) => `<div class="player-row"><div class="player-main"><div class="player-name">${esc(m.rank)}. ${esc(m.action)}</div><div class="player-meta"><span class="slot">${esc(m.reason || "")}</span></div></div><div class="player-side"><div class="salary">${esc(m.player?.verdict || m.type || "")}</div><div class="contract muted">S ${esc(m.player?.seasonProjection ?? "—")}</div></div></div>`).join("")}</div>`;
+}
 function render() {
   const main = document.getElementById("main");
   const asof = document.getElementById("asof");
   if (asof) asof.textContent = state.asOf ? `Updated ${new Date(state.asOf).toLocaleTimeString()}` : (state.loading ? "Loading…" : "");
-  document.querySelectorAll("#nav button[data-view]").forEach((b) => {
-    b.classList.toggle("active", b.dataset.view === state.view);
-  });
+  document.querySelectorAll("#nav button[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === state.view));
   let body = "";
   if (state.error) body += `<div class="error-banner">${esc(state.error)}</div>`;
   const views = {
@@ -194,53 +155,52 @@ function render() {
     leagues: viewLeagues,
     lineup: () => {
       const t = myTeam();
-      if (!t) return `<div class="card"><h2>Lineup</h2><p class="muted">No team selected.</p></div>`;
-      const active = (t.players || []).filter(p => String(p.rosterSlot || "").toUpperCase().includes("ACTIVE"));
+      if (!t) return viewPlaceholder("Lineup", "No team selected.");
+      const active = (t.players || []).filter((p) => String(p.rosterSlot || "").toUpperCase().includes("ACTIVE"));
       const byPos = {};
-      for (const p of active) {
-        const pos = String(p.position || "FLEX").toUpperCase();
-        (byPos[pos] ||= []).push(p);
-      }
-      const order = ["QB","RB","WR","TE","RWT","LB","DL","DB","DE","DT","S","CB","K","FLEX"];
-      const keys = [...order.filter(k => byPos[k]), ...Object.keys(byPos).filter(k => !order.includes(k))];
-      return `<div class="card"><div class="sectionhead"><h2>Lineup · ${esc(t.name)}</h2><span class="pill">${active.length} ACTIVE</span></div>
-        <p class="muted">Live Fantrax active roster with projections.</p>
-        ${keys.map(pos => `<div class="roster-group"><h3>${esc(pos)}</h3>${byPos[pos].map(playerCard).join("")}</div>`).join("") || `<p class="muted">No ACTIVE players found.</p>`}
-      </div>`;
+      for (const p of active) { const pos = String(p.position || "FLEX").toUpperCase(); (byPos[pos] ||= []).push(p); }
+      const order = ["QB", "RB", "WR", "TE", "RWT", "LB", "DL", "DB", "DE", "DT", "S", "CB", "K", "FLEX"];
+      const keys = [...order.filter((k) => byPos[k]), ...Object.keys(byPos).filter((k) => !order.includes(k))];
+      return `<div class="card"><div class="sectionhead"><h2>Lineup · ${esc(t.name)}</h2><span class="pill">${active.length} ACTIVE</span></div>${keys.map((pos) => `<div class="roster-group"><h3>${esc(pos)}</h3>${byPos[pos].map(playerCard).join("")}</div>`).join("")}</div>`;
     },
-    trade: () => viewPlaceholder("Trade Lab", "Trade analyzer returns with the full analysis worker. Rosters + projections are live for evaluation now."),
-    waivers: () => viewPlaceholder("Waiver Edge", "Team-specific FA recommendations need free-agent pool enrichment next."),
-    rankings: () => viewPlaceholder("Rankings", "Six-pillar rankings can use these projections next.")
+    trade: viewTrade,
+    waivers: viewWaivers,
+    rankings: viewMoves
   };
   body += (views[state.view] || viewNow)();
   if (main) main.innerHTML = body;
-
   const select = document.getElementById("teamSelect");
-  if (select) {
-    select.onchange = () => {
-      state.selectedTeamId = select.value;
+  if (select) select.onchange = () => { state.selectedTeamId = select.value; render(); };
+  document.querySelectorAll(".team-row[data-team]").forEach((row) => {
+    row.style.cursor = "pointer";
+    row.onclick = () => { state.selectedTeamId = row.getAttribute("data-team"); state.view = "team"; render(); };
+  });
+  const partner = document.getElementById("tradePartner");
+  if (partner) {
+    partner.onchange = () => { state.tradeB = partner.value; };
+    if (!state.tradeB && partner.value) state.tradeB = partner.value;
+  }
+  const runTrade = document.getElementById("runTrade");
+  if (runTrade) {
+    runTrade.onclick = async () => {
+      try {
+        const teamB = state.tradeB || document.getElementById("tradePartner")?.value;
+        state.tradeResult = await get("/trade-analysis?teamA=nsf1b7esmk4b6bgd&teamB=" + encodeURIComponent(teamB || ""));
+        state.error = null;
+      } catch (e) { state.error = String(e.message || e); }
       render();
     };
   }
-  document.querySelectorAll(".team-row[data-team]").forEach((row) => {
-    row.style.cursor = "pointer";
-    row.onclick = () => {
-      state.selectedTeamId = row.getAttribute("data-team");
-      state.view = "team";
-      render();
-    };
-  });
 }
-
 async function sync() {
-  state.loading = true;
-  state.error = null;
-  render();
+  state.loading = true; state.error = null; render();
   try {
-    const [league, games, news] = await Promise.all([
+    const [league, games, news, waiverData, movesData] = await Promise.all([
       get("/public/pride-league"),
       get("/current-games").catch(() => ({ schedule: [] })),
-      get("/news").catch(() => ({ articles: [] }))
+      get("/news").catch(() => ({ articles: [] })),
+      get("/waivers?limit=150").catch(() => ({ recommendations: [], freeAgents: [] })),
+      get("/best-moves?limit=10").catch(() => ({ moves: [] }))
     ]);
     if (!league.ok) throw new Error(league.detail || league.error || "League sync failed");
     state.league = league;
@@ -248,25 +208,17 @@ async function sync() {
     state.asOf = league.syncedAt || new Date().toISOString();
     state.schedule = games.schedule || games.games || [];
     state.news = news.articles || [];
+    state.waivers = waiverData.freeAgents || [];
+    state.recommendations = waiverData.recommendations || [];
+    state.bestMoves = movesData.moves || [];
     if (!state.selectedTeamId) {
       const mine = state.teams.find((t) => /capitol carnage/i.test(t.name || ""));
       state.selectedTeamId = mine?.id || state.teams[0]?.id || null;
     }
-  } catch (e) {
-    state.error = String(e.message || e);
-  } finally {
-    state.loading = false;
-    render();
-  }
+  } catch (e) { state.error = String(e.message || e); }
+  finally { state.loading = false; render(); }
 }
-
-window.GMS = {
-  sync,
-  show(v) { state.view = v; render(); }
-};
-
+window.GMS = { sync, show(v) { state.view = v; render(); } };
 document.getElementById("syncBtn")?.addEventListener("click", sync);
-document.querySelectorAll("#nav button[data-view]").forEach((b) => {
-  b.addEventListener("click", () => GMS.show(b.dataset.view));
-});
+document.querySelectorAll("#nav button[data-view]").forEach((b) => b.addEventListener("click", () => GMS.show(b.dataset.view)));
 sync();
