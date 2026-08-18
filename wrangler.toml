@@ -1,18 +1,7 @@
 name = "gmslocker-api"
-main = "src/worker-recovery.js"
+main = "src/worker-public.js"
 compatibility_date = "2024-11-01"
 workers_dev = true
-
-[[d1_databases]]
-binding = "DB"
-database_name = "gms-locker-db"
-database_id = "4d3b93c6-25cf-42cc-9458-8fe6deb20c17"
-
-[ai]
-binding = "AI"
-
-[vars]
-OWNER_EMAIL = "gmslocker@gmail.com"
 
 [[routes]]
 pattern = "api.gmslocker.com"
