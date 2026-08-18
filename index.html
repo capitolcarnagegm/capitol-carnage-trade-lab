@@ -3,19 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#07090d" />
+  <meta name="theme-color" content="#0a0a0a" />
   <title>GMS Locker · Fantasy Football War Room</title>
-  <meta name="description" content="Live Pride Dynasty fantasy football war room." />
+  <meta name="description" content="Live Pride Dynasty fantasy football war room. Fantrax read-only." />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon-192.png" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="public/styles.css?v=5.3.0" />
-  <link rel="stylesheet" href="public/premium.css?v=5.3.0" />
-  <link rel="stylesheet" href="public/depth-chart.css?v=5.3.0" />
+  <link rel="stylesheet" href="public/styles.css?v=6.0.0" />
+  <link rel="stylesheet" href="public/premium.css?v=6.0.0" />
+  <link rel="stylesheet" href="public/depth-chart.css?v=6.0.0" />
 </head>
 <body>
   <div class="topline"></div>
-  <header><div class="brand"><span class="mark" aria-hidden="true"></span><span class="brandtext"><strong>GMS Locker</strong><small>Franchise Intelligence System</small></span></div><span id="asof">Connecting…</span><button id="syncBtn" class="primary" type="button">Refresh League</button></header>
+  <header>
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="brandtext"><strong>GMS Locker</strong><small>Franchise Intelligence System</small></span>
+    </div>
+    <span id="asof">Connecting…</span>
+    <button id="syncBtn" class="primary" type="button">Refresh League</button>
+  </header>
   <nav id="nav">
     <button data-view="now" type="button"><span>War Room</span></button>
     <button data-view="team" type="button"><span>My Team</span></button>
@@ -29,12 +36,25 @@
     <button data-view="leagues" type="button"><span>League</span></button>
   </nav>
   <main id="main"><div class="card"><p class="muted">Loading Pride Dynasty…</p></div></main>
-  <footer class="site-footer"><span>GMS Locker · Pride Dynasty · Fantrax read-only</span></footer>
-  <script type="module" src="public/app-public.js?v=5.3.0"></script>
-  <script src="public/premium.js?v=5.3.0" defer></script>
-  <script src="public/depth-chart.js?v=5.3.0" defer></script>
+  <footer class="site-footer">
+    <span>GMS Locker · Pride Dynasty · Fantrax read-only</span>
+    <a href="sponsor.html">Sponsors</a>
+  </footer>
+  <script type="module" src="public/app.js?v=6.0.0"></script>
+  <script src="public/premium.js?v=6.0.0" defer></script>
+  <script src="public/depth-chart.js?v=6.0.0" defer></script>
   <script>
-    if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)await r.unregister();if('caches'in window){for(const k of await caches.keys())await caches.delete(k);}}catch{}});}
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) await r.unregister();
+          if ('caches' in window) {
+            for (const k of await caches.keys()) await caches.delete(k);
+          }
+        } catch {}
+      });
+    }
   </script>
 </body>
 </html>
