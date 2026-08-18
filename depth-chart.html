@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#07090d" />
+  <title>GMS Locker · Live Depth Charts</title>
+  <meta name="description" content="Live NFL depth chart intelligence matched to your actual GMS Locker roster." />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="stylesheet" href="public/styles.css?v=4.1.0" />
+  <link rel="stylesheet" href="public/premium.css?v=4.1.0" />
+  <link rel="stylesheet" href="public/depth-chart.css?v=4.1.0" />
+</head>
+<body>
+  <div class="topline"></div>
+  <header>
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span class="brandtext"><strong>GMS Locker</strong><small>Live Depth Intelligence</small></span></div>
+    <span id="depthAsOf">Not synced</span>
+    <button id="refreshDepth" class="primary" type="button">Refresh Depth Charts</button>
+  </header>
+  <nav>
+    <button type="button" onclick="location.href='index.html'">← War Room</button>
+    <button class="active" type="button">Depth Charts</button>
+  </nav>
+  <main id="depthMain">
+    <section class="card">
+      <span class="kicker">NFL ROLE INTELLIGENCE</span>
+      <h1>Live Depth Charts</h1>
+      <p class="lead">Specific football roles matched to your actual roster. GMS Locker preserves LWR/RWR/SWR, LCB/RCB/NCB, MIKE/WILL/SAM, edge and defensive-front alignments when the source provides them. Fantasy eligibility remains separate.</p>
+      <p class="muted">Loading your roster and current NFL depth charts…</p>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <span>GMS Locker · Live NFL role intelligence</span>
+    <a href="index.html">Return to War Room</a>
+  </footer>
+  <script type="module" src="public/depth-page.js?v=4.1.0"></script>
+</body>
+</html>
