@@ -10,13 +10,14 @@ function rosterCard(){return [...document.querySelectorAll("main .card")].find(c
 function playerRows(){
   const card=rosterCard();if(!card)return[];
   return [...card.querySelectorAll(".gate")].map(row=>{
-    const b=row.querySelector("b"),muted=row.querySelector(".muted");
+    const b=row.querySelector("b");
+    const muted=[...row.querySelectorAll(".muted")].find(el=>el.textContent.includes("·"))||[...row.querySelectorAll(".muted")].find(el=>/\b[A-Z]{2,4}\b/.test(el.textContent))||null;
     const name=[...(b?.childNodes||[])].find(node=>node.nodeType===Node.TEXT_NODE)?.textContent?.trim()||b?.textContent?.trim()||"";
     const meta=muted?.textContent?.trim()||"";
     const parts=meta.split("·").map(x=>x.trim()).filter(Boolean);
     const team=parts.find(part=>/^[A-Z]{2,4}$/.test(part))||"";
     const fantasyPosition=parts[0]||"";
-    return{name,team,fantasyPosition,row};
+    return{name,team:team==="WSH"?"WAS":team,fantasyPosition,row};
   }).filter(x=>x.name&&x.team);
 }
 function loadHistory(){try{return JSON.parse(localStorage.getItem(DEPTH_CACHE_KEY)||"{}");}catch{return{};}}
