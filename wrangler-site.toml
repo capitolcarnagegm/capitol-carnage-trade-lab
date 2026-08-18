@@ -10,10 +10,6 @@ not_found_handling = "single-page-application"
 enabled = true
 head_sampling_rate = 1
 
-# gmslocker.com is intentionally NOT bound here as a route. The deploying
-# CLOUDFLARE_API_TOKEN doesn't have Workers Routes edit permission for the
-# zone (confirmed: deploy succeeds, route binding fails with Cloudflare
-# error 10000). Content deploys should not be coupled to that one-time
-# domain binding, which only needs to happen once, in the dashboard:
-# Workers & Pages -> gmslocker-site -> Settings -> Domains & Routes ->
-# Add Custom Domain -> gmslocker.com (and www.gmslocker.com if wanted).
+[[routes]]
+pattern = "gmslocker.com"
+custom_domain = true
