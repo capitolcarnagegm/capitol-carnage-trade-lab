@@ -45,11 +45,14 @@ jobs:
       - name: Verify staged production build
         run: |
           grep -q "Franchise Intelligence System" _site/index.html
-          grep -q "Depth Charts" _site/index.html
-          test -f _site/depth-chart.html
-          grep -q "ALL 32 NFL TEAMS" _site/depth-chart.html
-          test -f _site/public/depth-page.js
-          test -f _site/public/depth-chart.css
+          grep -q "player-intelligence.js" _site/index.html
+          grep -q "moneyball-rules.js" _site/index.html
+          test -f _site/public/player-intelligence.js
+          test -f _site/public/moneyball-rules.js
+          grep -q "LIVE PLAYER INTELLIGENCE" _site/public/player-intelligence.js
+          grep -q "NO FAKE DATA" _site/public/player-intelligence.js
+          grep -q "projectionInfo" _site/public/moneyball-rules.js
+          ! grep -q "NFL Depth Charts" _site/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -69,12 +72,13 @@ jobs:
           echo "Checking $url"
           for i in 1 2 3 4 5 6; do
             home=$(curl --fail --silent --show-error "$url" || true)
-            depth=$(curl --fail --silent --show-error "${url%/}/depth-chart.html" || true)
-            if echo "$home" | grep -q "Depth Charts" && echo "$depth" | grep -q "ALL 32 NFL TEAMS"; then
-              echo "GitHub Pages is serving the all-NFL depth chart tab."
+            intel=$(curl --fail --silent --show-error "${url%/}/public/player-intelligence.js" || true)
+            rules=$(curl --fail --silent --show-error "${url%/}/public/moneyball-rules.js" || true)
+            if echo "$home" | grep -q "player-intelligence.js" && echo "$intel" | grep -q "LIVE PLAYER INTELLIGENCE" && echo "$intel" | grep -q "NO FAKE DATA" && echo "$rules" | grep -q "projectionInfo"; then
+              echo "GitHub Pages is serving the Player Intelligence production build."
               exit 0
             fi
             sleep 10
           done
-          echo "GitHub Pages deployment is not serving the expected depth chart build."
+          echo "GitHub Pages deployment is not serving the Player Intelligence build."
           exit 1
