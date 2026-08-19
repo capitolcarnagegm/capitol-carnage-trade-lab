@@ -42,8 +42,9 @@ jobs:
           cp *.jpeg *.svg *.png _site/
           cp public/*.js public/*.css _site/public/
 
-      - name: Verify staged production build
+      - name: Verify Player Intelligence source build
         run: |
+          set -euo pipefail
           grep -q "Franchise Intelligence System" _site/index.html
           grep -q "player-intelligence.js" _site/index.html
           grep -q "moneyball-rules.js" _site/index.html
@@ -52,7 +53,38 @@ jobs:
           grep -q "LIVE PLAYER INTELLIGENCE" _site/public/player-intelligence.js
           grep -q "NO FAKE DATA" _site/public/player-intelligence.js
           grep -q "projectionInfo" _site/public/moneyball-rules.js
+          grep -q "playerOutlook" _site/public/moneyball-rules.js
+          grep -q "evaluateExtension" _site/public/player-intelligence.js
+          node --check _site/public/player-intelligence.js
+          node --check _site/public/moneyball-rules.js
+          test ! -e _site/depth-chart.html
+          test ! -e _site/public/depth-page.js
+          test ! -e _site/public/depth-chart.js
+          test ! -e _site/public/depth-chart.css
           ! grep -q "NFL Depth Charts" _site/index.html
+
+      - name: Validate live Pride data for Player Intelligence
+        run: |
+          set -euo pipefail
+          payload="$(mktemp)"
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 \
+            -H 'Accept: application/json' \
+            'https://api.gmslocker.com/public/pride-league?acceptance=player-intelligence' \
+            -o "$payload"
+          jq -e '.teams | type == "array" and length > 1' "$payload" >/dev/null
+          team_count="$(jq '[.teams[]] | length' "$payload")"
+          player_count="$(jq '[.teams[].players[]?] | length' "$payload")"
+          named_count="$(jq '[.teams[].players[]? | select((.name // "") | length > 0)] | length' "$payload")"
+          owned_count="$(jq '[.teams[] | select((.name // "") | length > 0) | .players[]?] | length' "$payload")"
+          projection_count="$(jq '[.teams[].players[]? | select((.weeklyProjection != null) or (.fantraxProjection != null) or (.leagueProjection != null) or (.seasonProjection != null) or (.ppg != null) or (.fpts != null))] | length' "$payload")"
+          contract_count="$(jq '[.teams[].players[]? | select((.salary != null) or (.contract != null) or (.contractYears != null))] | length' "$payload")"
+          echo "Live Pride acceptance: ${team_count} teams, ${player_count} roster entries, ${projection_count} with scoring signal, ${contract_count} with salary/contract data"
+          test "$player_count" -gt 50
+          test "$named_count" -eq "$player_count"
+          test "$owned_count" -eq "$player_count"
+          test "$projection_count" -gt 0
+          test "$contract_count" -gt 0
+          jq -e '[.teams[].players[]? | select((.name // "") | length > 0)][0] | (.name | length > 0)' "$payload" >/dev/null
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -66,19 +98,24 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify deployed Pages build
+      - name: Verify deployed Player Intelligence build
         run: |
+          set -euo pipefail
           url="${{ steps.deployment.outputs.page_url }}"
           echo "Checking $url"
           for i in 1 2 3 4 5 6; do
             home=$(curl --fail --silent --show-error "$url" || true)
             intel=$(curl --fail --silent --show-error "${url%/}/public/player-intelligence.js" || true)
             rules=$(curl --fail --silent --show-error "${url%/}/public/moneyball-rules.js" || true)
-            if echo "$home" | grep -q "player-intelligence.js" && echo "$intel" | grep -q "LIVE PLAYER INTELLIGENCE" && echo "$intel" | grep -q "NO FAKE DATA" && echo "$rules" | grep -q "projectionInfo"; then
-              echo "GitHub Pages is serving the Player Intelligence production build."
+            if echo "$home" | grep -q "player-intelligence.js" \
+              && echo "$intel" | grep -q "LIVE PLAYER INTELLIGENCE" \
+              && echo "$intel" | grep -q "NO FAKE DATA" \
+              && echo "$rules" | grep -q "projectionInfo" \
+              && ! echo "$home" | grep -q "NFL Depth Charts"; then
+              echo "Production is serving Player Intelligence #1."
               exit 0
             fi
             sleep 10
           done
-          echo "GitHub Pages deployment is not serving the Player Intelligence build."
+          echo "Production is not serving the validated Player Intelligence build."
           exit 1
