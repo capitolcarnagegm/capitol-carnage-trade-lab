@@ -36,34 +36,70 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Verify core build
+      - name: Verify current production build
         run: |
-          set -e
+          set -euo pipefail
           grep -q "GMS Locker" index.html
           grep -q "Refresh League" index.html
-          grep -q "Depth Charts" index.html
-          ! grep -q "Game Day" index.html
-          ! grep -q ">Intel<" index.html
+          grep -q "player-intelligence.js" index.html
+          grep -q "moneyball-rules.js" index.html
+          grep -q "Franchise OS" index.html
+          grep -q "Lineup Lab" index.html
+          grep -q "Trade Lab" index.html
+          grep -q "Cut / Cap" index.html
+          grep -q "Free Agents" index.html
           test -f public/app-public.js
-          grep -q 'public/pride-league' public/app-public.js
-          test -f depth-chart.html
+          test -f public/player-intelligence.js
+          test -f public/moneyball-rules.js
+          test -f public/operations-live.js
+          test -f cut-cap.html
+          test -f franchise-os.html
+          ! grep -q "NFL Depth Charts" index.html
+          ! grep -q "Game Day" index.html
+          test ! -e depth-chart.html
+          test ! -e public/depth-page.js
+          test ! -e public/depth-chart.js
+          test ! -e public/depth-chart.css
+          node --check public/player-intelligence.js
+          node --check public/moneyball-rules.js
+          node --check public/operations-live.js
 
-      - name: Deploy site
+      - name: Verify live Pride API before frontend deploy
+        run: |
+          set -euo pipefail
+          payload=$(mktemp)
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 \
+            -H 'Accept: application/json' \
+            'https://api.gmslocker.com/public/pride-league?site-deploy=1' -o "$payload"
+          jq -e '.teams | type == "array" and length > 1' "$payload" >/dev/null
+          players=$(jq '[.teams[].players[]?] | length' "$payload")
+          test "$players" -gt 50
+          echo "Pride API is live with $players roster entries."
+
+      - name: Deploy site to Cloudflare
         run: npx wrangler deploy --config wrangler-site.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Verify production core
+      - name: Verify production is the new build
         run: |
-          set -e
+          set -euo pipefail
           for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
-            home=$(curl --fail --silent --show-error https://gmslocker.com/ || true)
-            if echo "$home" | grep -q "GMS Locker" && echo "$home" | grep -q "Refresh League" && ! echo "$home" | grep -q "Game Day"; then
-              echo "Production is serving GMS Locker core mode."
+            stamp=$(date +%s)
+            home=$(curl --fail --silent --show-error -H 'Cache-Control: no-cache' "https://gmslocker.com/?build=$stamp" || true)
+            intel=$(curl --fail --silent --show-error -H 'Cache-Control: no-cache' "https://gmslocker.com/public/player-intelligence.js?build=$stamp" || true)
+            franchise=$(curl --fail --silent --show-error -H 'Cache-Control: no-cache' "https://gmslocker.com/franchise-os.html?build=$stamp" || true)
+            if echo "$home" | grep -q "player-intelligence.js" \
+              && echo "$home" | grep -q "Cut / Cap" \
+              && echo "$home" | grep -q "Free Agents" \
+              && ! echo "$home" | grep -q "NFL Depth Charts" \
+              && echo "$intel" | grep -q "LIVE PLAYER INTELLIGENCE" \
+              && ! echo "$franchise" | grep -q "depth-chart.html"; then
+              echo "Production is serving the current GMS Locker build."
               exit 0
             fi
             sleep 10
           done
-          echo "Production did not expose GMS Locker core mode."
+          echo "Production is still serving an old frontend build."
           exit 1
