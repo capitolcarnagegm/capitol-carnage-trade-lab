@@ -9,9 +9,9 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon-192.png" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="public/styles.css?v=6.2.0" />
-  <link rel="stylesheet" href="public/premium.css?v=6.2.0" />
-  <link rel="stylesheet" href="public/depth-chart.css?v=6.2.0" />
+  <link rel="stylesheet" href="public/styles.css?v=7.0.0" />
+  <link rel="stylesheet" href="public/premium.css?v=7.0.0" />
+  <link rel="stylesheet" href="public/depth-chart.css?v=7.0.0" />
 </head>
 <body>
   <div class="topline"></div>
@@ -30,9 +30,7 @@
     <button data-view="lineup" type="button"><span>Lineup</span></button>
     <button data-view="trade" type="button"><span>Trade Lab</span></button>
     <button data-view="waivers" type="button"><span>Waiver Edge</span></button>
-    <button data-view="games" type="button"><span>Game Day</span></button>
-    <button data-view="rankings" type="button"><span>Rankings</span></button>
-    <button data-view="buzz" type="button"><span>Intel</span></button>
+    <button data-view="rankings" type="button"><span>Best Moves</span></button>
     <button data-view="leagues" type="button"><span>League</span></button>
   </nav>
   <main id="main"><div class="card"><p class="muted">Loading Pride Dynasty…</p></div></main>
@@ -40,18 +38,16 @@
     <span>GMS Locker · Pride Dynasty · Fantrax read-only</span>
     <a href="sponsor.html">Sponsors</a>
   </footer>
-  <script type="module" src="public/app-public.js?v=6.2.0"></script>
-  <script src="public/premium.js?v=6.2.0" defer></script>
-  <script src="public/depth-chart.js?v=6.2.0" defer></script>
+  <script type="module" src="public/app-public.js?v=7.0.0"></script>
+  <script src="public/premium.js?v=7.0.0" defer></script>
+  <script src="public/depth-chart.js?v=7.0.0" defer></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
           const regs = await navigator.serviceWorker.getRegistrations();
           for (const r of regs) await r.unregister();
-          if ('caches' in window) {
-            for (const k of await caches.keys()) await caches.delete(k);
-          }
+          if ('caches' in window) for (const k of await caches.keys()) await caches.delete(k);
         } catch {}
       });
     }
