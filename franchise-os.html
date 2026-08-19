@@ -7,8 +7,8 @@
   <title>GMS Locker · Franchise OS</title>
   <meta name="description" content="A live, league-specific franchise intelligence command center for dynasty football." />
   <link rel="icon" href="icon-192.png" />
-  <link rel="stylesheet" href="public/styles.css?v=5.0.0" />
-  <link rel="stylesheet" href="public/franchise-os.css?v=5.0.0" />
+  <link rel="stylesheet" href="public/styles.css?v=7.7.1" />
+  <link rel="stylesheet" href="public/franchise-os.css?v=7.7.1" />
 </head>
 <body>
   <div class="fos-noise"></div>
@@ -20,18 +20,20 @@
   <nav class="fos-nav">
     <a href="index.html">War Room</a>
     <a class="active" href="franchise-os.html">Franchise OS</a>
-    <a href="depth-chart.html">NFL Depth Charts</a>
-    <a href="index.html#waivers">Waiver Edge</a>
+    <a href="index.html#waivers">Free Agents</a>
     <a href="index.html#trade">Trade Lab</a>
+    <a href="cut-cap.html">Cut / Cap</a>
   </nav>
   <main id="fosMain">
     <section class="fos-hero fos-card">
-      <div><span class="fos-kicker">LIVE LEAGUE DECISION SYSTEM</span><h1>Your franchise should tell you what to do next.</h1><p>No generic rankings. Every surface is built from your active league, your roster, your cap, your ownership map, and the actual cost of the player you would replace.</p></div>
+      <div><span class="fos-kicker">LIVE LEAGUE DECISION SYSTEM</span><h1>Rank the move by what it does for us.</h1><p>No generic rankings. Every surface is built from the active Pride league, Capitol Carnage's roster, Fantrax league-scored projections, roster replacement cost, contract/cap context, and the built-in B+ Moneyball analyzer.</p></div>
       <div class="fos-orbit"><span>GMS</span></div>
     </section>
     <section class="fos-card"><p class="fos-muted">Loading live Fantrax/GMSLocker intelligence…</p></section>
   </main>
-  <footer class="fos-footer">GMS Locker · league truth + NFL role intelligence + cap-aware decisions</footer>
-  <script type="module" src="public/franchise-os.js?v=5.0.0"></script>
+  <footer class="fos-footer">GMS Locker · Pride league truth · roster-fit decisions · Moneyball analyzer built in</footer>
+  <script src="public/moneyball-rules.js?v=7.7.1"></script>
+  <script type="module" src="public/franchise-os.js?v=7.7.1"></script>
+  <script src="public/player-intelligence.js?v=7.7.1" defer></script>
 </body>
 </html>
